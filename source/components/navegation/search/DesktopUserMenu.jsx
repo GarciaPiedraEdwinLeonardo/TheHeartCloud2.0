@@ -1,0 +1,24 @@
+import Login from "../../buttons/Login";
+import Profile from "../../buttons/Profile";
+import Notification from "../../buttons/Notification";
+
+
+function DesktopUserMenu(){
+    return(
+        <div className="hidden lg:flex items-center gap-4">
+
+            <Notification/>
+
+            <Login/>
+
+            <div className="bg-gray-100 rounded-full p-2 hover:bg-gray-200 transition duration-200">
+
+                <Profile/>
+
+            </div>
+
+        </div>
+    );
+}
+
+export default DesktopUserMenu;
