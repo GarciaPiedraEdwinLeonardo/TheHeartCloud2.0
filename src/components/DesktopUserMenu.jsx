@@ -11,5 +11,4 @@ function DesktopUserMenu({ onProfileClick }){
         </div>
     );
 }
-
 export default DesktopUserMenu;
