@@ -3,12 +3,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB0Aq0grBwwmS9duFL_iYxfQTpi8z3maHs",
-  authDomain: "theheartcloud-a11a0.firebaseapp.com",
-  projectId: "theheartcloud-a11a0",
-  storageBucket: "theheartcloud-a11a0.firebasestorage.app",
-  messagingSenderId: "999053174809",
-  appId: "1:999053174809:web:51d93e4993675b28f06288",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 // Initialize Firebase
