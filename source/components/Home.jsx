@@ -1,3 +1,4 @@
+import VerificationPanel from "./admin/VerificationPanel";
 import Header from "./sections/Header";
 
 function Home(){
@@ -7,6 +8,8 @@ function Home(){
             <Header/>
 
             <div className="flex">
+
+                <VerificationPanel/>
 
                 {/* Sidebar para web */}
                 {/*<Sidebar/>*/}
