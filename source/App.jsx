@@ -1,8 +1,10 @@
-import Home from "./components/Home";
+import Index from "./Index";
 
 function App(){
     return(
-        <Home/>
+        <div className="App">
+            <Index />
+        </div>
     );
 }
 

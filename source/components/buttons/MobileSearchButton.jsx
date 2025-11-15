@@ -1,4 +1,4 @@
-import { FaSearch, FaTimes } from 'react-icons/fa';
+import { FaSearch } from 'react-icons/fa';
 
 function MobileSearchButton() {
   return (
