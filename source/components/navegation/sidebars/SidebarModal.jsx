@@ -4,10 +4,16 @@ import { IoIosAddCircleOutline } from "react-icons/io";
 import Logo from './../../buttons/Logo'
 import CreateThemeModal from './../../modals/CreateThemeModal';
 
-function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick }) {
+function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick, userData }) {
   const [isThemesOpen, setIsThemesOpen] = useState(true);
   const [isMyThemesOpen, setIsMyThemesOpen] = useState(false);
   const [showCreateThemeModal, setShowCreateThemeModal] = useState(false);
+  const userRole = userData?.role || 'unverified';
+
+  const showCreateTheme = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
+  const showMyThemes = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
+  const showReviewReports = userRole === 'moderator' || userRole === 'admin';
+  const showReviewVerifications = userRole === 'admin';
 
   const healthTopics = [
     { id: 1, name: 'Cardiología', description: 'Enfermedades del corazón' },
@@ -113,7 +119,8 @@ function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick }) {
             </div>
 
             {/* Crear Tema */}
-            <div className="mb-4">
+            {showCreateTheme &&(
+              <div className="mb-4">
               <button 
                 onClick={handleCreateTheme}
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-green-50 text-gray-700 hover:text-green-600 transition duration-200 w-full text-left"
@@ -122,9 +129,11 @@ function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick }) {
                 <span className="font-medium">Crear Tema</span>
               </button>
             </div>
+            )}
 
             {/* Mis Temas - Acordeón */}
-            <div className="mb-4">
+            {showMyThemes &&(
+              <div className="mb-4">
               <button
                 onClick={() => setIsMyThemesOpen(!isMyThemesOpen)}
                 className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200"
@@ -153,6 +162,25 @@ function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick }) {
                 </div>
               )}
             </div>
+            )}
+
+            {/* Revisar Reportes - Para moderador y admin */}
+            {showReviewReports && (
+              <div className="mb-4">
+                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 hover:text-orange-600 transition duration-200 w-full text-left">
+                  <span className="font-medium">Revisar Reportes</span>
+                </button>
+              </div>
+            )}
+
+            {/* Revisar Solicitudes - Solo para admin */}
+            {showReviewVerifications && (
+              <div className="mb-4">
+                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200 w-full text-left">
+                  <span className="font-medium">Revisar Solicitudes de Verificación</span>
+                </button>
+              </div>
+            )}
 
             {/* Separador */}
             <div className="border-t border-gray-200 my-4"></div>

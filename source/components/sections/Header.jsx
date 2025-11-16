@@ -6,8 +6,15 @@ import MobileControls from './../navegation/search/MobileControls';
 import MenuModal from './../navegation/search/MenuModal';
 import { Menu } from 'lucide-react';
 
-function Header({ onToggleSidebar, onProfileClick, onSearch }) {
+function Header({ onToggleSidebar, onProfileClick, onSearch, onVerifyAccount }) {
   const [showMobileModal, setShowMobileModal] = useState(false);
+
+  const handleVerifyAccount = () => {
+    console.log('Redirigiendo a verificación de cuenta...');
+    if (onVerifyAccount) {
+      onVerifyAccount();
+    }
+  };
 
   return (
     <header className="bg-white shadow-sm sticky top-0 z-30">
@@ -27,7 +34,7 @@ function Header({ onToggleSidebar, onProfileClick, onSearch }) {
           
           <DesktopSearch onSearch={onSearch} />
           
-          <DesktopUserMenu onProfileClick={onProfileClick} />
+          <DesktopUserMenu onProfileClick={onProfileClick} onVerifyAccount={handleVerifyAccount} />
 
           <div className="flex items-center gap-2 lg:hidden">
             <MobileControls 
@@ -43,6 +50,7 @@ function Header({ onToggleSidebar, onProfileClick, onSearch }) {
         isOpen={showMobileModal}
         onClose={() => setShowMobileModal(false)}
         onProfileClick={onProfileClick}
+        onVerifyAccount={handleVerifyAccount}
       />
     </header>
   );

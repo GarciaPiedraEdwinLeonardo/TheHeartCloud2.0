@@ -1,19 +1,62 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './../../../config/firebase'; // ← CONFIRMA ESTA RUTA
-import { FaTimes, FaCog, FaSignOutAlt, FaUser } from 'react-icons/fa';
-import Login from './../../buttons/Login';
+import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
+import { doc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from './../../../config/firebase'; 
+import { FaTimes, FaSignOutAlt, FaUser, FaTrash } from 'react-icons/fa';
+import VerificarCuenta from './../../buttons/VerificarCuenta';
+import DeleteAcount from '../../modals/DeleteAcount';
 
-function MenuModal({ isOpen, onClose, onProfileClick }) {
+function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
     const [user, setUser] = useState(null);
+    const [userData, setUserData] = useState(null);
+    const [loading, setLoading] = useState(true); 
     const [logoutLoading, setLogoutLoading] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setUser(user);
+            setLoading(false); 
+            
+            if (user) {
+                const userDocUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
+                    if (doc.exists()) {
+                        setUserData(doc.data());
+                    }
+                });
+                return () => userDocUnsubscribe();
+            } else {
+                setUserData(null);
+            }
         });
         return unsubscribe;
     }, []);
+
+    const handleDeleteAcount = async () => {
+        if(!user) return;
+        setDeleteLoading(true);
+
+        try{
+            await deleteDoc(doc(db, 'users', user.uid));
+            await deleteUser(user);
+        } catch(error){
+            if (error.code === 'auth/requires-recent-login') {
+                alert('Para eliminar tu cuenta, necesitas haber iniciado sesión recientemente. Por favor, cierra sesión y vuelve a iniciar sesión, luego intenta eliminar tu cuenta nuevamente.');
+            } else {
+                alert('Error al eliminar la cuenta: ' + error.message);
+            }
+            setDeleteLoading(false);
+        }
+    };
+
+    const confirmDelete = () => {
+        setShowDeleteConfirm(true);
+    };
+
+    const cancelDelete = () => {
+        setShowDeleteConfirm(false);
+    };
 
     const handleLogout = async () => {
         setLogoutLoading(true);
@@ -31,9 +74,29 @@ function MenuModal({ isOpen, onClose, onProfileClick }) {
         onClose(); 
     };
 
+    const handleVerifyAccount = () => {
+        if (onVerifyAccount) {
+            onVerifyAccount();
+        }
+        onClose();
+    };
+
+    // Verificar si el usuario necesita verificación
+    const needsVerification = userData?.role === 'unverified';
+
+    // AÑADE: Variables seguras
+    const userInitial = user?.email ? user.email[0].toUpperCase() : 'U';
+    const userName = user?.displayName || user?.email || 'Usuario';
+    const userRole = userData?.role === 'unverified' ? 'Sin verificar' : 
+                    userData?.role === 'doctor' ? 'Médico' : 
+                    userData?.role === 'moderator' ? 'Moderador':
+                    userData?.role === 'admin' ? "Admin":
+                    userData?.role || 'Usuario';
+
     if (!isOpen) return null;
 
     return (
+        <>
         <div className="fixed inset-0 z-50 lg:hidden">
             <div 
                 className="absolute inset-0 bg-black bg-opacity-50"
@@ -55,41 +118,57 @@ function MenuModal({ isOpen, onClose, onProfileClick }) {
                     <div className="flex-1 overflow-y-auto">
                         <div className="space-y-6">
                             
-                            {/* Sección de Usuario o Login */}
-                            {user ? (
-                                // Usuario autenticado
+                            {/* Sección de Usuario */}
+                            {loading ? ( 
+                                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
+                                        <div className="space-y-2">
+                                            <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                                            <div className="h-3 bg-gray-200 rounded w-16 animate-pulse"></div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+                                        <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+                                    </div>
+                                </div>
+                            ) : 
                                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                                     <div className="flex items-center gap-3 mb-4">
                                         <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                                             <span className="text-white font-semibold">
-                                                {user.email ? user.email[0].toUpperCase() : 'U'}
+                                                {userInitial}
                                             </span>
                                         </div>
                                         <div>
                                             <p className="font-semibold text-blue-800">
-                                                {user.displayName || 'Usuario'}
+                                                {userName}
                                             </p>
-                                            <p className="text-blue-600 text-sm">Médico Verificado</p>
+                                            <p className="text-blue-600 text-sm">
+                                                {userRole}
+                                            </p>
                                         </div>
                                     </div>
 
+                                    {/* Botón de Verificar Cuenta (solo para no verificados) */}
+                                    {needsVerification && (
+                                        <div className="mb-4">
+                                            <VerificarCuenta onClick={handleVerifyAccount} />
+                                        </div>
+                                    )}
+
                                     {/* Opciones del usuario */}
                                     <div className="space-y-2">
-                                        <button 
-                                            onClick={handleProfileClick}
-                                            className="flex items-center gap-3 w-full text-left hover:bg-blue-100 rounded-lg p-2 transition duration-200 text-blue-700"
-                                        >
-                                            <FaUser className="w-4 h-4" />
-                                            <span className="font-medium">Mi Perfil</span>
-                                        </button>
-
-                                        <button 
-                                            onClick={() => console.log('Configuración')}
-                                            className="flex items-center gap-3 w-full text-left hover:bg-blue-100 rounded-lg p-2 transition duration-200 text-blue-700"
-                                        >
-                                            <FaCog className="w-4 h-4" />
-                                            <span className="font-medium">Configuración</span>
-                                        </button>
+                                        {!needsVerification &&(
+                                            <button 
+                                                onClick={handleProfileClick}
+                                                className="flex items-center gap-3 w-full text-left hover:bg-blue-100 rounded-lg p-2 transition duration-200 text-blue-700"
+                                            >
+                                                <FaUser className="w-4 h-4" />
+                                                <span className="font-medium">Mi Perfil</span>
+                                            </button>
+                                        )}
 
                                         <button 
                                             onClick={handleLogout}
@@ -101,16 +180,17 @@ function MenuModal({ isOpen, onClose, onProfileClick }) {
                                                 {logoutLoading ? 'Cerrando sesión...' : 'Cerrar Sesión'}
                                             </span>
                                         </button>
+
+                                        <button
+                                            onClick={confirmDelete}
+                                            className="flex items-center gap-3 w-full text-left hover:bg-red-50 rounded-lg p-2 transition duration-200 text-red-600"
+                                        >
+                                            <FaTrash className="w-4 h-4 text-red-500" />
+                                            <span className="font-medium">Eliminar Cuenta</span>
+                                        </button>
                                     </div>
                                 </div>
-                            ) : (
-                                // Usuario no autenticado
-                                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                                    <h3 className="font-semibold text-blue-800 mb-2">Iniciar Sesión</h3>
-                                    <p className="text-blue-600 text-sm mb-4">Accede a tu cuenta</p>
-                                    <Login />
-                                </div>
-                            )}
+                            }
 
                             {/* Información adicional */}
                             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -119,7 +199,6 @@ function MenuModal({ isOpen, onClose, onProfileClick }) {
                                     Plataforma médica para profesionales de la salud.
                                 </p>
                             </div>
-
                         </div>
                     </div>
 
@@ -132,6 +211,15 @@ function MenuModal({ isOpen, onClose, onProfileClick }) {
                 </div>
             </div>
         </div>
+
+        {showDeleteConfirm &&(
+            <DeleteAcount
+                cancelDelete = {cancelDelete}
+                deleteLoading = {deleteLoading}
+                deleteAccount = {handleDeleteAcount} 
+            />
+        )}
+    </>
     );
 }
 

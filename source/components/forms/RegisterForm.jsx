@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import PersonalDataSection from '../minisections/PersonalDataSection';
 import ProfessionalDataSection from '../minisections/ProfessionalDataSection';
-import { AuthService } from '../../services/authService';
 
 function RegisterForm({ onSwitchToLogin }) {
   const [cedulaFile, setCedulaFile] = useState(null);

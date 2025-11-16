@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './../../config/firebase';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 function Register({ onSwitchToLogin }) {
     const [formData, setFormData] = useState({
@@ -11,6 +12,17 @@ function Register({ onSwitchToLogin }) {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [passwordErrors,setPasswordErrors] = useState([]);
+    const [showPassword,setShowPassword] = useState(false);
+    const [showConfirmPassword,setShowConfirmPassword] = useState(false);
+
+    const toogleShowPassword = () => {
+        setShowPassword(!showPassword);
+    }
+
+    const toogleShowConfirmPassword = () => {
+        setShowConfirmPassword(!showConfirmPassword);
+    }
 
     const handleChange = (e) => {
         setFormData({
@@ -19,20 +31,62 @@ function Register({ onSwitchToLogin }) {
         });
     };
 
+    const validatePassword = (password) => {
+
+        {/* Validar longitud de la contraseña */}
+        if(password.length < 8 ){
+            return 'La contraseña debe tener al menos 8 caracteres';
+        }
+
+        if(password.length > 18){
+            return 'La contraseña debe tener como máximo 18 caracteres';
+        }
+
+        {/* Validar que no tenga caracteres especiales */}
+        const specialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/;
+        if(specialChars.test(password)){
+            return 'La contraseña no puede contener caracteres especiales';
+        }
+
+        return null;
+
+    };
+
+    {/* Para validar en tiempo real */}
+    const validatePasswordRealTime = (password) =>{
+        const errors = [];
+
+        if (password.length < 8) {
+            errors.push('Mínimo 8 caracteres');
+        }
+        if (password.length > 18) {
+            errors.push('Máximo 18 caracteres');
+        }
+        const specialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/;
+        if (specialChars.test(password)) {
+            errors.push('Solo letras y números');
+        }
+    
+        setPasswordErrors(errors);
+        return errors.length === 0;
+    }
+
+
     const handleEmailRegister = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
-        // Validaciones
+        // Validar que coinciden las contraseñas
         if (formData.password !== formData.confirmPassword) {
             setError('Las contraseñas no coinciden.');
             setLoading(false);
             return;
         }
 
-        if (formData.password.length < 6) {
-            setError('La contraseña debe tener al menos 6 caracteres.');
+        const passwordError = validatePassword(formData.password);
+        if(passwordError){
+            setError(passwordError);
             setLoading(false);
             return;
         }
@@ -145,29 +199,48 @@ function Register({ onSwitchToLogin }) {
                     />
                 </div>
 
-                <div>
+                <div className='relative'>
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                         Contraseña
                     </label>
                     <input
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         id="password"
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
+                        onBlur={() => validatePasswordRealTime(formData.password)}
                         required
-                        minLength={6}
+                        minLength={8}
+                        maxLength={18}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Entre 8 y 18 caracteres"
                     />
+
+                    <button type='button' onClick={toogleShowPassword} className='absolute right-3 top-9 p-1 text-gray-500 hover:text-gray-700 transition duration-200'>
+                        {showPassword ? (
+                            <FaEyeSlash className='w-5 h-5'></FaEyeSlash>
+                        ):(
+                            <FaEye className='w-5 h-5'></FaEye>
+                        )}
+                    </button>
+
                 </div>
 
-                <div>
+                {passwordErrors.length > 0 && (
+                    <div className='text-red-500 text-xs space-y-1 mt-1'>
+                        {passwordErrors.map((error,index) => (
+                            <p key={index}> {error}</p>
+                        ))}
+                    </div>
+                )}
+
+                <div className='relative'>
                     <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                         Confirmar Contraseña
                     </label>
                     <input
-                        type="password"
+                        type={showConfirmPassword ? "text" : "password"}
                         id="confirmPassword"
                         name="confirmPassword"
                         value={formData.confirmPassword}
@@ -177,6 +250,15 @@ function Register({ onSwitchToLogin }) {
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         placeholder="Repite tu contraseña"
                     />
+
+                    <button type='button' onClick={toogleShowConfirmPassword} className='absolute right-3 top-9 p-1 text-gray-500 hover:text-gray-700 transition duration-200'>
+                        {showConfirmPassword ? (
+                            <FaEyeSlash className='w-5 h-5'></FaEyeSlash>
+                        ):(
+                            <FaEye className='w-5 h-5'></FaEye>
+                        )}
+                    </button>
+
                 </div>
 
                 <button

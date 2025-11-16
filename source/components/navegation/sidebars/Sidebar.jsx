@@ -3,10 +3,16 @@ import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { IoIosAddCircleOutline } from "react-icons/io";
 import CreateThemeModal from './../../modals/CreateThemeModal';
 
-function Sidebar({ onInicioClick, onThemeClick }) {
+function Sidebar({ onInicioClick, onThemeClick,userData }) {
   const [isThemesOpen, setIsThemesOpen] = useState(true);
   const [isMyThemesOpen, setIsMyThemesOpen] = useState(false);
   const [showCreateThemeModal, setShowCreateThemeModal] = useState(false);
+  
+  const userRole = userData?.role || 'unverified';
+  const showCreateTheme = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
+  const showMyThemes = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
+  const showReviewReports = userRole === 'moderator' || userRole === 'admin';
+  const showReviewVerifications = userRole === 'admin';
 
   const healthTopics = [
     { id: 1, name: 'Cardiología', description: 'Enfermedades del corazón' },
@@ -61,7 +67,7 @@ function Sidebar({ onInicioClick, onThemeClick }) {
               onClick={() => setIsThemesOpen(!isThemesOpen)}
               className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition duration-200"
             >
-              <span className="font-medium">Temas Predefinidos</span>
+              <span className="font-medium">Comunidades</span>
               {isThemesOpen ? 
                 <FaAngleDown className="w-4 h-4" /> : 
                 <FaAngleUp className="w-4 h-4" />
@@ -88,39 +94,61 @@ function Sidebar({ onInicioClick, onThemeClick }) {
           </div>
 
           {/* Crear Tema */}
-          <div className="mb-4">
-            <button 
-              onClick={handleCreateTheme}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-green-50 text-gray-700 hover:text-green-600 transition duration-200"
-            >
-              <IoIosAddCircleOutline className='w-5 h-5' />
-              <span className="font-medium">Crear Tema</span>
-            </button>
-          </div>
+          {showCreateTheme && (
+            <div className="mb-4">
+              <button 
+                onClick={handleCreateTheme}
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-green-50 text-gray-700 hover:text-green-600 transition duration-200"
+              >
+                <IoIosAddCircleOutline className='w-5 h-5' />
+                <span className="font-medium">Crear Tema</span>
+              </button>
+            </div>
+          )}
 
           {/* Mis Temas - Acordeón */}
-          <div className="mb-4">
-            <button
-              onClick={() => setIsMyThemesOpen(!isMyThemesOpen)}
-              className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200"
-            >
-              <span className="font-medium">Mis Temas</span>
-              {isMyThemesOpen ? 
-                <FaAngleDown className="w-4 h-4" /> : 
-                <FaAngleUp className="w-4 h-4" />
-              }
-            </button>
+          {showMyThemes && (
+            <div className="mb-4">
+              <button
+                onClick={() => setIsMyThemesOpen(!isMyThemesOpen)}
+                className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200"
+              >
+                <span className="font-medium">Mis Comunidades</span>
+                {isMyThemesOpen ? 
+                  <FaAngleDown className="w-4 h-4" /> : 
+                  <FaAngleUp className="w-4 h-4" />
+                }
+              </button>
 
-            {isMyThemesOpen && (
-              <div className="mt-2 ml-4">
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-sm text-gray-500 text-center">
-                    Próximamente cargaré datos de una base de datos
-                  </p>
+              {isMyThemesOpen && (
+                <div className="mt-2 ml-4">
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-500 text-center">
+                      Próximamente cargaré datos de una base de datos
+                    </p>
+                  </div>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Revisar Reportes - Para moderador y admin */}
+            {showReviewReports && (
+              <div className="mb-4">
+                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 hover:text-orange-600 transition duration-200 w-full text-left">
+                  <span className="font-medium">Revisar Reportes</span>
+                </button>
               </div>
             )}
-          </div>
+
+            {/* Revisar Solicitudes - Solo para admin */}
+            {showReviewVerifications && (
+              <div className="mb-4">
+                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200 w-full text-left">
+                  <span className="font-medium">Revisar Solicitudes de Verificación</span>
+                </button>
+              </div>
+            )}
 
           {/* Separador */}
           <div className="border-t border-gray-200 my-4"></div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './../../config/firebase';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
     const [formData, setFormData] = useState({
@@ -10,6 +11,7 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showPassword,setShowPassword] = useState(false);
 
     const handleChange = (e) => {
         setFormData({
@@ -17,6 +19,10 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             [e.target.name]: e.target.value
         });
     };
+
+    const toogleShowPassword = () => {
+        setShowPassword(!showPassword);
+    }
 
     const handleEmailLogin = async (e) => {
         e.preventDefault();
@@ -81,24 +87,31 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         } 
     };
 
-    const getErrorMessage = (errorCode) => {
-        switch (errorCode) {
-            case 'auth/invalid-email':
-                return 'El correo electrónico no es válido.';
-            case 'auth/user-disabled':
-                return 'Esta cuenta ha sido deshabilitada.';
-            case 'auth/user-not-found':
-                return 'No existe una cuenta con este correo.';
-            case 'auth/wrong-password':
-                return 'La contraseña es incorrecta.';
-            case 'auth/too-many-requests':
-                return 'Demasiados intentos fallidos. Intenta más tarde.';
-            case 'auth/popup-closed-by-user':
-                return 'El inicio de sesión con Google fue cancelado.';
-            default:
-                return 'Error al iniciar sesión. Intenta nuevamente.';
-        }
-    };
+    const getErrorMessage = (errorCode) => {    
+    switch (errorCode) {
+        case 'auth/invalid-email':
+            return 'El correo electrónico es invalido'
+        case 'auth/invalid-credential':
+            return 'El correo electrónico o contraseña no es valido.';
+        case 'auth/user-disabled':
+            return 'Esta cuenta ha sido deshabilitada.';
+        case 'auth/user-not-found':
+            return 'No existe una cuenta con este correo electrónico. Regístrate primero.';
+        case 'auth/wrong-password':
+            return 'La contraseña es incorrecta.';
+        case 'auth/too-many-requests':
+            return 'Demasiados intentos fallidos. Intenta más tarde.';
+        case 'auth/popup-closed-by-user':
+            return 'El inicio de sesión con Google fue cancelado.';
+        case 'auth/network-request-failed':
+            return 'Error de conexión. Verifica tu internet.';
+        case 'auth/invalid-login-credentials': 
+        case 'auth/invalid-credential':
+            return 'Correo o contraseña incorrectos. Verifica tus datos.';
+        default:
+            return `Error al iniciar sesión: ${errorCode}. Intenta nuevamente.`;
+    }
+};
 
     return (
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
@@ -129,20 +142,29 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                     />
                 </div>
 
-                <div>
+                <div className='relative'>
                     <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                         Contraseña
                     </label>
                     <input
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         id="password"
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         placeholder="••••••••"
                     />
+
+                    <button type='button' onClick={toogleShowPassword} className='absolute right-3 top-9 p-1 text-gray-500 hover:text-gray-700 transition duration-200'>
+                        {showPassword ? (
+                            <FaEyeSlash className='w-5 h-5'></FaEyeSlash>
+                        ):(
+                            <FaEye className='w-5 h-5'></FaEye>
+                        )}
+                    </button>
+
                 </div>
 
                 <button

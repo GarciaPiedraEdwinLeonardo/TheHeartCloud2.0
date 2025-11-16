@@ -1,17 +1,36 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './../../../config/firebase'; // ← CONFIRMA ESTA RUTA
+import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
+import { doc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { auth, db } from './../../../config/firebase'; 
 import Notification from "../../buttons/Notification";
-import { FaUser, FaCog, FaSignOutAlt, FaChevronDown } from 'react-icons/fa';
+import VerificarCuenta from "../../buttons/VerificarCuenta";
+import { FaUser, FaSignOutAlt, FaChevronDown, FaTrash } from 'react-icons/fa';
+import DeleteAcount from '../../modals/DeleteAcount';
 
-function DesktopUserMenu({ onProfileClick }) {
+function DesktopUserMenu({ onProfileClick, onVerifyAccount }) {
     const [user, setUser] = useState(null);
+    const [userData, setUserData] = useState(null);
+    const [loading, setLoading] = useState(true); 
     const [showDropdown, setShowDropdown] = useState(false);
     const [logoutLoading, setLogoutLoading] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [showDeleteConfirm,setShowDeleteConfirm] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
             setUser(user);
+            setLoading(false); 
+            
+            if (user) {
+                const userDocUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
+                    if (doc.exists()) {
+                        setUserData(doc.data());
+                    }
+                });
+                return () => userDocUnsubscribe();
+            } else {
+                setUserData(null);
+            }
         });
         return unsubscribe;
     }, []);
@@ -26,17 +45,52 @@ function DesktopUserMenu({ onProfileClick }) {
         }
     };
 
-    // Si no hay usuario autenticado, mostrar botón de login vacío o null
-    if (!user) {
+    const handleDeleteAcount = async () => {
+        if(!user) return;
+        setDeleteLoading(true);
+
+        try{
+            await deleteDoc(doc(db, 'users', user.uid));
+            await deleteUser(user);
+        } catch(error){
+            if (error.code === 'auth/requires-recent-login') {
+                alert('Para eliminar tu cuenta, necesitas haber iniciado sesión recientemente. Por favor, cierra sesión y vuelve a iniciar sesión, luego intenta eliminar tu cuenta nuevamente.');
+            } else {
+                alert('Error al eliminar la cuenta: ' + error.message);
+            }
+            setDeleteLoading(false);
+        }
+    };
+
+    const confirmDelete = () => {
+        setShowDeleteConfirm(true);
+        setShowDropdown(false);
+    };
+
+    const cancelDelete = () => {
+        setShowDeleteConfirm(false);
+    };
+
+    // Verificar si el usuario necesita verificación
+    const needsVerification = userData?.role === 'unverified';
+
+    // AÑADE: Loading state
+    if (loading) {
         return (
             <div className="hidden lg:flex items-center gap-4">
                 <Notification />
-                {/* El componente Login se manejará en otro lugar */}
+                <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
             </div>
         );
     }
 
+
+    // AÑADE: Verificación adicional antes de renderizar
+    const userInitial = user.email ? user.email[0].toUpperCase() : 'U';
+    const userName = user.displayName || user.email || 'Usuario';
+
     return (
+        <>
         <div className="hidden lg:flex items-center gap-4">
             <Notification />
 
@@ -47,14 +101,20 @@ function DesktopUserMenu({ onProfileClick }) {
                 >
                     <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                         <span className="text-white text-sm font-semibold">
-                            {user.email ? user.email[0].toUpperCase() : 'U'}
+                            {userInitial}
                         </span>
                     </div>
                     <div className="text-left">
                         <p className="text-sm font-medium text-gray-900">
-                            {user.displayName || 'Usuario'}
+                            {userName}
                         </p>
-                        <p className="text-xs text-gray-500"></p>
+                        <p className="text-xs text-gray-500">
+                            {userData?.role === 'unverified' ? 'Sin verificar' : 
+                             userData?.role === 'doctor' ? 'Médico' : 
+                             userData?.role === 'moderator' ? 'Moderador':
+                             userData?.role === 'admin' ? "Admin":
+                             userData?.role || 'Usuario'}
+                        </p>
                     </div>
                     <FaChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
                 </button>
@@ -67,17 +127,36 @@ function DesktopUserMenu({ onProfileClick }) {
                             onClick={() => setShowDropdown(false)}
                         />
                         <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                            <button
-                                onClick={() => {
-                                    onProfileClick();
-                                    setShowDropdown(false);
-                                }}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition duration-200"
-                            >
-                                <FaUser className="w-4 h-4 text-gray-400" />
-                                <span className="font-medium">Mi Perfil</span>
-                            </button>
+                            
+                            {/* Botón de Verificar Cuenta (solo para no verificados) */}
+                            {needsVerification && (
+                                <>
+                                    <div className="px-4 py-2">
+                                        <VerificarCuenta onClick={() => {
+                                            if (onVerifyAccount) {
+                                                onVerifyAccount();
+                                            }
+                                            setShowDropdown(false);
+                                        }} />
+                                    </div>
+                                    <div className="border-t border-gray-200 my-1"></div>
+                                </>
+                            )}
 
+                            {!needsVerification &&(
+                                <button
+                                    onClick={() => {
+                                        if (onProfileClick) {
+                                            onProfileClick();
+                                        }
+                                        setShowDropdown(false);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-left text-gray-700 hover:bg-gray-50 transition duration-200"
+                                >
+                                    <FaUser className="w-4 h-4 text-gray-400" />
+                                    <span className="font-medium">Mi Perfil</span>
+                                </button>
+                            )}
 
                             <div className="border-t border-gray-200 my-1"></div>
 
@@ -91,11 +170,30 @@ function DesktopUserMenu({ onProfileClick }) {
                                     {logoutLoading ? 'Cerrando sesión...' : 'Cerrar Sesión'}
                                 </span>
                             </button>
+
+                            <div className="border-t border-gray-200 my-1"></div>
+
+                            <button
+                                onClick={confirmDelete}
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left text-red-600 hover:bg-red-50 transition duration-200"
+                            >
+                                <FaTrash className="w-4 h-4 text-red-500" />
+                                <span className="font-medium">Eliminar Cuenta</span>
+                            </button>
                         </div>
                     </>
                 )}
             </div>
         </div>
+
+        {showDeleteConfirm &&(
+            <DeleteAcount
+                cancelDelete = {cancelDelete}
+                deleteLoading = {deleteLoading}
+                deleteAccount = {handleDeleteAcount} 
+            />
+        )}
+    </>
     );
 }
 
