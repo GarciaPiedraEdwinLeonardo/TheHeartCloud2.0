@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from './../../config/firebase';
 import { FaCheck, FaTimes, FaSpinner } from 'react-icons/fa';
+import { notificationService } from '../notifications/services/notificationService';
 
-function VerificationActions({ request, onUpdate }) {
+function VerificationActions({ request, onUpdate, currentAdmin }) {
     const [loading, setLoading] = useState('');
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
@@ -17,9 +18,8 @@ function VerificationActions({ request, onUpdate }) {
                 role: 'doctor',
                 'professionalInfo.verificationStatus': 'verified',
                 'professionalInfo.verifiedAt': new Date(),
-                'professionalInfo.verifiedBy': 'admin', // Aquí pondrías el ID del admin
+                'professionalInfo.verifiedBy': currentAdmin?.email, 
                 
-                // Resetear stats y suspension como especificaste
                 stats: {
                     aura: 0,
                     contributionCount: 0,
@@ -43,9 +43,15 @@ function VerificationActions({ request, onUpdate }) {
                 deletedAt: null
             });
 
+            const userName = `${request.name?.name} ${request.name?.apellidopat}`;
+            await notificationService.sendVerificationApproved(
+                request.id, // userId
+                userName,   // nombre del usuario
+                currentAdmin?.email // correo del admin que verificó
+            );
+
             onUpdate(request.id, 'accepted');
-            // Aquí después agregarás la notificación
-            console.log('Usuario verificado:', request.id);
+            console.log(`Usuario ${request.id} verificado por: ${currentAdmin?.email}`);
             
         } catch (error) {
             console.error('Error al aceptar solicitud:', error);
@@ -67,10 +73,9 @@ function VerificationActions({ request, onUpdate }) {
             await updateDoc(userRef, {
                 'professionalInfo.verificationStatus': 'rejected',
                 'professionalInfo.verifiedAt': new Date(),
-                'professionalInfo.verifiedBy': 'admin',
+                'professionalInfo.verifiedBy': currentAdmin?.email, 
                 'professionalInfo.rejectionReason': rejectReason,
                 
-                // Limpiar datos del formulario de verificación
                 name: deleteField(),
                 'professionalInfo.specialty': deleteField(),
                 'professionalInfo.licenseNumber': deleteField(),
@@ -80,9 +85,15 @@ function VerificationActions({ request, onUpdate }) {
                 'professionalInfo.licenseDocument': deleteField()
             });
 
+            const userName = `${request.name?.name} ${request.name?.apellidopat}`;
+            await notificationService.sendVerificationRejected(
+                request.id,     // userId
+                userName,       // nombre del usuario
+                rejectReason,   // razón del rechazo
+                currentAdmin?.email // correo del admin que rechazó
+            );
             onUpdate(request.id, 'rejected');
-            // Aquí después agregarás la notificación
-            console.log('Solicitud rechazada:', request.id);
+            console.log(`Solicitud ${request.id} rechazada por: ${currentAdmin?.email}`);
             
             setShowRejectModal(false);
             setRejectReason('');
@@ -97,7 +108,6 @@ function VerificationActions({ request, onUpdate }) {
     return (
         <>
             <div className="flex gap-2">
-                {/* Botón Aceptar */}
                 <button
                     onClick={handleAccept}
                     disabled={loading}
@@ -111,7 +121,6 @@ function VerificationActions({ request, onUpdate }) {
                     Aceptar
                 </button>
 
-                {/* Botón Rechazar */}
                 <button
                     onClick={() => setShowRejectModal(true)}
                     disabled={loading}
@@ -126,7 +135,6 @@ function VerificationActions({ request, onUpdate }) {
                 </button>
             </div>
 
-            {/* Modal para razón de rechazo */}
             {showRejectModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">

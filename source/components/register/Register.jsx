@@ -99,7 +99,6 @@ function Register({ onSwitchToLogin }) {
             await setDoc(doc(db, 'users', user.uid), {
                 id: user.uid,
                 email: user.email,
-                username: null,
                 name: null,
                 role: "unverified",
                 profileMedia: null,

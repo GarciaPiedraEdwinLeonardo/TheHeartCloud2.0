@@ -1,18 +1,76 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useVerificationRequests } from './hooks/useVerificationRequests';
 import VerificationRequestCard from './VerificationRequestCard';
-import { FaUsers, FaSearch, FaFilter, FaExclamationTriangle } from 'react-icons/fa';
+import { FaUsers, FaExclamationTriangle } from 'react-icons/fa';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './../../config/firebase';
 
 function VerificationRequests() {
     const { requests, loading, error } = useVerificationRequests();
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentAdmin, setCurrentAdmin] = useState(null);
+    const [authLoading, setAuthLoading] = useState(true);
 
-    
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                setCurrentAdmin({
+                    uid: user.uid,
+                    email: user.email,
+                    displayName: user.displayName
+                });
+            } else {
+                setCurrentAdmin(null);
+            }
+            setAuthLoading(false);
+        });
+
+        return unsubscribe;
+    }, []);
 
     const handleUpdate = (userId, action) => {
-        console.log(`Usuario ${userId} ${action}`);
+        if (currentAdmin) {
+            console.log(`Usuario ${userId} ${action} por: ${currentAdmin.email}`);
+        }
         // Aquí podrías agregar notificaciones toast
     };
+
+    // Mostrar loading mientras verifica autenticación
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl mx-auto">
+                    <div className="animate-pulse">
+                        <div className="h-8 bg-gray-200 rounded w-64 mb-6"></div>
+                        <div className="grid gap-6">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Verificar que el usuario sea admin
+    if (!currentAdmin) {
+        return (
+            <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl mx-auto">
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+                        <div className="flex items-center gap-3">
+                            <FaExclamationTriangle className="w-6 h-6 text-red-600" />
+                            <div>
+                                <h3 className="text-lg font-semibold text-red-800">Acceso Denegado</h3>
+                                <p className="text-red-700">Debes iniciar sesión para acceder a esta página.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
@@ -65,6 +123,9 @@ function VerificationRequests() {
                             <p className="text-gray-600">
                                 Revisa y gestiona las solicitudes de verificación de médicos
                             </p>
+                            <p className="text-sm text-gray-500">
+                                Conectado como: {currentAdmin.email}
+                            </p>
                         </div>
                     </div>
 
@@ -77,6 +138,10 @@ function VerificationRequests() {
                         <div className="bg-white rounded-lg border border-gray-200 p-4">
                             <p className="text-sm font-medium text-gray-600">Pendientes</p>
                             <p className="text-2xl font-bold text-amber-600">{requests.length}</p>
+                        </div>
+                        <div className="bg-white rounded-lg border border-gray-200 p-4">
+                            <p className="text-sm font-medium text-gray-600">Administrador</p>
+                            <p className="text-sm font-bold text-gray-900 truncate">{currentAdmin.email}</p>
                         </div>
                     </div>
                 </div>
@@ -99,6 +164,7 @@ function VerificationRequests() {
                                 key={request.id} 
                                 request={request} 
                                 onUpdate={handleUpdate}
+                                currentAdmin={currentAdmin}
                             />
                         ))
                     )}

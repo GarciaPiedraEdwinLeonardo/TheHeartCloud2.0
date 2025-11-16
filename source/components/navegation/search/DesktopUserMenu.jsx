@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { doc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './../../../config/firebase'; 
-import Notification from "../../buttons/Notification";
+import NotificationCenter from '../../notifications/NotificationCenter';
 import VerificarCuenta from "../../buttons/VerificarCuenta";
 import { FaUser, FaSignOutAlt, FaChevronDown, FaTrash } from 'react-icons/fa';
 import DeleteAcount from '../../modals/DeleteAcount';
@@ -78,7 +78,7 @@ function DesktopUserMenu({ onProfileClick, onVerifyAccount }) {
     if (loading) {
         return (
             <div className="hidden lg:flex items-center gap-4">
-                <Notification />
+                <NotificationCenter />
                 <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse"></div>
             </div>
         );
@@ -92,7 +92,7 @@ function DesktopUserMenu({ onProfileClick, onVerifyAccount }) {
     return (
         <>
         <div className="hidden lg:flex items-center gap-4">
-            <Notification />
+            <NotificationCenter />
 
             <div className="relative">
                 <button

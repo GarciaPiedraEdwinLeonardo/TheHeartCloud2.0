@@ -1,7 +1,7 @@
 import { FaUser, FaIdCard, FaUniversity, FaCalendarAlt, FaExternalLinkAlt } from 'react-icons/fa';
 import VerificationActions from './VerificationActions';
 
-function VerificationRequestCard({ request, onUpdate }) {
+function VerificationRequestCard({ request, onUpdate, currentAdmin }) {
     const { name, email, professionalInfo, joinDate } = request;
     
     const formatDate = (timestamp) => {
@@ -34,7 +34,11 @@ function VerificationRequestCard({ request, onUpdate }) {
                     </div>
                 </div>
                 
-                <VerificationActions request={request} onUpdate={onUpdate} />
+                <VerificationActions 
+                    request={request} 
+                    onUpdate={onUpdate}
+                    currentAdmin={currentAdmin} 
+                />
             </div>
 
             {/* Información Profesional */}
