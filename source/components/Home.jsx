@@ -10,6 +10,7 @@ import ProfileView from './screens/ProfileView';
 import SearchResults from './screens/SearchingResults';
 import ThemeView from './screens/ThemeView';
 import VerifyAccount from './screens/VerifyAccount';
+import VerificationRequests from './admin/VerificationRequests';
 
 function Home() {
   const [isSidebarModalOpen, setIsSidebarModalOpen] = useState(false);
@@ -19,6 +20,7 @@ function Home() {
   const [currentPost, setCurrentPost] = useState(null);
   const [user, setUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
+  const [verificationRequest, setVerificationRequest] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -76,6 +78,10 @@ function Home() {
     setCurrentView('verify');
   }
 
+  const handleVerificationRequests = () => {
+    setCurrentView('verificationRequests');
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 
@@ -91,6 +97,7 @@ function Home() {
           onInicioClick={handleShowMain}
           onThemeClick={handleShowTheme}
           userData={userData}
+          onVerificationClick={handleVerificationRequests}
         />
         
         {/* Modal del sidebar para móvil */}
@@ -103,6 +110,7 @@ function Home() {
           }}
           onThemeClick={handleShowTheme}
           userData={userData}
+          onVerificationClick={handleVerificationRequests}
         />
         
         {/* Contenido Principal - Cambia según la vista */}
@@ -132,6 +140,9 @@ function Home() {
             )}
             {currentView === 'verify' &&(
               <VerifyAccount onBack={handleShowMain}/>
+            )}
+            {currentView === 'verificationRequests' && (
+              <VerificationRequests/>
             )}
           </div>
         </div>

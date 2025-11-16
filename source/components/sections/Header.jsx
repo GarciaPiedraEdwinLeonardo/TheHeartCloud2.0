@@ -10,7 +10,6 @@ function Header({ onToggleSidebar, onProfileClick, onSearch, onVerifyAccount }) 
   const [showMobileModal, setShowMobileModal] = useState(false);
 
   const handleVerifyAccount = () => {
-    console.log('Redirigiendo a verificación de cuenta...');
     if (onVerifyAccount) {
       onVerifyAccount();
     }

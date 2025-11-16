@@ -3,7 +3,7 @@ import { FaAngleDown, FaAngleUp } from "react-icons/fa";
 import { IoIosAddCircleOutline } from "react-icons/io";
 import CreateThemeModal from './../../modals/CreateThemeModal';
 
-function Sidebar({ onInicioClick, onThemeClick,userData }) {
+function Sidebar({ onInicioClick, onThemeClick,userData, onVerificationClick }) {
   const [isThemesOpen, setIsThemesOpen] = useState(true);
   const [isMyThemesOpen, setIsMyThemesOpen] = useState(false);
   const [showCreateThemeModal, setShowCreateThemeModal] = useState(false);
@@ -144,7 +144,7 @@ function Sidebar({ onInicioClick, onThemeClick,userData }) {
             {/* Revisar Solicitudes - Solo para admin */}
             {showReviewVerifications && (
               <div className="mb-4">
-                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200 w-full text-left">
+                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200 w-full text-left" onClick={onVerificationClick}>
                   <span className="font-medium">Revisar Solicitudes de Verificación</span>
                 </button>
               </div>
