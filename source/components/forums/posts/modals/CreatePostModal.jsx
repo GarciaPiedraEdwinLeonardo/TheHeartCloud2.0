@@ -1,16 +1,20 @@
-// components/modals/CreatePostModal.jsx
+// modals/CreatePostModal.jsx 
 import { useState } from 'react';
 import { FaTimes, FaSpinner, FaImage, FaPaperclip } from 'react-icons/fa';
+import { usePostActions } from './../hooks/usePostActions';
+import { usePostUpload } from './../hooks/usePostUpload';
 
-function CreatePostModal({ isOpen, onClose, defaultForum = '' }) {
+function CreatePostModal({ isOpen, onClose, forumId, forumName }) {
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    forum: defaultForum,
-    tags: ''
   });
+  const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  const { createPost } = usePostActions();
+  const { uploadImage, uploading: imageUploading } = usePostUpload();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -19,6 +23,26 @@ function CreatePostModal({ isOpen, onClose, defaultForum = '' }) {
       [name]: value
     }));
     setError('');
+  };
+
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    
+    if (images.length >= 1) {
+      setError('Máximo 1 imagen');
+      return;
+    }
+
+    for (const file of files) {
+      const result = await uploadImage(file);
+      if (result.success) {
+        setImages(prev => [...prev, result.image]);
+      }
+    }
+  };
+
+  const removeImage = (index) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e) => {
@@ -35,22 +59,22 @@ function CreatePostModal({ isOpen, onClose, defaultForum = '' }) {
     }
 
     setLoading(true);
-    
+    setError('');
+
     try {
-      // TODO: Integrar con Firebase para guardar el post
-      console.log('Creando post:', formData);
-      
-      // Simular delay de guardado
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      alert('¡Publicación creada exitosamente!');
-      onClose();
-      setFormData({
-        title: '',
-        content: '',
-        forum: defaultForum,
-        tags: ''
+      const result = await createPost({
+        ...formData,
+        forumId: forumId,
+        images: images
       });
+
+      if (result.success) {
+        onClose();
+        setFormData({ title: '', content: '' });
+        setImages([]);
+      } else {
+        setError(result.error);
+      }
     } catch (error) {
       setError('Error al crear la publicación');
     } finally {
@@ -68,7 +92,10 @@ function CreatePostModal({ isOpen, onClose, defaultForum = '' }) {
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">Crear Nueva Publicación</h2>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Crear Publicación</h2>
+            <p className="text-sm text-gray-600 mt-1">En {forumName}</p>
+          </div>
           <button 
             onClick={onClose}
             disabled={loading}
@@ -89,7 +116,7 @@ function CreatePostModal({ isOpen, onClose, defaultForum = '' }) {
             {/* Título */}
             <div className="mb-6">
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                Título de la publicación *
+                Título *
               </label>
               <input
                 type="text"
@@ -100,8 +127,12 @@ function CreatePostModal({ isOpen, onClose, defaultForum = '' }) {
                 disabled={loading}
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 disabled:opacity-50"
                 placeholder="Escribe un título claro y descriptivo..."
+                maxLength={200}
                 required
               />
+              <p className="text-xs text-gray-500 mt-1">
+                {formData.title.length}/200 caracteres
+              </p>
             </div>
 
             {/* Contenido */}
@@ -115,57 +146,65 @@ function CreatePostModal({ isOpen, onClose, defaultForum = '' }) {
                 value={formData.content}
                 onChange={handleInputChange}
                 disabled={loading}
-                rows={12}
+                rows={8}
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none disabled:opacity-50"
-                placeholder="Comparte tu conocimiento, experiencia, pregunta o caso clínico. Sé claro y profesional en tu redacción."
+                placeholder="Comparte tu conocimiento, experiencia, pregunta o caso clínico..."
+                maxLength={10000}
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
-                Mínimo 10 caracteres. Usa un lenguaje profesional y respetuoso.
+                {formData.content.length}/10000 caracteres (mínimo 10)
               </p>
             </div>
 
-            {/* Etiquetas */}
-            <div className="mb-6">
-              <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-2">
-                Etiquetas (opcional)
-              </label>
-              <input
-                type="text"
-                id="tags"
-                name="tags"
-                value={formData.tags}
-                onChange={handleInputChange}
-                disabled={loading}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 disabled:opacity-50"
-                placeholder="Ej: cardiología, hipertensión, tratamiento..."
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Separa las etiquetas con comas. Ayudan a otros a encontrar tu publicación.
-              </p>
-            </div>
-
-            {/* Herramientas adicionales */}
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Herramientas adicionales</h4>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  disabled={loading}
-                  className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200 disabled:opacity-50"
-                >
-                  <FaImage className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm">Imagen</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200 disabled:opacity-50"
-                >
-                  <FaPaperclip className="w-4 h-4 text-gray-600" />
-                  <span className="text-sm">Archivo</span>
-                </button>
+            {/* Imágenes subidas */}
+            {images.length > 0 && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Imágenes ({images.length}/5)
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {images.map((image, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={image.url}
+                        alt={`Imagen ${index + 1}`}
+                        className="w-full h-24 object-cover rounded-lg border border-gray-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
+            )}
+
+            {/* Subir imágenes */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Agregar imágenes (opcional)
+              </label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition duration-200 cursor-pointer disabled:opacity-50">
+                  <FaImage className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm">Subir imagen</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    disabled={loading || imageUploading || images.length >= 1}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Máximo 1 imágene. Formatos: JPEG, PNG, WebP. Tamaño máximo: 2MB por imagen.
+              </p>
             </div>
           </div>
 
@@ -186,11 +225,11 @@ function CreatePostModal({ isOpen, onClose, defaultForum = '' }) {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || imageUploading}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center gap-2 disabled:opacity-50"
                 >
-                  {loading && <FaSpinner className="w-4 h-4 animate-spin" />}
-                  {loading ? 'Publicando...' : 'Publicar'}
+                  {(loading || imageUploading) && <FaSpinner className="w-4 h-4 animate-spin" />}
+                  {loading ? 'Publicando...' : imageUploading ? 'Subiendo...' : 'Publicar'}
                 </button>
               </div>
             </div>

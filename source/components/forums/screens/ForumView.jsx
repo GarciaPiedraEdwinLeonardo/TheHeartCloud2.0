@@ -13,13 +13,17 @@ import {
   FaExclamationTriangle
 } from 'react-icons/fa';
 import { useForumActions } from './../hooks/useForumsActions';
-import { auth } from './../../../config/firebase';
+import { auth, db } from './../../../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import AddModeratorModal from './../modals/AddModeratorModal';
-import CreatePostModal from './../modals/CreatePostModal';
+import CreatePostModal from './../posts/modals/CreatePostModal';
 import ReportModal from './../modals/ReportModal';
+import { usePosts } from './../posts/hooks/usePosts';
+import PostList from './../posts/components/PostList';
 
 function ForumView({ forumData, onBack }) {
   const [userMembership, setUserMembership] = useState({ isMember: false, role: null });
+  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showAddModeratorModal, setShowAddModeratorModal] = useState(false);
@@ -28,7 +32,25 @@ function ForumView({ forumData, onBack }) {
   const [forumDetails, setForumDetails] = useState(forumData);
   
   const { joinForum, leaveForum, checkUserMembership, getForumData } = useForumActions();
+  const { posts, loading: postsLoading, error: postsError } = usePosts(forumDetails.id);
   const user = auth.currentUser;
+
+  // Cargar userData desde Firestore
+  useEffect(() => {
+    if (user) {
+      const loadUserData = async () => {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setUserData(userDoc.data());
+          }
+        } catch (error) {
+          console.error('Error cargando userData:', error);
+        }
+      };
+      loadUserData();
+    }
+  }, [user]);
 
   useEffect(() => {
     const loadForumDetails = async () => {
@@ -92,10 +114,16 @@ function ForumView({ forumData, onBack }) {
     }
   };
 
+  const handlePostUpdate = () => {
+    // Recargar posts si es necesario
+    console.log('Post actualizado, podrías recargar aquí si necesario');
+  };
+
   const isOwner = userMembership.role === 'owner';
   const isModerator = userMembership.role === 'moderator';
-  const canPost = userMembership.isMember && (user?.role === 'doctor' || user?.role === 'moderator' || user?.role === 'admin');
+  const canPost = userMembership.isMember && (userData?.role === 'doctor' || userData?.role === 'moderator' || userData?.role === 'admin');
   const canReport = !!user;
+  const isVerified = userData?.role !== 'unverified'
 
   const getRoleBadge = (role) => {
     switch (role) {
@@ -196,32 +224,34 @@ function ForumView({ forumData, onBack }) {
               </div>
             </div>
 
-            {/* Contenido de la comunidad */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+            {/* Mensaje de bienvenida y acciones */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 text-center">
               <div className="text-gray-400 mb-4">
-                <FaUsers className="w-16 h-16 mx-auto" />
+                <FaUsers className="w-12 h-12 mx-auto" />
               </div>
               
               {!userMembership.isMember ? (
                 <>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Únete a esta comunidad
+                    Explora esta comunidad
                   </h3>
-                  <p className="text-gray-600 mb-6">
-                    Para ver el contenido y participar en las discusiones, necesitas unirte a esta comunidad.
+                  <p className="text-gray-600 mb-4">
+                    Puedes ver todas las publicaciones. Únete para poder interactuar y publicar contenido.
                   </p>
-                  <button
-                    onClick={handleJoinLeave}
-                    disabled={actionLoading}
-                    className="bg-green-600 text-white py-3 px-8 rounded-lg hover:bg-green-700 transition duration-200 font-medium flex items-center gap-2 mx-auto disabled:opacity-50"
-                  >
-                    {actionLoading ? (
-                      <FaSpinner className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <FaUserPlus className="w-4 h-4" />
-                    )}
-                    {actionLoading ? 'Procesando...' : 'Unirse a la Comunidad'}
-                  </button>
+                  {isVerified && (
+                    <button
+                      onClick={handleJoinLeave}
+                      disabled={actionLoading}
+                      className="bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition duration-200 font-medium flex items-center gap-2 mx-auto disabled:opacity-50"
+                    >
+                      {actionLoading ? (
+                        <FaSpinner className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FaUserPlus className="w-4 h-4" />
+                      )}
+                      {actionLoading ? 'Procesando...' : 'Unirse a la Comunidad'}
+                    </button>
+                  )}
                 </>
               ) : !canPost ? (
                 <>
@@ -270,6 +300,17 @@ function ForumView({ forumData, onBack }) {
                 </>
               )}
             </div>
+
+            {/* Lista de Posts - SIEMPRE VISIBLE */}
+            <PostList
+              posts={posts}
+              loading={postsLoading}
+              error={postsError}
+              forumId={forumDetails.id}
+              forumName={forumDetails.name}
+              userRole={userData?.role}
+              onPostUpdate={handlePostUpdate}
+            />
           </main>
 
           {/* Sidebar */}
@@ -292,23 +333,25 @@ function ForumView({ forumData, onBack }) {
                   )}
 
                   {/* Botón Unirse/Abandonar */}
-                  <button
-                    onClick={handleJoinLeave}
-                    disabled={actionLoading}
-                    className={`w-full py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2 font-medium border ${
-                      userMembership.isMember 
-                        ? 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200' 
-                        : 'bg-green-600 text-white border-green-600 hover:bg-green-700'
-                    } disabled:opacity-50`}
-                  >
-                    {actionLoading ? (
-                      <FaSpinner className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <FaUserPlus className="w-4 h-4" />
-                    )}
-                    {actionLoading ? 'Procesando...' : 
-                     userMembership.isMember ? 'Abandonar Comunidad' : 'Unirse a la Comunidad'}
-                  </button>
+                  {isVerified && (
+                    <button
+                      onClick={handleJoinLeave}
+                      disabled={actionLoading}
+                      className={`w-full py-3 px-4 rounded-lg transition duration-200 flex items-center justify-center gap-2 font-medium border ${
+                        userMembership.isMember 
+                          ? 'bg-red-100 text-red-700 border-red-200 hover:bg-red-200' 
+                          : 'bg-green-600 text-white border-green-600 hover:bg-green-700'
+                      } disabled:opacity-50`}
+                    >
+                      {actionLoading ? (
+                        <FaSpinner className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FaUserPlus className="w-4 h-4" />
+                      )}
+                      {actionLoading ? 'Procesando...' : 
+                      userMembership.isMember ? 'Abandonar Comunidad' : 'Unirse a la Comunidad'}
+                    </button>
+                  )}
 
                   {/* Botón Reportar - disponible para TODOS los usuarios logueados */}
                   {canReport && (
@@ -321,7 +364,7 @@ function ForumView({ forumData, onBack }) {
                     </button>
                   )}
 
-                  {/* ✅ CORREGIDO: Botón Gestionar Moderadores integrado aquí */}
+                  {/* Botón Gestionar Moderadores integrado aquí */}
                   {isOwner && (
                     <button
                       onClick={() => setShowAddModeratorModal(true)}

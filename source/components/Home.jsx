@@ -7,7 +7,7 @@ import Sidebar from './navegation/sidebars/Sidebar';
 import SidebarModal from './navegation/sidebars/SidebarModal';
 import Main from './screens/Main';
 import ProfileView from './screens/ProfileView';
-import SearchResults from './screens/SearchingResults';
+import SearchResults from './navegation/search/screens/SearchingResults';
 import ForumView from './forums/screens/ForumView';
 import VerifyAccount from './screens/VerifyAccount';
 import VerificationRequests from './admin/VerificationRequests';
@@ -79,6 +79,12 @@ function Home() {
     setCurrentView('verificationRequests');
   }
 
+  const handleShowUserProfile = (userData) => {
+  // Por ahora redirigimos al perfil propio, pero preparado para perfiles de otros usuarios
+  setCurrentView('profile');
+  // Aquí podrías setear currentUserProfile cuando implementes ver perfiles de otros
+};
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header 
@@ -120,6 +126,7 @@ function Home() {
                 searchQuery={searchData.query} 
                 searchType={searchData.type} 
                 onThemeClick={handleShowForum} 
+                onUserClick={handleShowUserProfile}
               />
             )}
             {currentView === 'forum' && ( 

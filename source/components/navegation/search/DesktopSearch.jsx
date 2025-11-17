@@ -1,3 +1,4 @@
+// DesktopSearch.jsx
 import { FaSearch } from 'react-icons/fa';
 import { useState } from 'react';
 
@@ -7,7 +8,8 @@ function DesktopSearch({ onSearch }) {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      onSearch(searchQuery.trim(), 'temas');
+      // Por defecto buscar en comunidades
+      onSearch(searchQuery.trim(), 'forums');
     }
   };
 
@@ -18,7 +20,7 @@ function DesktopSearch({ onSearch }) {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="¿Qué estás buscando?"
+          placeholder="Buscar comunidades y usuarios..."
           className="flex-1 px-4 py-2 rounded-l-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
         />
         <button 
