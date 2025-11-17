@@ -64,7 +64,7 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick })
               onClick={() => setIsForumsOpen(!isForumsOpen)}
               className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition duration-200"
             >
-              <span className="font-medium">Todas las Comunidades</span>
+              <span className="font-medium">Comunidades Relevantes</span>
               {isForumsOpen ? 
                 <FaAngleDown className="w-4 h-4" /> : 
                 <FaAngleUp className="w-4 h-4" />

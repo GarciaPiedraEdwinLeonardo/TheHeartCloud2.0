@@ -156,11 +156,11 @@ function ForumView({ forumData, onBack }) {
                   <div className="p-3 rounded-full bg-green-100">
                     <FaUsers className="w-6 h-6 text-green-600" />
                   </div>
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  <div className='min-w-0 flex-1'>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2 break-words break-all">
                       {forumDetails.name}
                     </h1>
-                    <p className="text-gray-600 text-lg">
+                    <p className="text-gray-600 text-lg break-words break-all whitespace-normal">
                       {forumDetails.description}
                     </p>
                   </div>
@@ -366,12 +366,11 @@ function ForumView({ forumData, onBack }) {
                   </div>
                 </div>
 
-                {/* ✅ CORREGIDO: Reglas de la comunidad */}
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <h4 className="font-medium text-gray-900 mb-3">Reglas de la comunidad</h4>
-                  <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-200 break-words whitespace-pre-line overflow-hidden">
                     {forumDetails.rules ? (
-                      <div className="whitespace-pre-line leading-relaxed">
+                      <div className="break-words whitespace-pre-line">
                         {forumDetails.rules}
                       </div>
                     ) : (

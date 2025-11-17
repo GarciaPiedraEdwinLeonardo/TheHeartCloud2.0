@@ -1,35 +1,27 @@
+// SidebarModal.jsx - ACTUALIZADO
 import { useState } from 'react';
-import { FaAngleDown, FaAngleUp, FaTimes } from "react-icons/fa";
+import { FaAngleDown, FaAngleUp, FaTimes, FaCrown, FaUserShield, FaUser, FaUsers } from "react-icons/fa";
 import { IoIosAddCircleOutline } from "react-icons/io";
-import Logo from './../../buttons/Logo'
-import CreateThemeModal from './../../modals/CreateThemeModal';
+import Logo from './../../buttons/Logo';
+import CreateForumModal from './../../forums/modals/CreateForumModal';
+import { useForums } from './../../forums/hooks/useForums';
+import { useUserForums } from './../../forums/hooks/useUserForums';
 
-function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick, userData,onVerificationClick }) {
-  const [isThemesOpen, setIsThemesOpen] = useState(true);
-  const [isMyThemesOpen, setIsMyThemesOpen] = useState(false);
-  const [showCreateThemeModal, setShowCreateThemeModal] = useState(false);
+function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick, userData, onVerificationClick }) {
+  const [isForumsOpen, setIsForumsOpen] = useState(true);
+  const [isMyForumsOpen, setIsMyForumsOpen] = useState(false);
+  const [showCreateForumModal, setShowCreateForumModal] = useState(false);
+  
+  const { forums, loading: forumsLoading } = useForums();
+  const { userForums, loading: userForumsLoading } = useUserForums();
   const userRole = userData?.role || 'unverified';
-
-  const showCreateTheme = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
-  const showMyThemes = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
-  const showReviewReports = userRole === 'moderator' || userRole === 'admin';
+  
+  const showCreateForum = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
+  const showMyForums = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
   const showReviewVerifications = userRole === 'admin';
 
-  const healthTopics = [
-    { id: 1, name: 'Cardiología', description: 'Enfermedades del corazón' },
-    { id: 2, name: 'Diabetes', description: 'Manejo y prevención' },
-    { id: 3, name: 'Salud Mental', description: 'Bienestar psicológico' },
-    { id: 4, name: 'COVID-19', description: 'Actualizaciones y prevención' },
-    { id: 5, name: 'Oncología', description: 'Prevención del cáncer' },
-    { id: 6, name: 'Neurología', description: 'Sistema nervioso' },
-    { id: 7, name: 'Ortopedia', description: 'Huesos y articulaciones' },
-    { id: 8, name: 'Oftalmología', description: 'Salud visual' },
-    { id: 9, name: 'Pediatría', description: 'Salud infantil' },
-    { id: 10, name: 'Medicina del Sueño', description: 'Trastornos del sueño' }
-  ];
-
-  const handleCreateTheme = () => {
-    setShowCreateThemeModal(true);
+  const handleCreateForum = () => {
+    setShowCreateForumModal(true);
   };
 
   const handleInicio = () => {
@@ -37,19 +29,29 @@ function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick, userData,o
     onClose();
   };
 
-  const handleThemeClick = (topic) => {
+  const handleForumClick = (forum) => {
     if (onThemeClick) {
       onThemeClick({
-        id: topic.id,
-        nombre: topic.name,
-        descripcion: topic.description,
-        fechaCreacion: '2023-01-15',
-        integrantes: Math.floor(Math.random() * 1000) + 500,
-        publicaciones: Math.floor(Math.random() * 200) + 50,
-        creador: 'Administración'
+        id: forum.id,
+        name: forum.name,
+        description: forum.description,
+        createdAt: forum.createdAt,
+        memberCount: forum.memberCount || 0,
+        ownerId: forum.ownerId
       });
     }
     onClose();
+  };
+
+  const getRoleIcon = (role) => {
+    switch (role) {
+      case 'owner':
+        return <FaCrown className="w-3 h-3 text-yellow-500" />;
+      case 'moderator':
+        return <FaUserShield className="w-3 h-3 text-blue-500" />;
+      default:
+        return <FaUser className="w-3 h-3 text-gray-500" />;
+    }
   };
 
   if (!isOpen) return null;
@@ -86,86 +88,137 @@ function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick, userData,o
               <span className="font-medium">Inicio</span>
             </button>
 
-            {/* Temas Predefinidos - Acordeón */}
+            {/* Todas las Comunidades - Acordeón */}
             <div className="mb-4">
               <button
-                onClick={() => setIsThemesOpen(!isThemesOpen)}
+                onClick={() => setIsForumsOpen(!isForumsOpen)}
                 className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition duration-200"
               >
-                <span className="font-medium">Temas Predefinidos</span>
-                {isThemesOpen ? 
+                <span className="font-medium">Comunidades Relevantes</span>
+                {isForumsOpen ? 
                   <FaAngleDown className="w-4 h-4" /> : 
                   <FaAngleUp className="w-4 h-4" />
                 }
               </button>
 
-              {isThemesOpen && (
-                <div className="mt-2 ml-4 space-y-1">
-                  {healthTopics.map((topic) => (
-                    <button
-                      key={topic.id}
-                      onClick={() => handleThemeClick(topic)}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition duration-200 group w-full text-left"
-                      title={topic.description}
-                    >
-                      <span className="text-sm flex-1">{topic.name}</span>
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <FaAngleUp className="w-3 h-3 text-gray-400 transform rotate-90" />
-                      </div>
-                    </button>
-                  ))}
+              {isForumsOpen && (
+                <div className="mt-2 ml-4 space-y-1 max-h-64 overflow-y-auto">
+                  {forumsLoading ? (
+                    <div className="space-y-2">
+                      {[...Array(5)].map((_, i) => (
+                        <div key={i} className="animate-pulse flex items-center gap-3 p-2">
+                          <div className="w-4 h-4 bg-gray-200 rounded-full"></div>
+                          <div className="h-3 bg-gray-200 rounded flex-1"></div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : forums.length === 0 ? (
+                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <p className="text-sm text-gray-500 text-center">
+                        No hay comunidades creadas aún
+                      </p>
+                      {showCreateForum && (
+                        <p className="text-xs text-gray-400 text-center mt-1">
+                          Sé el primero en crear una comunidad
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    forums.map((forum) => (
+                      <button
+                        key={forum.id}
+                        onClick={() => handleForumClick(forum)}
+                        className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition duration-200 group w-full text-left"
+                        title={forum.description}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <FaUsers className="w-3 h-3 text-green-500" />
+                          <span className="text-sm flex-1 truncate">{forum.name}</span>
+                        </div>
+                        <div className="opacity-70 group-hover:opacity-100 transition-opacity">
+                          <span className="text-xs text-gray-500">
+                            {forum.memberCount || 0}
+                          </span>
+                        </div>
+                      </button>
+                    ))
+                  )}
                 </div>
               )}
             </div>
 
-            {/* Crear Tema */}
-            {showCreateTheme &&(
+            {/* Crear Comunidad */}
+            {showCreateForum && (
               <div className="mb-4">
-              <button 
-                onClick={handleCreateTheme}
-                className="flex items-center gap-3 p-3 rounded-lg hover:bg-green-50 text-gray-700 hover:text-green-600 transition duration-200 w-full text-left"
-              >
-                <IoIosAddCircleOutline className='w-5 h-5' />
-                <span className="font-medium">Crear Tema</span>
-              </button>
-            </div>
+                <button 
+                  onClick={handleCreateForum}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-green-50 text-gray-700 hover:text-green-600 transition duration-200 w-full text-left"
+                >
+                  <IoIosAddCircleOutline className='w-5 h-5' />
+                  <span className="font-medium">Crear Comunidad</span>
+                </button>
+              </div>
             )}
 
-            {/* Mis Temas - Acordeón */}
-            {showMyThemes &&(
+            {/* Mis Comunidades - Acordeón */}
+            {showMyForums && (
               <div className="mb-4">
-              <button
-                onClick={() => setIsMyThemesOpen(!isMyThemesOpen)}
-                className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200"
-              >
-                <span className="font-medium">Mis Temas</span>
-                {isMyThemesOpen ? 
-                  <FaAngleDown className="w-4 h-4" /> : 
-                  <FaAngleUp className="w-4 h-4" />
-                }
-              </button>
+                <button
+                  onClick={() => setIsMyForumsOpen(!isMyForumsOpen)}
+                  className="flex items-center justify-between w-full p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200"
+                >
+                  <span className="font-medium">Mis Comunidades</span>
+                  {isMyForumsOpen ? 
+                    <FaAngleDown className="w-4 h-4" /> : 
+                    <FaAngleUp className="w-4 h-4" />
+                  }
+                </button>
 
-              {isMyThemesOpen && (
-                <div className="mt-2 ml-4">
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-500 text-center">
-                      Próximamente cargaré datos de una base de datos
-                    </p>
-                    <div className="mt-2 flex justify-center">
-                      <div className="animate-pulse flex space-x-2">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                {isMyForumsOpen && (
+                  <div className="mt-2 ml-4 space-y-1 max-h-64 overflow-y-auto">
+                    {userForumsLoading ? (
+                      <div className="space-y-2">
+                        {[...Array(3)].map((_, i) => (
+                          <div key={i} className="animate-pulse flex items-center gap-3 p-2">
+                            <div className="w-4 h-4 bg-gray-200 rounded-full"></div>
+                            <div className="h-3 bg-gray-200 rounded flex-1"></div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
+                    ) : userForums.length === 0 ? (
+                      <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-sm text-gray-500 text-center">
+                          No estás unido a ninguna comunidad
+                        </p>
+                        <p className="text-xs text-gray-400 text-center mt-1">
+                          Únete a comunidades para verlas aquí
+                        </p>
+                      </div>
+                    ) : (
+                      userForums.map((forum) => (
+                        <button
+                          key={forum.id}
+                          onClick={() => handleForumClick(forum)}
+                          className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition duration-200 group w-full text-left"
+                          title={`${forum.name} - ${forum.userRole === 'owner' ? 'Dueño' : forum.userRole === 'moderator' ? 'Moderador' : 'Miembro'}`}
+                        >
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <FaUsers className="w-3 h-3 text-green-500" />
+                            <span className="text-sm flex-1 truncate">{forum.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                            {getRoleIcon(forum.userRole)}
+                          </div>
+                        </button>
+                      ))
+                    )}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
             )}
 
             {/* Revisar Reportes - Para moderador y admin */}
-            {showReviewReports && (
+            {(userRole === 'moderator' || userRole === 'admin') && (
               <div className="mb-4">
                 <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 hover:text-orange-600 transition duration-200 w-full text-left">
                   <span className="font-medium">Revisar Reportes</span>
@@ -176,7 +229,13 @@ function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick, userData,o
             {/* Revisar Solicitudes - Solo para admin */}
             {showReviewVerifications && (
               <div className="mb-4">
-                <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200 w-full text-left" onClick={onVerificationClick}>
+                <button 
+                  onClick={() => {
+                    onVerificationClick();
+                    onClose();
+                  }}
+                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200 w-full text-left"
+                >
                   <span className="font-medium">Revisar Solicitudes de Verificación</span>
                 </button>
               </div>
@@ -199,10 +258,9 @@ function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick, userData,o
         </div>
       </div>
 
-      {/* Modal de Creación de Tema */}
-      <CreateThemeModal 
-        isOpen={showCreateThemeModal}
-        onClose={() => setShowCreateThemeModal(false)}
+      <CreateForumModal 
+        isOpen={showCreateForumModal}
+        onClose={() => setShowCreateForumModal(false)}
       />
     </>
   );
