@@ -8,15 +8,15 @@ import SidebarModal from './navegation/sidebars/SidebarModal';
 import Main from './screens/Main';
 import ProfileView from './screens/ProfileView';
 import SearchResults from './screens/SearchingResults';
-import ThemeView from './screens/ThemeView';
+import ForumView from './forums/screens/ForumView';
 import VerifyAccount from './screens/VerifyAccount';
 import VerificationRequests from './admin/VerificationRequests';
 
 function Home() {
   const [isSidebarModalOpen, setIsSidebarModalOpen] = useState(false);
-  const [currentView, setCurrentView] = useState('main'); // 'main', 'profile', 'search', 'theme', 'post'
-  const [searchData, setSearchData] = useState({ query: '', type: 'temas' });
-  const [currentTheme, setCurrentTheme] = useState(null);
+  const [currentView, setCurrentView] = useState('main'); 
+  const [searchData, setSearchData] = useState({ query: '', type: 'forums' }); 
+  const [currentForum, setCurrentForum] = useState(null);
   const [currentPost, setCurrentPost] = useState(null);
   const [user, setUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
@@ -27,19 +27,16 @@ function Home() {
       setUser(user);
       
       if (user) {
-        // Escuchar cambios en los datos del usuario
         const userDocUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
           if (doc.exists()) {
             setUserData(doc.data());
           }
         });
-        
         return () => userDocUnsubscribe();
       } else {
         setUserData(null);
       }
     });
-    
     return unsubscribe;
   }, []);
 
@@ -51,14 +48,14 @@ function Home() {
     setCurrentView('main');
   };
 
-  const handleSearch = (query, type = 'temas') => {
+  const handleSearch = (query, type = 'forums') => { 
     setSearchData({ query, type });
     setCurrentView('search');
   };
 
-  const handleShowTheme = (themeData) => {
-    setCurrentTheme(themeData);
-    setCurrentView('theme');
+  const handleShowForum = (forumData) => { 
+    setCurrentForum(forumData);
+    setCurrentView('forum');
   };
 
   const handleShowPost = (postData) => {
@@ -66,7 +63,7 @@ function Home() {
     setCurrentView('post');
   };
 
-  const handleBackFromTheme = () => {
+  const handleBackFromForum = () => { 
     setCurrentView('main');
   };
 
@@ -95,7 +92,7 @@ function Home() {
         {/* Sidebar normal para desktop */}
         <Sidebar 
           onInicioClick={handleShowMain}
-          onThemeClick={handleShowTheme}
+          onThemeClick={handleShowForum} 
           userData={userData}
           onVerificationClick={handleVerificationRequests}
         />
@@ -108,7 +105,7 @@ function Home() {
             handleShowMain();
             setIsSidebarModalOpen(false);
           }}
-          onThemeClick={handleShowTheme}
+          onThemeClick={handleShowForum} 
           userData={userData}
           onVerificationClick={handleVerificationRequests}
         />
@@ -122,14 +119,13 @@ function Home() {
               <SearchResults 
                 searchQuery={searchData.query} 
                 searchType={searchData.type} 
-                onThemeClick={handleShowTheme}
+                onThemeClick={handleShowForum} 
               />
             )}
-            {currentView === 'theme' && (
-              <ThemeView 
-                themeData={currentTheme}
-                onBack={handleBackFromTheme}
-                onPostClick={handleShowPost}
+            {currentView === 'forum' && ( 
+              <ForumView 
+                forumData={currentForum}
+                onBack={handleBackFromForum}
               />
             )}
             {currentView === 'post' && (
