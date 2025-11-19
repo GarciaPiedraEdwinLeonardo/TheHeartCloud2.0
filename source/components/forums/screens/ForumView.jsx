@@ -225,81 +225,38 @@ function ForumView({ forumData, onBack }) {
             </div>
 
             {/* Mensaje de bienvenida y acciones */}
+            {!userMembership.isMember && isVerified && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 text-center">
               <div className="text-gray-400 mb-4">
                 <FaUsers className="w-12 h-12 mx-auto" />
               </div>
               
-              {!userMembership.isMember ? (
-                <>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Explora esta comunidad
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    Puedes ver todas las publicaciones. Únete para poder interactuar y publicar contenido.
-                  </p>
-                  {isVerified && (
-                    <button
-                      onClick={handleJoinLeave}
-                      disabled={actionLoading}
-                      className="bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition duration-200 font-medium flex items-center gap-2 mx-auto disabled:opacity-50"
-                    >
-                      {actionLoading ? (
-                        <FaSpinner className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <FaUserPlus className="w-4 h-4" />
-                      )}
-                      {actionLoading ? 'Procesando...' : 'Unirse a la Comunidad'}
-                    </button>
-                  )}
-                </>
-              ) : !canPost ? (
-                <>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Bienvenido a la comunidad
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    Eres miembro de esta comunidad. Para publicar contenido necesitas ser un doctor verificado.
-                  </p>
-                  <div className="flex gap-3 justify-center">
-                    <button
-                      onClick={handleJoinLeave}
-                      disabled={actionLoading}
-                      className="bg-red-100 text-red-700 py-2 px-6 rounded-lg hover:bg-red-200 transition duration-200 font-medium flex items-center gap-2 disabled:opacity-50"
-                    >
-                      <FaSignOutAlt className="w-4 h-4" />
-                      {actionLoading ? 'Procesando...' : 'Abandonar Comunidad'}
-                    </button>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6 text-center">
+                  <div className="text-gray-400 mb-4">
+                    <FaUsers className="w-12 h-12 mx-auto" />
                   </div>
-                </>
-              ) : (
-                <>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    Bienvenido a la comunidad
-                  </h3>
-                  <p className="text-gray-600 mb-6">
-                    Eres miembro de esta comunidad. Puedes publicar contenido y participar en las discusiones.
-                  </p>
-                  <div className="flex gap-3 justify-center">
-                    <button
-                      onClick={() => setShowCreatePostModal(true)}
-                      className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center gap-2"
-                    >
-                      <FaEdit className="w-4 h-4" />
-                      Crear Publicación
-                    </button>
-                    <button
-                      onClick={handleJoinLeave}
-                      disabled={actionLoading}
-                      className="bg-red-100 text-red-700 py-2 px-6 rounded-lg hover:bg-red-200 transition duration-200 font-medium flex items-center gap-2 disabled:opacity-50"
-                    >
-                      <FaSignOutAlt className="w-4 h-4" />
-                      {actionLoading ? 'Procesando...' : 'Abandonar Comunidad'}
-                    </button>
-                  </div>
-                </>
-              )}
+    
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  Explora esta comunidad
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Únete para poder interactuar y publicar contenido.
+                </p>
+                <button
+                onClick={handleJoinLeave}
+                disabled={actionLoading}
+                className="bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition duration-200 font-medium flex           items-center gap-2 mx-auto disabled:opacity-50"
+              >
+                {actionLoading ? (
+                  <FaSpinner className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FaUserPlus className="w-4 h-4" />
+                )}
+                {actionLoading ? 'Procesando...' : 'Unirse a la Comunidad'}
+              </button>
             </div>
+            </div>
+            )}
 
             {/* Lista de Posts - SIEMPRE VISIBLE */}
             <PostList
@@ -354,7 +311,7 @@ function ForumView({ forumData, onBack }) {
                   )}
 
                   {/* Botón Reportar - disponible para TODOS los usuarios logueados */}
-                  {canReport && (
+                  {canReport && userMembership.role === 'member' && (
                     <button
                       onClick={() => setShowReportModal(true)}
                       className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition duration-200 flex items-center justify-center gap-2 font-medium"
@@ -379,7 +336,6 @@ function ForumView({ forumData, onBack }) {
                   {(isOwner || isModerator) && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
                       <div className="flex items-center gap-2 text-blue-800 mb-1">
-                        <FaExclamationTriangle className="w-4 h-4" />
                         <span className="text-sm font-medium">Eres moderador</span>
                       </div>
                       <p className="text-xs text-blue-700">

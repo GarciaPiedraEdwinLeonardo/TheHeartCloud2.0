@@ -1,4 +1,3 @@
-// hooks/usePosts.js
 import { useState, useEffect } from "react";
 import {
   collection,
@@ -25,8 +24,6 @@ export const usePosts = (forumId, postsLimit = 20) => {
     const q = query(
       collection(db, "posts"),
       where("forumId", "==", forumId),
-      where("isDeleted", "==", false),
-      where("status", "==", "active"),
       orderBy("createdAt", "desc"),
       limit(postsLimit)
     );

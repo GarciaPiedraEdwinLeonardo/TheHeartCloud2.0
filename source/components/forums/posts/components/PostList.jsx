@@ -1,4 +1,3 @@
-// components/PostList.jsx
 import { useState } from 'react';
 import { FaSpinner, FaExclamationTriangle, FaPlus } from 'react-icons/fa';
 import PostCard from './PostCard';
@@ -47,34 +46,25 @@ function PostList({ posts, loading, error, forumId, forumName, userRole, onPostU
             : 'Los miembros de esta comunidad aún no han publicado contenido'
           }
         </p>
-        {canCreatePost && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center gap-2 mx-auto"
-          >
-            <FaPlus className="w-4 h-4" />
-            Crear primera publicación
-          </button>
-        )}
       </div>
     );
   }
 
+  const handlePostUpdated = () => {
+    if (onPostUpdate) {
+      onPostUpdate();
+    }
+  };
+
+  const handlePostDeleted = () => {
+    if (onPostUpdate) {
+      onPostUpdate();
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Botón crear post (solo para usuarios que pueden) */}
-      {canCreatePost && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center gap-2"
-          >
-            <FaPlus className="w-4 h-4" />
-            Nueva Publicación
-          </button>
-        </div>
-      )}
-
+      
       {/* Lista de posts */}
       <div className="space-y-4">
         {posts.map((post) => (
@@ -82,8 +72,8 @@ function PostList({ posts, loading, error, forumId, forumName, userRole, onPostU
             key={post.id}
             post={post}
             onCommentClick={() => console.log('Abrir comentarios:', post.id)} // Para implementar después
-            onEdit={(post) => console.log('Editar post:', post.id)}
-            onDelete={(post) => console.log('Eliminar post:', post.id)}
+            onPostUpdated = {handlePostUpdated}
+            onPostDeleted = {handlePostDeleted}
           />
         ))}
       </div>

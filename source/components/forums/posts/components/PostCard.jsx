@@ -1,20 +1,40 @@
-// components/PostCard.jsx
 import { useState, useEffect } from 'react';
-import { FaHeart, FaRegHeart, FaThumbsDown, FaRegThumbsDown, FaComment, FaEllipsisH, FaUser, FaCalendar } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaThumbsDown, FaRegThumbsDown, FaComment, FaEllipsisH, FaUser, FaCalendar, FaEdit, FaTrash } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
 import { auth, db } from './../../../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import PostImages from './PostImages';
+import EditPostModal from './../modals/EditPostModal';
+import DeletePostModal from './../modals/DeletePostModal';
 
-function PostCard({ post, onCommentClick, onEdit, onDelete }) {
+function PostCard({ post, onCommentClick, onPostUpdated, onPostDeleted }) {
   const [showMenu, setShowMenu] = useState(false);
   const [userReaction, setUserReaction] = useState(null);
   const [authorData, setAuthorData] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [localLikes, setLocalLikes] = useState(post.likes || []);
+  const [localDislikes, setLocalDislikes] = useState(post.dislikes || []);
+  
   const { reactToPost } = usePostActions();
   const user = auth.currentUser;
 
-  // Cargar datos del autor
+  // Cargar datos del autor y usuario actual
   useEffect(() => {
+    const loadUserData = async () => {
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setUserData(userDoc.data());
+          }
+        } catch (error) {
+          console.error('Error cargando userData:', error);
+        }
+      }
+    };
+
     const loadAuthorData = async () => {
       if (post.authorId) {
         try {
@@ -27,26 +47,111 @@ function PostCard({ post, onCommentClick, onEdit, onDelete }) {
         }
       }
     };
+
+    loadUserData();
     loadAuthorData();
-  }, [post.authorId]);
+  }, [user, post.authorId]);
+
+  // Sincronizar estado local con props
+  useEffect(() => {
+    setLocalLikes(post.likes || []);
+    setLocalDislikes(post.dislikes || []);
+  }, [post.likes, post.dislikes]);
 
   // Determinar reacción del usuario actual
   useEffect(() => {
     if (!user) return;
-    if (post.likes?.includes(user.uid)) setUserReaction('like');
-    else if (post.dislikes?.includes(user.uid)) setUserReaction('dislike');
-  }, [user, post.likes, post.dislikes]);
+    if (localLikes.includes(user.uid)) setUserReaction('like');
+    else if (localDislikes.includes(user.uid)) setUserReaction('dislike');
+    else setUserReaction(null);
+  }, [user, localLikes, localDislikes]);
 
   const handleReaction = async (reactionType) => {
     if (!user) return;
     
+    // Optimistic update - actualizar UI inmediatamente
+    const previousReaction = userReaction;
+    const previousLikes = [...localLikes];
+    const previousDislikes = [...localDislikes];
+
+    // Calcular nuevos estados optimistas
+    let newLikes = [...localLikes];
+    let newDislikes = [...localDislikes];
+
+    if (reactionType === "like") {
+      if (previousReaction === "like") {
+        // Quitar like
+        newLikes = newLikes.filter(id => id !== user.uid);
+        setUserReaction(null);
+      } else {
+        // Agregar like, quitar dislike si existe
+        newLikes = [...newLikes.filter(id => id !== user.uid), user.uid];
+        newDislikes = newDislikes.filter(id => id !== user.uid);
+        setUserReaction("like");
+      }
+    } else if (reactionType === "dislike") {
+      if (previousReaction === "dislike") {
+        // Quitar dislike
+        newDislikes = newDislikes.filter(id => id !== user.uid);
+        setUserReaction(null);
+      } else {
+        // Agregar dislike, quitar like si existe
+        newDislikes = [...newDislikes.filter(id => id !== user.uid), user.uid];
+        newLikes = newLikes.filter(id => id !== user.uid);
+        setUserReaction("dislike");
+      }
+    } else if (reactionType === "remove") {
+      newLikes = newLikes.filter(id => id !== user.uid);
+      newDislikes = newDislikes.filter(id => id !== user.uid);
+      setUserReaction(null);
+    }
+
+    // Aplicar cambios optimistas
+    setLocalLikes(newLikes);
+    setLocalDislikes(newDislikes);
+
+    // Hacer la llamada real a Firebase
     const result = await reactToPost(post.id, reactionType);
-    if (result.success) {
-      setUserReaction(reactionType === 'remove' ? null : reactionType);
+    
+    if (!result.success) {
+      // Revertir cambios si hay error
+      setLocalLikes(previousLikes);
+      setLocalDislikes(previousDislikes);
+      setUserReaction(previousReaction);
+      console.error("Error en reacción:", result.error);
     }
   };
 
-  const canModify = user && (user.uid === post.authorId || user.role === 'moderator' || user.role === 'admin');
+  // Verificar permisos para modificar
+  const canModify = user && (
+    user.uid === post.authorId || 
+    userData?.role === 'moderator' || 
+    userData?.role === 'admin'
+  );
+
+  const handleEdit = () => {
+    setShowEditModal(true);
+    setShowMenu(false);
+  };
+
+  const handleDelete = () => {
+    setShowDeleteModal(true);
+    setShowMenu(false);
+  };
+
+  const handlePostUpdated = () => {
+    if (onPostUpdated) {
+      onPostUpdated();
+    }
+    setShowEditModal(false);
+  };
+
+  const handlePostDeleted = () => {
+    if (onPostDeleted) {
+      onPostDeleted();
+    }
+    setShowDeleteModal(false);
+  };
 
   const formatDate = (timestamp) => {
     if (!timestamp) return '';
@@ -84,136 +189,161 @@ function PostCard({ post, onCommentClick, onEdit, onDelete }) {
     return authorData.professionalInfo?.specialty || null;
   };
 
+  // Obtener aura del autor
+  const getAuthorAura = () => {
+    if (!authorData) return 0;
+    return authorData.stats?.aura || 0;
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
-      {/* Header del Post */}
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-            <FaUser className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-gray-900">{getAuthorName()}</h3>
-            {getAuthorSpecialty() && (
-              <p className="text-sm text-gray-600">{getAuthorSpecialty()}</p>
-            )}
-            <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-              <FaCalendar className="w-3 h-3" />
-              <span>{formatDate(post.createdAt)}</span>
+    <>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
+        {/* Header del Post */}
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <FaUser className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900">{getAuthorName()}</h3>
+              {getAuthorSpecialty() && (
+                <p className="text-sm text-gray-600">{getAuthorSpecialty()}</p>
+              )}
+              <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                <FaCalendar className="w-3 h-3" />
+                <span>{formatDate(post.createdAt)}</span>
+                {post.updatedAt && (
+                  <>
+                    <span>•</span>
+                    <span className="text-gray-400">Editado</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
+
+          {/* Menú de opciones */}
+          {canModify && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition duration-200"
+              >
+                <FaEllipsisH className="w-4 h-4 text-gray-500" />
+              </button>
+              
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[140px]">
+                  <button
+                    onClick={handleEdit}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 first:rounded-t-lg"
+                  >
+                    <FaEdit className="w-3 h-3" />
+                    Editar
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 last:rounded-b-lg"
+                  >
+                    <FaTrash className="w-3 h-3" />
+                    Eliminar
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Menú de opciones */}
-        {canModify && (
-          <div className="relative">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition duration-200"
-            >
-              <FaEllipsisH className="w-4 h-4 text-gray-500" />
-            </button>
-            
-            {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[120px]">
-                <button
-                  onClick={() => {
-                    onEdit(post);
-                    setShowMenu(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 first:rounded-t-lg last:rounded-b-lg"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => {
-                    onDelete(post);
-                    setShowMenu(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 first:rounded-t-lg last:rounded-b-lg"
-                >
-                  Eliminar
-                </button>
-              </div>
-            )}
+        {/* Contenido del Post */}
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-3 break-words">
+            {post.title}
+          </h2>
+          <div className="text-gray-700 whitespace-pre-line break-words leading-relaxed">
+            {post.content}
+          </div>
+        </div>
+
+        {/* Imágenes */}
+        {post.images && post.images.length > 0 && (
+          <div className="mb-4">
+            <PostImages images={post.images} />
           </div>
         )}
-      </div>
 
-      {/* Contenido del Post */}
-      <div className="mb-4">
-        <h2 className="text-xl font-bold text-gray-900 mb-3 break-words">
-          {post.title}
-        </h2>
-        <div className="text-gray-700 whitespace-pre-line break-words leading-relaxed">
-          {post.content}
-        </div>
-      </div>
+        {/* Stats y Acciones */}
+        <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+          {/* Estadísticas */}
+          <div className="flex items-center gap-4 text-sm text-gray-500">
+            <div className="flex items-center gap-1">
+              <FaComment className="w-4 h-4" />
+              <span>{post.stats?.commentCount || 0} comentarios</span>
+            </div>
+          </div>
 
-      {/* Imágenes */}
-      {post.images && post.images.length > 0 && (
-        <div className="mb-4">
-          <PostImages images={post.images} />
-        </div>
-      )}
+          {/* Acciones */}
+          <div className="flex items-center gap-2">
+            {/* Like */}
+            <button
+              onClick={() => handleReaction(userReaction === 'like' ? 'remove' : 'like')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
+                userReaction === 'like' 
+                  ? 'bg-red-50 text-red-600 border border-red-200' 
+                  : 'text-gray-600 hover:bg-gray-100 border border-transparent'
+              }`}
+            >
+              {userReaction === 'like' ? (
+                <FaHeart className="w-4 h-4" />
+              ) : (
+                <FaRegHeart className="w-4 h-4" />
+              )}
+              <span className="text-sm font-medium">{localLikes.length}</span>
+            </button>
 
-      {/* Stats y Acciones */}
-      <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-        {/* Estadísticas */}
-        <div className="flex items-center gap-4 text-sm text-gray-500">
-          <div className="flex items-center gap-1">
-            <FaComment className="w-4 h-4" />
-            <span>{post.stats?.commentCount || 0} comentarios</span>
+            {/* Dislike */}
+            <button
+              onClick={() => handleReaction(userReaction === 'dislike' ? 'remove' : 'dislike')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
+                userReaction === 'dislike' 
+                  ? 'bg-blue-50 text-blue-600 border border-blue-200' 
+                  : 'text-gray-600 hover:bg-gray-100 border border-transparent'
+              }`}
+            >
+              {userReaction === 'dislike' ? (
+                <FaThumbsDown className="w-4 h-4" />
+              ) : (
+                <FaRegThumbsDown className="w-4 h-4" />
+              )}
+              <span className="text-sm font-medium">{localDislikes.length}</span>
+            </button>
+
+            {/* Comentar */}
+            <button
+              onClick={onCommentClick}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition duration-200 border border-transparent hover:border-gray-200"
+            >
+              <FaComment className="w-4 h-4" />
+              <span className="text-sm">Comentar</span>
+            </button>
           </div>
         </div>
-
-        {/* Acciones */}
-        <div className="flex items-center gap-2">
-          {/* Like */}
-          <button
-            onClick={() => handleReaction(userReaction === 'like' ? 'remove' : 'like')}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
-              userReaction === 'like' 
-                ? 'bg-red-50 text-red-600' 
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            {userReaction === 'like' ? (
-              <FaHeart className="w-4 h-4" />
-            ) : (
-              <FaRegHeart className="w-4 h-4" />
-            )}
-            <span className="text-sm">{post.likes?.length || 0}</span>
-          </button>
-
-          {/* Dislike */}
-          <button
-            onClick={() => handleReaction(userReaction === 'dislike' ? 'remove' : 'dislike')}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
-              userReaction === 'dislike' 
-                ? 'bg-blue-50 text-blue-600' 
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            {userReaction === 'dislike' ? (
-              <FaThumbsDown className="w-4 h-4" />
-            ) : (
-              <FaRegThumbsDown className="w-4 h-4" />
-            )}
-            <span className="text-sm">{post.dislikes?.length || 0}</span>
-          </button>
-
-          {/* Comentar */}
-          <button
-            onClick={onCommentClick}
-            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition duration-200"
-          >
-            <FaComment className="w-4 h-4" />
-            <span className="text-sm">Comentar</span>
-          </button>
-        </div>
       </div>
-    </div>
+
+      {/* Modales */}
+      <EditPostModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        post={post}
+        onPostUpdated={handlePostUpdated}
+      />
+
+      <DeletePostModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        post={post}
+        onPostDeleted={handlePostDeleted}
+      />
+    </>
   );
 }
 

@@ -1,4 +1,3 @@
-// hooks/usePostActions.js
 import {
   doc,
   addDoc,
@@ -8,11 +7,60 @@ import {
   arrayUnion,
   arrayRemove,
   increment,
+  getDoc,
+  writeBatch,
+  deleteField,
 } from "firebase/firestore";
 import { db, auth } from "./../../../../config/firebase";
 
 export const usePostActions = () => {
   const user = auth.currentUser;
+
+  // Función auxiliar para verificar permisos
+  const checkPostPermissions = async (postId) => {
+    if (!user) throw new Error("Debes iniciar sesión");
+
+    const postRef = doc(db, "posts", postId);
+    const postDoc = await getDoc(postRef);
+
+    if (!postDoc.exists()) throw new Error("Publicación no encontrada");
+
+    const postData = postDoc.data();
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    const userData = userDoc.data();
+
+    // Verificar si puede modificar (autor, moderador o admin)
+    const isAuthor = postData.authorId === user.uid;
+    const isModeratorOrAdmin = ["moderator", "admin"].includes(userData?.role);
+    const isForumModerator = await checkForumModeration(postData.forumId);
+
+    if (!isAuthor && !isModeratorOrAdmin && !isForumModerator) {
+      throw new Error("No tienes permisos para modificar esta publicación");
+    }
+
+    return {
+      postData,
+      userData,
+      isAuthor,
+      isModeratorOrAdmin,
+      isForumModerator,
+    };
+  };
+
+  // Verificar si es moderador del foro
+  const checkForumModeration = async (forumId) => {
+    try {
+      const forumRef = doc(db, "forums", forumId);
+      const forumDoc = await getDoc(forumRef);
+
+      if (!forumDoc.exists()) return false;
+
+      const forumData = forumDoc.data();
+      return forumData.moderators && forumData.moderators[user.uid];
+    } catch (error) {
+      return false;
+    }
+  };
 
   // Crear nuevo post
   const createPost = async (postData) => {
@@ -42,8 +90,6 @@ export const usePostActions = () => {
           viewCount: 0,
         },
         status: "active",
-        isDeleted: false,
-        deletedAt: null,
       };
 
       const docRef = await addDoc(collection(db, "posts"), newPost);
@@ -70,7 +116,7 @@ export const usePostActions = () => {
   // Editar post
   const editPost = async (postId, updates) => {
     try {
-      if (!user) throw new Error("Debes iniciar sesión");
+      const { postData } = await checkPostPermissions(postId);
 
       const postRef = doc(db, "posts", postId);
 
@@ -86,27 +132,52 @@ export const usePostActions = () => {
     }
   };
 
-  // Eliminar post (soft delete)
-  const deletePost = async (postId, forumId) => {
+  // Eliminar post - MOVIENDO A deleted_posts
+  const deletePost = async (postId, deleteReason = "user_deleted") => {
     try {
-      if (!user) throw new Error("Debes iniciar sesión");
+      const { postData, isAuthor } = await checkPostPermissions(postId);
 
-      const postRef = doc(db, "posts", postId);
+      // Usar Batch para operación atómica
+      const batch = writeBatch(db);
 
-      await updateDoc(postRef, {
-        isDeleted: true,
+      // 1. Copiar post a deleted_posts
+      const deletedPostRef = doc(collection(db, "deleted_posts"), postId);
+      batch.set(deletedPostRef, {
+        ...postData,
+        id: postId,
         deletedAt: serverTimestamp(),
+        deletedBy: user.uid,
+        deleteReason: deleteReason,
+        originalForumId: postData.forumId,
+        statsAtDeletion: {
+          likes: postData.likes?.length || 0,
+          dislikes: postData.dislikes?.length || 0,
+          comments: postData.stats?.commentCount || 0,
+          views: postData.stats?.viewCount || 0,
+        },
       });
 
-      // Actualizar contador del foro
-      await updateDoc(doc(db, "forums", forumId), {
+      // 2. Eliminar post original de la colección activa
+      const postRef = doc(db, "posts", postId);
+      batch.delete(postRef);
+
+      // 3. Actualizar contador del foro
+      const forumRef = doc(db, "forums", postData.forumId);
+      batch.update(forumRef, {
         postCount: increment(-1),
       });
 
-      // Actualizar estadísticas del usuario
-      await updateDoc(doc(db, "users", user.uid), {
-        "stats.postCount": increment(-1),
-      });
+      // 4. Actualizar estadísticas del usuario solo si es el autor
+      if (isAuthor) {
+        const userRef = doc(db, "users", user.uid);
+        batch.update(userRef, {
+          "stats.postCount": increment(-1),
+          "stats.contributionCount": increment(-1),
+        });
+      }
+
+      // Ejecutar batch atómico
+      await batch.commit();
 
       return { success: true };
     } catch (error) {
@@ -121,21 +192,84 @@ export const usePostActions = () => {
       if (!user) throw new Error("Debes iniciar sesión");
 
       const postRef = doc(db, "posts", postId);
-      const updates = {};
+      const postDoc = await getDoc(postRef);
 
+      if (!postDoc.exists()) throw new Error("Publicación no encontrada");
+
+      const postData = postDoc.data();
+      const authorId = postData.authorId;
+
+      // Determinar cambios en el aura
+      let auraChange = 0;
+      const currentLikes = postData.likes || [];
+      const currentDislikes = postData.dislikes || [];
+
+      const wasLiked = currentLikes.includes(user.uid);
+      const wasDisliked = currentDislikes.includes(user.uid);
+
+      // Calcular cambio en aura basado en reacción anterior y nueva
       if (reactionType === "like") {
-        updates.likes = arrayUnion(user.uid);
-        updates.dislikes = arrayRemove(user.uid);
+        if (wasLiked) {
+          // Quitar like: -1 al aura
+          auraChange = -1;
+        } else if (wasDisliked) {
+          // Cambiar de dislike a like: +2 al aura (quitar dislike +1, agregar like +1)
+          auraChange = 2;
+        } else {
+          // Nuevo like: +1 al aura
+          auraChange = 1;
+        }
       } else if (reactionType === "dislike") {
-        updates.dislikes = arrayUnion(user.uid);
-        updates.likes = arrayRemove(user.uid);
+        if (wasDisliked) {
+          // Quitar dislike: +1 al aura
+          auraChange = 1;
+        } else if (wasLiked) {
+          // Cambiar de like a dislike: -2 al aura (quitar like -1, agregar dislike -1)
+          auraChange = -2;
+        } else {
+          // Nuevo dislike: -1 al aura
+          auraChange = -1;
+        }
       } else if (reactionType === "remove") {
-        updates.likes = arrayRemove(user.uid);
-        updates.dislikes = arrayRemove(user.uid);
+        // Remover todas las reacciones
+        if (wasLiked) {
+          auraChange = -1; // Se quita un like
+        } else if (wasDisliked) {
+          auraChange = 1; // Se quita un dislike
+        }
       }
 
-      await updateDoc(postRef, updates);
-      return { success: true };
+      // Usar batch para operación atómica
+      const batch = writeBatch(db);
+
+      // 1. Actualizar reacciones del post
+      if (reactionType === "like") {
+        batch.update(postRef, {
+          likes: arrayUnion(user.uid),
+          dislikes: arrayRemove(user.uid),
+        });
+      } else if (reactionType === "dislike") {
+        batch.update(postRef, {
+          dislikes: arrayUnion(user.uid),
+          likes: arrayRemove(user.uid),
+        });
+      } else if (reactionType === "remove") {
+        batch.update(postRef, {
+          likes: arrayRemove(user.uid),
+          dislikes: arrayRemove(user.uid),
+        });
+      }
+
+      // 2. Actualizar aura del autor SOLO si hay cambio y no es el mismo usuario
+      if (auraChange !== 0 && authorId !== user.uid) {
+        const authorRef = doc(db, "users", authorId);
+        batch.update(authorRef, {
+          "stats.aura": increment(auraChange),
+        });
+      }
+
+      await batch.commit();
+      return { success: true, auraChange };
     } catch (error) {
       console.error("Error reaccionando al post:", error);
       return { success: false, error: error.message };
@@ -149,6 +283,3 @@ export const usePostActions = () => {
     reactToPost,
   };
 };
-
-// Necesitamos importar getDoc
-import { getDoc } from "firebase/firestore";

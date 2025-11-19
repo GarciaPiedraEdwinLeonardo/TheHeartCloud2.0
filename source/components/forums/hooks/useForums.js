@@ -1,4 +1,3 @@
-// hooks/useForums.js
 import { useState, useEffect } from "react";
 import {
   collection,
