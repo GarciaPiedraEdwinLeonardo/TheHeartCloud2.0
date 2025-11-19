@@ -9,6 +9,7 @@ import {
   deleteField,
   arrayUnion,
   arrayRemove,
+  writeBatch,
 } from "firebase/firestore";
 import { db, auth } from "./../../../config/firebase";
 
@@ -71,8 +72,12 @@ export const useForumActions = () => {
           "• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional",
         ownerId: user.uid,
         createdAt: serverTimestamp(),
+        membershipSettings: {
+          requiresApproval: forumData.requiresApproval || false
+        },
         members: [user.uid],
         memberCount: 1,
+        pendingMembers: {},
         status: "active",
         disabledAt: null,
         disabledBy: null,
@@ -101,7 +106,7 @@ export const useForumActions = () => {
     }
   };
 
-  // Unirse a comunidad
+  // Unirse a comunidad 
   const joinForum = async (forumId) => {
     try {
       if (!user)
@@ -119,18 +124,155 @@ export const useForumActions = () => {
         throw new Error("Ya eres miembro de esta comunidad");
       }
 
-      // Actualizar el foro
-      await updateDoc(forumRef, {
-        members: arrayUnion(user.uid),
+      // Verificar que no tenga solicitud pendiente
+      if (forumData.pendingMembers && forumData.pendingMembers[user.uid]) {
+        throw new Error("Ya tienes una solicitud pendiente");
+      }
+
+      // Obtener datos del usuario
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+      const userData = userDoc.data();
+
+      // Si requiere aprobación, agregar a pendientes
+      if (forumData.membershipSettings?.requiresApproval) {
+        await updateDoc(forumRef, {
+          [`pendingMembers.${user.uid}`]: {
+            requestedAt: serverTimestamp(),
+            userEmail: userData?.email || "Email no disponible",
+            userName: userData?.name ? 
+              `${userData.name.name || ''} ${userData.name.apellidopat || ''} ${userData.name.apellidomat || ''}`.trim() 
+              : 'Usuario',
+            userRole: userData?.role || 'unverified'
+          }
+        });
+
+        return { 
+          success: true, 
+          requiresApproval: true,
+          message: "Solicitud enviada. Espera la aprobación de un moderador."
+        };
+      } else {
+        // Entrada libre - unirse directamente
+        await updateDoc(forumRef, {
+          members: arrayUnion(user.uid),
+          memberCount: increment(1),
+        });
+
+        // Actualizar estadísticas del usuario
+        await updateUserStats(user.uid, "forum_joined", forumId);
+
+        return { success: true, requiresApproval: false };
+      }
+    } catch (error) {
+      console.error("Error uniéndose a comunidad:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const approveMember = async (forumId, userId) => {
+    try {
+      if (!user) throw new Error("Debes iniciar sesión");
+
+      const forumRef = doc(db, "forums", forumId);
+      const forumDoc = await getDoc(forumRef);
+
+      if (!forumDoc.exists()) throw new Error("Comunidad no encontrada");
+
+      const forumData = forumDoc.data();
+
+      // Verificar permisos (dueño o moderador)
+      const isOwner = forumData.ownerId === user.uid;
+      const isModerator = forumData.moderators && forumData.moderators[user.uid];
+      
+      if (!isOwner && !isModerator) {
+        throw new Error("Solo dueños y moderadores pueden aprobar miembros");
+      }
+
+      // Verificar que existe solicitud pendiente
+      if (!forumData.pendingMembers || !forumData.pendingMembers[userId]) {
+        throw new Error("No hay solicitud pendiente para este usuario");
+      }
+
+      // Usar batch para operación atómica
+      const batch = writeBatch(db);
+
+      // 1. Agregar a miembros
+      batch.update(forumRef, {
+        members: arrayUnion(userId),
         memberCount: increment(1),
       });
 
-      // Actualizar estadísticas del usuario
-      await updateUserStats(user.uid, "forum_joined", forumId);
+      // 2. Remover de pendientes
+      batch.update(forumRef, {
+        [`pendingMembers.${userId}`]: deleteField()
+      });
+
+      await batch.commit();
+
+      // Actualizar estadísticas del usuario aprobado
+      await updateUserStats(userId, "forum_joined", forumId);
 
       return { success: true };
     } catch (error) {
-      console.error("Error uniéndose a comunidad:", error);
+      console.error("Error aprobando miembro:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const rejectMember = async (forumId, userId) => {
+    try {
+      if (!user) throw new Error("Debes iniciar sesión");
+
+      const forumRef = doc(db, "forums", forumId);
+      const forumDoc = await getDoc(forumRef);
+
+      if (!forumDoc.exists()) throw new Error("Comunidad no encontrada");
+
+      const forumData = forumDoc.data();
+
+      // Verificar permisos (dueño o moderador)
+      const isOwner = forumData.ownerId === user.uid;
+      const isModerator = forumData.moderators && forumData.moderators[user.uid];
+      
+      if (!isOwner && !isModerator) {
+        throw new Error("Solo dueños y moderadores pueden rechazar miembros");
+      }
+
+      // Remover de pendientes
+      await updateDoc(forumRef, {
+        [`pendingMembers.${userId}`]: deleteField()
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error rechazando miembro:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const updateMembershipSettings = async (forumId, requiresApproval) => {
+    try {
+      if (!user) throw new Error("Debes iniciar sesión");
+
+      const forumRef = doc(db, "forums", forumId);
+      const forumDoc = await getDoc(forumRef);
+
+      if (!forumDoc.exists()) throw new Error("Comunidad no encontrada");
+
+      const forumData = forumDoc.data();
+
+      // Solo el dueño puede cambiar esta configuración
+      if (forumData.ownerId !== user.uid) {
+        throw new Error("Solo el dueño puede cambiar la configuración de membresía");
+      }
+
+      await updateDoc(forumRef, {
+        "membershipSettings.requiresApproval": requiresApproval
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Error actualizando configuración:", error);
       return { success: false, error: error.message };
     }
   };
@@ -304,5 +446,8 @@ export const useForumActions = () => {
     removeModerator,
     checkUserMembership,
     getForumData,
+    approveMember,
+    rejectMember,
+    updateMembershipSettings
   };
 };

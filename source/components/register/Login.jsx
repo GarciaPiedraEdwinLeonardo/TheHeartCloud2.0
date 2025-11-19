@@ -83,8 +83,9 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             
         } catch (error) {
             setError(getErrorMessage(error.code));
+        } finally {
             setLoading(false);
-        } 
+        }
     };
 
     const getErrorMessage = (errorCode) => {    

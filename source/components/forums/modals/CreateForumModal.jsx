@@ -1,4 +1,3 @@
-// modals/CreateForumModal.jsx
 import { useState } from 'react';
 import { FaTimes, FaSpinner, FaUsers, FaInfoCircle } from 'react-icons/fa';
 import { useForumActions } from './../hooks/useForumsActions';
