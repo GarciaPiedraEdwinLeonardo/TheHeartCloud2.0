@@ -1,4 +1,3 @@
-// hooks/usePostUpload.js
 import { useState } from "react";
 import cloudinaryConfig from "./../../../../config/cloudinary";
 

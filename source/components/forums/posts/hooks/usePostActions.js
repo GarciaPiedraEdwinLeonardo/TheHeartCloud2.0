@@ -89,16 +89,19 @@ export const usePostActions = () => {
           commentCount: 0,
           viewCount: 0,
         },
-        status: "active",
+        status: postData.status || "active",
       };
 
       const docRef = await addDoc(collection(db, "posts"), newPost);
 
-      // Actualizar contador de posts en el foro
-      await updateDoc(doc(db, "forums", postData.forumId), {
-        postCount: increment(1),
-        lastPostAt: serverTimestamp(),
-      });
+      // Solo incrementar el contador si el post está activo
+      if (newPost.status === "active") {
+        // Actualizar contador de posts en el foro
+        await updateDoc(doc(db, "forums", postData.forumId), {
+          postCount: increment(1),
+          lastPostAt: serverTimestamp(),
+        });
+      }
 
       // Actualizar estadísticas del usuario
       await updateDoc(doc(db, "users", user.uid), {

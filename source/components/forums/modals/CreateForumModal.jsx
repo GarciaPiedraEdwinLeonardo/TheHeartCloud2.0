@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { FaTimes, FaSpinner, FaUsers, FaInfoCircle } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaUsers, FaInfoCircle, FaLock, FaUnlock } from 'react-icons/fa';
 import { useForumActions } from './../hooks/useForumsActions';
 
 function CreateForumModal({ isOpen, onClose, onForumCreated }) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    rules: '• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional'
+    rules: '• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional',
+    requiresApproval: false  // NUEVO: Por defecto entrada libre
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -14,10 +15,10 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
   const { createForum } = useForumActions();
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
     setError('');
   };
@@ -47,17 +48,15 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
       const result = await createForum(formData);
       
       if (result.success) {
-        // Notificar al componente padre
         if (onForumCreated) {
           onForumCreated(result.forum);
         }
-
-        // Cerrar modal y resetear formulario
         onClose();
         setFormData({
           name: '',
           description: '',
-          rules: '• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional'
+          rules: '• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional',
+          requiresApproval: false
         });
       } else {
         setError(result.error);
@@ -142,6 +141,76 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
               </p>
             </div>
 
+            {/* NUEVO: Configuración de Membresía */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-4">
+                Configuración de Membresía
+              </label>
+              
+              <div className="space-y-4">
+                {/* Opción 1: Entrada libre */}
+                <label className={`flex items-start p-4 border rounded-lg cursor-pointer transition duration-200 ${
+                  !formData.requiresApproval
+                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500 ring-opacity-50'
+                    : 'border-gray-300 hover:bg-gray-50'
+                }`}>
+                  <div className="flex items-center h-5 mt-0.5">
+                    <input
+                      type="radio"
+                      name="requiresApproval"
+                      checked={!formData.requiresApproval}
+                      onChange={() => setFormData(prev => ({ ...prev, requiresApproval: false }))}
+                      disabled={loading}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FaUnlock className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-gray-900">Entrada Libre</span>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      Los usuarios pueden unirse directamente sin necesidad de aprobación.
+                    </p>
+                  </div>
+                </label>
+
+                {/* Opción 2: Requiere aprobación */}
+                <label className={`flex items-start p-4 border rounded-lg cursor-pointer transition duration-200 ${
+                  formData.requiresApproval
+                    ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500 ring-opacity-50'
+                    : 'border-gray-300 hover:bg-gray-50'
+                }`}>
+                  <div className="flex items-center h-5 mt-0.5">
+                    <input
+                      type="radio"
+                      name="requiresApproval"
+                      checked={formData.requiresApproval}
+                      onChange={() => setFormData(prev => ({ ...prev, requiresApproval: true }))}
+                      disabled={loading}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <FaLock className="w-4 h-4 text-orange-600" />
+                      <span className="text-sm font-medium text-gray-900">Requiere Aprobación</span>
+                    </div>
+                    <p className="text-xs text-gray-600">
+                      Los usuarios solicitan unirse y necesitan aprobación de un moderador.
+                    </p>
+                  </div>
+                </label>
+              </div>
+              
+              <p className="text-xs text-gray-500 mt-2">
+                {formData.requiresApproval 
+                  ? 'Los usuarios enviarán solicitudes que deberás aprobar manualmente.'
+                  : 'Cualquier usuario verificado podrá unirse automáticamente.'
+                }
+              </p>
+            </div>
+
             {/* Reglas de la Comunidad */}
             <div className="mb-6">
               <label htmlFor="rules" className="block text-sm font-medium text-gray-700 mb-2">
@@ -174,7 +243,10 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                     <li>• Puedes agregar más moderadores después</li>
                     <li>• Eres responsable del contenido en tu comunidad</li>
                     <li>• Las comunidades deben seguir las normas de TheHeartCloud</li>
-                    <li>• Todas las comunidades son públicas por defecto</li>
+                    <li>• {formData.requiresApproval 
+                      ? 'Aprobarás manualmente las solicitudes de membresía' 
+                      : 'Los usuarios podrán unirse libremente'
+                    }</li>
                   </ul>
                 </div>
               </div>

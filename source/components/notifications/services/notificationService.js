@@ -201,9 +201,128 @@ export const notificationService = {
         expiresAt: getExpirationDate(),
       });
 
-      console.log(`✅ Sanción enviada por: ${moderatorEmail}`);
+      console.log(`Sanción enviada por: ${moderatorEmail}`);
     } catch (error) {
       console.error("Error en notificación de sanción:", error);
+    }
+  },
+
+  sendPostApproved: async (userId, forumId, forumName) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        userId,
+        type: "post_approved",
+        title: "Publicación Aprobada",
+        message: `Tu publicación en "${forumName}" ha sido aprobada y ahora es visible para todos.`,
+        isRead: false,
+        isActionable: false,
+        actionData: { forumId, forumName },
+        createdAt: new Date(),
+        expiresAt: getExpirationDate(),
+      });
+      console.log(`Notificación de post aprobado enviada a: ${userId}`);
+    } catch (error) {
+      console.error("Error en notificación de post aprobado:", error);
+    }
+  },
+
+  sendPostRejected: async (userId, forumId, forumName, reason) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        userId,
+        type: "post_rejected",
+        title: "Publicación Rechazada",
+        message: `Tu publicación en "${forumName}" fue rechazada. Motivo: ${reason}`,
+        isRead: false,
+        isActionable: true,
+        actionData: {
+          forumId,
+          forumName,
+          reason,
+          actionRequired: "edit_and_resubmit",
+        },
+        createdAt: new Date(),
+        expiresAt: getExpirationDate(),
+      });
+      console.log(`Notificación de post rechazado enviada a: ${userId}`);
+    } catch (error) {
+      console.error("Error en notificación de post rechazado:", error);
+    }
+  },
+
+  sendModeratorAssigned: async (userId, forumName) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        userId,
+        type: "moderator_assigned",
+        title: "Eres ahora moderador",
+        message: `Has sido asignado como moderador en la comunidad "${forumName}". Ahora puedes gestionar publicaciones y miembros.`,
+        isRead: false,
+        isActionable: false,
+        actionData: { forumName },
+        createdAt: new Date(),
+        expiresAt: getExpirationDate(),
+      });
+      console.log(`Notificación de moderador asignado enviada a: ${userId}`);
+    } catch (error) {
+      console.error("Error en notificación de moderador:", error);
+    }
+  },
+
+  sendCommunityBan: async (userId, forumName, reason, duration) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        userId,
+        type: "community_ban",
+        title: "Baneado de comunidad",
+        message: `Has sido baneado de "${forumName}". Motivo: ${reason} - Duración: ${duration}`,
+        isRead: false,
+        isActionable: false,
+        actionData: { forumName, reason, duration },
+        createdAt: new Date(),
+        expiresAt: getExpirationDate(),
+      });
+      console.log(`Notificación de ban de comunidad enviada a: ${userId}`);
+    } catch (error) {
+      console.error("Error en notificación de ban:", error);
+    }
+  },
+
+  sendMembershipApproved: async (userId, forumName) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        userId,
+        type: "membership_approved",
+        title: "Solicitud aprobada",
+        message: `Tu solicitud para unirte a "${forumName}" ha sido aprobada. ¡Bienvenido!`,
+        isRead: false,
+        isActionable: false,
+        actionData: { forumName },
+        createdAt: new Date(),
+        expiresAt: getExpirationDate(),
+      });
+      console.log(`Notificación de membresía aprobada enviada a: ${userId}`);
+    } catch (error) {
+      console.error("Error en notificación de membresía:", error);
+    }
+  },
+
+  sendOwnershipTransferred: async (userId, forumName) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        userId,
+        type: "ownership_transferred",
+        title: "👑 Eres ahora dueño",
+        message: `Has sido asignado como dueño de la comunidad "${forumName}". Ahora tienes control total.`,
+        isRead: false,
+        isActionable: false,
+        actionData: { forumName },
+        createdAt: new Date(),
+        expiresAt: getExpirationDate(),
+      });
+      console.log(`✅ Notificación de transferencia enviada a: ${userId}`);
+    } catch (error) {
+      console.error("Error en notificación de transferencia:", error);
     }
   },
 };

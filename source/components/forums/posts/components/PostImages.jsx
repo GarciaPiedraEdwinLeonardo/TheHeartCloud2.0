@@ -1,4 +1,3 @@
-// components/PostImages.jsx
 import { useState } from 'react';
 import { FaExpand, FaTimes } from 'react-icons/fa';
 

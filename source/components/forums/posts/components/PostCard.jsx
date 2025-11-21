@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
-import { FaHeart, FaRegHeart, FaThumbsDown, FaRegThumbsDown, FaComment, FaEllipsisH, FaUser, FaCalendar, FaEdit, FaTrash } from 'react-icons/fa';
+import { 
+  FaHeart, FaRegHeart, FaThumbsDown, FaRegThumbsDown, FaComment, 
+  FaEllipsisH, FaUser, FaCalendar, FaEdit, FaTrash, FaBan,
+  FaClock, FaCheckCircle, FaTimesCircle
+} from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
 import { auth, db } from './../../../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -7,7 +11,17 @@ import PostImages from './PostImages';
 import EditPostModal from './../modals/EditPostModal';
 import DeletePostModal from './../modals/DeletePostModal';
 
-function PostCard({ post, onCommentClick, onPostUpdated, onPostDeleted }) {
+function PostCard({ 
+  post, 
+  onCommentClick, 
+  onPostUpdated, 
+  onPostDeleted, 
+  onDeleteContent, 
+  onBanUser,
+  userRole,
+  userMembership,
+  requiresPostApproval 
+}) {
   const [showMenu, setShowMenu] = useState(false);
   const [userReaction, setUserReaction] = useState(null);
   const [authorData, setAuthorData] = useState(null);
@@ -123,11 +137,10 @@ function PostCard({ post, onCommentClick, onPostUpdated, onPostDeleted }) {
   };
 
   // Verificar permisos para modificar
-  const canModify = user && (
-    user.uid === post.authorId || 
-    userData?.role === 'moderator' || 
-    userData?.role === 'admin'
-  );
+  const isAuthor = user && user.uid === post.authorId;
+  const isModerator = ['owner', 'moderator'].includes(userMembership?.role);
+  const canModify = user && (isAuthor || userData?.role === 'moderator' || userData?.role === 'admin');
+  const canModerate = user && (isModerator || userData?.role === 'moderator' || userData?.role === 'admin');
 
   const handleEdit = () => {
     setShowEditModal(true);
@@ -136,6 +149,23 @@ function PostCard({ post, onCommentClick, onPostUpdated, onPostDeleted }) {
 
   const handleDelete = () => {
     setShowDeleteModal(true);
+    setShowMenu(false);
+  };
+
+  const handleModeratorDelete = () => {
+    if (onDeleteContent) {
+      onDeleteContent(post, 'post');
+    }
+    setShowMenu(false);
+  };
+
+  const handleBanAuthor = () => {
+    if (authorData && onBanUser) {
+      onBanUser({
+        id: post.authorId,
+        ...authorData
+      });
+    }
     setShowMenu(false);
   };
 
@@ -195,6 +225,22 @@ function PostCard({ post, onCommentClick, onPostUpdated, onPostDeleted }) {
     return authorData.stats?.aura || 0;
   };
 
+  // Determinar estado del post
+  const getPostStatus = () => {
+    if (post.status === 'pending') {
+      return { label: 'Pendiente de aprobación', color: 'bg-yellow-100 text-yellow-800', icon: FaClock };
+    }
+    if (post.status === 'rejected') {
+      return { label: 'Rechazado', color: 'bg-red-100 text-red-800', icon: FaTimesCircle };
+    }
+    if (post.validatedAt) {
+      return { label: 'Verificado', color: 'bg-green-100 text-green-800', icon: FaCheckCircle };
+    }
+    return null;
+  };
+
+  const postStatus = getPostStatus();
+
   return (
     <>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
@@ -222,36 +268,75 @@ function PostCard({ post, onCommentClick, onPostUpdated, onPostDeleted }) {
             </div>
           </div>
 
-          {/* Menú de opciones */}
-          {canModify && (
-            <div className="relative">
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition duration-200"
-              >
-                <FaEllipsisH className="w-4 h-4 text-gray-500" />
-              </button>
-              
-              {showMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[140px]">
-                  <button
-                    onClick={handleEdit}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 first:rounded-t-lg"
-                  >
-                    <FaEdit className="w-3 h-3" />
-                    Editar
-                  </button>
-                  <button
-                    onClick={handleDelete}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 last:rounded-b-lg"
-                  >
-                    <FaTrash className="w-3 h-3" />
-                    Eliminar
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Estado del post y menú de opciones */}
+          <div className="flex items-center gap-2">
+            {postStatus && (
+              <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${postStatus.color}`}>
+                <postStatus.icon className="w-3 h-3" />
+                {postStatus.label}
+              </span>
+            )}
+            
+            {(canModify || canModerate) && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition duration-200"
+                >
+                  <FaEllipsisH className="w-4 h-4 text-gray-500" />
+                </button>
+                
+                {showMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                    {/* Acciones del autor */}
+                    {isAuthor && post.status !== 'rejected' && (
+                      <button
+                        onClick={handleEdit}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <FaEdit className="w-3 h-3" />
+                        Editar
+                      </button>
+                    )}
+                    
+                    {isAuthor && (
+                      <button
+                        onClick={handleDelete}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <FaTrash className="w-3 h-3" />
+                        Eliminar
+                      </button>
+                    )}
+
+                    {/* Separador para acciones de moderación */}
+                    {canModerate && (
+                      <>
+                        <div className="border-t border-gray-200 my-1"></div>
+                        <div className="px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50">
+                          Moderación
+                        </div>
+                        <button
+                          onClick={handleModeratorDelete}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        >
+                          <FaTrash className="w-3 h-3" />
+                          Eliminar como moderador
+                        </button>
+                        <button
+                          onClick={handleBanAuthor}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                        >
+                          <FaBan className="w-3 h-3" />
+                          Banear autor
+                        </button>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Contenido del Post */}
@@ -262,6 +347,14 @@ function PostCard({ post, onCommentClick, onPostUpdated, onPostDeleted }) {
           <div className="text-gray-700 whitespace-pre-line break-words leading-relaxed">
             {post.content}
           </div>
+
+          {/* Motivo de rechazo */}
+          {post.status === 'rejected' && post.rejectionReason && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm font-medium text-red-800 mb-1">Motivo de rechazo:</p>
+              <p className="text-sm text-red-700">{post.rejectionReason}</p>
+            </div>
+          )}
         </div>
 
         {/* Imágenes */}
@@ -281,51 +374,60 @@ function PostCard({ post, onCommentClick, onPostUpdated, onPostDeleted }) {
             </div>
           </div>
 
-          {/* Acciones */}
-          <div className="flex items-center gap-2">
-            {/* Like */}
-            <button
-              onClick={() => handleReaction(userReaction === 'like' ? 'remove' : 'like')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
-                userReaction === 'like' 
-                  ? 'bg-red-50 text-red-600 border border-red-200' 
-                  : 'text-gray-600 hover:bg-gray-100 border border-transparent'
-              }`}
-            >
-              {userReaction === 'like' ? (
-                <FaHeart className="w-4 h-4" />
-              ) : (
-                <FaRegHeart className="w-4 h-4" />
-              )}
-              <span className="text-sm font-medium">{localLikes.length}</span>
-            </button>
+          {/* Acciones - Solo mostrar si el post está activo o el usuario es moderador */}
+          {(post.status === 'active' || canModerate) && (
+            <div className="flex items-center gap-2">
+              {/* Like */}
+              <button
+                onClick={() => handleReaction(userReaction === 'like' ? 'remove' : 'like')}
+                disabled={post.status !== 'active'}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
+                  userReaction === 'like' 
+                    ? 'bg-red-50 text-red-600 border border-red-200' 
+                    : 'text-gray-600 hover:bg-gray-100 border border-transparent'
+                } ${post.status !== 'active' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {userReaction === 'like' ? (
+                  <FaHeart className="w-4 h-4" />
+                ) : (
+                  <FaRegHeart className="w-4 h-4" />
+                )}
+                <span className="text-sm font-medium">{localLikes.length}</span>
+              </button>
 
-            {/* Dislike */}
-            <button
-              onClick={() => handleReaction(userReaction === 'dislike' ? 'remove' : 'dislike')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
-                userReaction === 'dislike' 
-                  ? 'bg-blue-50 text-blue-600 border border-blue-200' 
-                  : 'text-gray-600 hover:bg-gray-100 border border-transparent'
-              }`}
-            >
-              {userReaction === 'dislike' ? (
-                <FaThumbsDown className="w-4 h-4" />
-              ) : (
-                <FaRegThumbsDown className="w-4 h-4" />
-              )}
-              <span className="text-sm font-medium">{localDislikes.length}</span>
-            </button>
+              {/* Dislike */}
+              <button
+                onClick={() => handleReaction(userReaction === 'dislike' ? 'remove' : 'dislike')}
+                disabled={post.status !== 'active'}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
+                  userReaction === 'dislike' 
+                    ? 'bg-blue-50 text-blue-600 border border-blue-200' 
+                    : 'text-gray-600 hover:bg-gray-100 border border-transparent'
+                } ${post.status !== 'active' ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                {userReaction === 'dislike' ? (
+                  <FaThumbsDown className="w-4 h-4" />
+                ) : (
+                  <FaRegThumbsDown className="w-4 h-4" />
+                )}
+                <span className="text-sm font-medium">{localDislikes.length}</span>
+              </button>
 
-            {/* Comentar */}
-            <button
-              onClick={onCommentClick}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition duration-200 border border-transparent hover:border-gray-200"
-            >
-              <FaComment className="w-4 h-4" />
-              <span className="text-sm">Comentar</span>
-            </button>
-          </div>
+              {/* Comentar */}
+              <button
+                onClick={onCommentClick}
+                disabled={post.status !== 'active'}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
+                  post.status === 'active' 
+                    ? 'text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200' 
+                    : 'opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <FaComment className="w-4 h-4" />
+                <span className="text-sm">Comentar</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

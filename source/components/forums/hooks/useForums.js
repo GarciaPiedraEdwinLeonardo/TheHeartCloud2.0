@@ -18,9 +18,9 @@ export const useForums = () => {
     const q = query(
       collection(db, "forums"),
       where("isDeleted", "==", false),
-      where("status", "==", "active"), // Solo comunidades activas
-      orderBy("memberCount", "desc"), // Ordenar por miembros (más relevantes)
-      limit(10) // Solo 10 comunidades
+      where("status", "==", "active"),
+      orderBy("memberCount", "desc"),
+      limit(10)
     );
 
     const unsubscribe = onSnapshot(
@@ -33,9 +33,7 @@ export const useForums = () => {
             forumsData.push({
               id: doc.id,
               ...data,
-              // Asegurar que memberCount esté definido
               memberCount: data.memberCount || 0,
-              // Asegurar que createdAt esté disponible
               createdAt: data.createdAt?.toDate?.() || new Date(),
             });
           });
@@ -55,7 +53,8 @@ export const useForums = () => {
       }
     );
 
-    return unsubscribe;
+    // Retornar función de cleanup correctamente
+    return () => unsubscribe();
   }, []);
 
   return { forums, loading, error };
