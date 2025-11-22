@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { FaSpinner, FaCheck, FaTimes, FaEye, FaUser } from 'react-icons/fa';
 import { usePostModeration } from '../hooks/usePostModeration';
-import { db } from './../../../config/firebase';
+import { auth, db } from '../../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
-function PostValidationModal({ isOpen, onClose, forumId, forumName }) {
+function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValidated }) {
   const [pendingPosts, setPendingPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
@@ -51,7 +51,13 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName }) {
     setActionLoading(prev => ({ ...prev, [postId]: 'validating' }));
     const result = await validatePost(postId, forumId, forumName);
     if (result.success) {
+      // Actualizar UI inmediatamente
       setPendingPosts(prev => prev.filter(post => post.id !== postId));
+      if (onPostsValidated) {
+        onPostsValidated();
+      }
+    } else {
+      alert(`Error al validar: ${result.error}`);
     }
     setActionLoading(prev => ({ ...prev, [postId]: null }));
   };
@@ -65,9 +71,16 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName }) {
     setActionLoading(prev => ({ ...prev, [postId]: 'rejecting' }));
     const result = await rejectPost(postId, forumId, forumName, rejectReason);
     if (result.success) {
+      // Actualizar UI inmediatamente - EL POST SE ELIMINA COMPLETAMENTE
       setPendingPosts(prev => prev.filter(post => post.id !== postId));
       setRejectReason('');
       setSelectedPost(null);
+      
+      if (onPostsValidated) {
+        onPostsValidated();
+      }
+    } else {
+      alert(`Error al rechazar: ${result.error}`);
     }
     setActionLoading(prev => ({ ...prev, [postId]: null }));
   };
@@ -94,12 +107,15 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl my-8 max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Validar Publicaciones</h2>
-            <p className="text-sm text-gray-600 mt-1">Revisa y aprueba publicaciones pendientes en {forumName}</p>
+            <p className="text-sm text-gray-600 mt-1">
+              Revisa y aprueba publicaciones pendientes en {forumName}
+              {pendingPosts.length > 0 && ` - ${pendingPosts.length} pendiente(s)`}
+            </p>
           </div>
           <button 
             onClick={onClose}
@@ -192,6 +208,9 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName }) {
                           placeholder="Explica por qué rechazas esta publicación..."
                           maxLength={500}
                         />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {rejectReason.length}/500 caracteres
+                        </p>
                         <div className="flex gap-3 mt-3">
                           <button
                             onClick={() => {
@@ -220,9 +239,14 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName }) {
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0">
             <div className="flex justify-between items-center text-sm text-gray-600">
-              <span>{pendingPosts.length} publicaciones pendientes</span>
+              <span>
+                {pendingPosts.length === 0 
+                  ? 'No hay publicaciones pendientes' 
+                  : `${pendingPosts.length} publicación(es) pendiente(s)`
+                }
+              </span>
               <button
                 onClick={onClose}
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium"
