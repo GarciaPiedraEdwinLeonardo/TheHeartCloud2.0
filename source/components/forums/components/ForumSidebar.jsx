@@ -11,13 +11,14 @@ import {
     FaCalendar, 
     FaLock,
     FaSpinner,
-    FaClock 
+    FaClock,
+    FaBan 
   } from 'react-icons/fa';
   
   function ForumSidebar({ 
     canPost, canPostWithoutApproval, isVerified, canReport, isOwner, isModerator, 
     requiresApproval, requiresPostApproval, pendingRequestsCount, pendingPostsCount,
-    userMembership, actionLoading, hasPendingRequest, forumDetails,
+    userMembership, actionLoading, hasPendingRequest, forumDetails, isUserBanned,
     onCreatePost, onJoinLeave, onLeaveAsOwner, onReport, onManageModerators, 
     onManageMembers, onSettings, onValidatePosts 
   }) {
@@ -42,8 +43,21 @@ import {
           <h3 className="font-semibold text-gray-900 mb-4">Acciones</h3>
           <div className="space-y-3">
             
+            {/* Mensaje de baneo */}
+            {isUserBanned && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-2">
+                <div className="flex items-center gap-2 text-red-800 mb-2">
+                  <FaBan className="w-4 h-4" />
+                  <span className="font-semibold">Has sido baneado de esta comunidad</span>
+                </div>
+                <p className="text-sm text-red-700">
+                  No puedes unirte, publicar ni interactuar en esta comunidad.
+                </p>
+              </div>
+            )}
+
             {/* Crear Publicación */}
-            {canPost && (
+            {canPost && !isUserBanned && (
               <button
                 onClick={onCreatePost}
                 className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition duration-200 flex items-center justify-center gap-2 font-medium"
@@ -73,7 +87,7 @@ import {
             )}
   
             {/* Unirse/Solicitar Unirse/Abandonar */}
-            {isVerified && !userMembership.isMember && (
+            {isVerified && !userMembership.isMember && !isUserBanned && (
               hasPendingRequest ? (
                 <div className="w-full bg-blue-50 border border-blue-200 text-blue-700 py-3 px-4 rounded-lg flex items-center justify-center gap-2 font-medium">
                   <FaClock className="w-4 h-4" />
@@ -98,7 +112,7 @@ import {
             )}
   
             {/* Abandonar Comunidad */}
-            {userMembership.isMember && (
+            {userMembership.isMember && !isUserBanned && (
               <button
                 onClick={isOwner ? onLeaveAsOwner : onJoinLeave}
                 disabled={actionLoading}
@@ -112,7 +126,7 @@ import {
             )}
   
             {/* Reportar Comunidad */}
-            {canReport && (
+            {canReport && !isUserBanned && (
               <button
                 onClick={onReport}
                 className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-200 transition duration-200 flex items-center justify-center gap-2 font-medium"
@@ -123,7 +137,7 @@ import {
             )}
   
             {/* Gestionar Moderadores */}
-            {isOwner && (
+            {isOwner && !isUserBanned && (
               <button
                 onClick={onManageModerators}
                 className="w-full bg-purple-600 text-white py-3 px-4 rounded-lg hover:bg-purple-700 transition duration-200 flex items-center justify-center gap-2 font-medium"
@@ -134,7 +148,7 @@ import {
             )}
   
             {/* Configuración */}
-            {isOwner && (
+            {isOwner && !isUserBanned && (
               <button
                 onClick={onSettings}
                 className="w-full bg-gray-600 text-white py-3 px-4 rounded-lg hover:bg-gray-700 transition duration-200 flex items-center justify-center gap-2 font-medium"
@@ -145,7 +159,7 @@ import {
             )}
   
             {/* Gestionar Solicitudes */}
-            {(isOwner || isModerator) && requiresApproval && (
+            {(isOwner || isModerator) && requiresApproval && !isUserBanned && (
               <button
                 onClick={onManageMembers}
                 className="w-full bg-orange-600 text-white py-3 px-4 rounded-lg hover:bg-orange-700 transition duration-200 flex items-center justify-center gap-2 font-medium"
@@ -161,7 +175,7 @@ import {
             )}
   
             {/* Información para moderadores */}
-            {(isOwner || isModerator) && (
+            {(isOwner || isModerator) && !isUserBanned && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <div className="flex items-center gap-2 text-blue-800 mb-1">
                   <FaInfoCircle className="w-4 h-4" />
@@ -209,6 +223,12 @@ import {
               <div className="flex items-center gap-2">
                 <FaLock className="w-4 h-4 text-red-400" />
                 <span>Comunidad privada</span>
+              </div>
+            )}
+            {isUserBanned && (
+              <div className="flex items-center gap-2">
+                <FaBan className="w-4 h-4 text-red-400" />
+                <span className="text-red-600 font-medium">Estás baneado de esta comunidad</span>
               </div>
             )}
           </div>

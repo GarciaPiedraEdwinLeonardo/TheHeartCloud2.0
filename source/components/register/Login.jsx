@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, signInWithPopup, deleteUser } from 'firebase/auth';
+import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './../../config/firebase';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
@@ -20,9 +20,34 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         });
     };
 
-    const toogleShowPassword = () => {
+    const toggleShowPassword = () => {
         setShowPassword(!showPassword);
     }
+
+    // FUNCIÓN PARA LIMPIAR USUARIO EXPIRADO
+    const cleanupExpiredUser = async (user) => {
+        try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            
+            if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const now = new Date();
+                const expiresAt = userData.verificationExpiresAt?.toDate();
+                
+                // Verificar si la verificación expiró (más de 24 horas)
+                if (expiresAt && now > expiresAt && !userData.emailVerified) {
+                    // Eliminar de Firestore
+                    await deleteDoc(doc(db, 'users', user.uid));
+                    // Eliminar de Authentication
+                    await deleteUser(user);
+                    return true; // Indica que se eliminó
+                }
+            }
+        } catch (error) {
+            console.error('Error cleaning up expired user:', error);
+        }
+        return false; // No se eliminó
+    };
 
     const handleEmailLogin = async (e) => {
         e.preventDefault();
@@ -33,9 +58,28 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
             const user = userCredential.user;
             
-            // Actualizar lastLogin
+            // VERIFICAR SI EL EMAIL ESTÁ CONFIRMADO
+            if (!user.emailVerified) {
+                // Verificar si el usuario expiró y limpiarlo
+                const wasDeleted = await cleanupExpiredUser(user);
+                
+                if (wasDeleted) {
+                    await auth.signOut();
+                    setError('❌ El enlace de verificación ha expirado. Por favor regístrate nuevamente.');
+                    setLoading(false);
+                    return;
+                }
+                
+                await auth.signOut();
+                setError('❌ Por favor verifica tu email antes de iniciar sesión. Revisa tu bandeja de entrada y carpeta de spam. Si no recibiste el email, puedes registrarte nuevamente después de 1 hora.');
+                setLoading(false);
+                return;
+            }
+            
+            // Si llegó aquí, el email está verificado - permitir acceso
             await updateDoc(doc(db, 'users', user.uid), {
-                lastLogin: new Date()
+                lastLogin: new Date(),
+                emailVerified: true
             });
             
         } catch (error) {
@@ -56,63 +100,78 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             
             if (!userDoc.exists()) {
-                // Crear usuario nuevo con estructura mínima
+                // Crear usuario nuevo con estructura completa
                 await setDoc(doc(db, 'users', user.uid), {
                     id: user.uid,
                     email: user.email,
-                    username: null,
                     name: null,
                     role: "unverified",
                     profileMedia: null,
                     professionalInfo: null,
-                    stats: null,
-                    suspension: null,
-                    joinedForums: null,
+                    stats: {
+                        aura: 0,
+                        contributionCount: 0,
+                        postCount: 0,
+                        commentCount: 0,
+                        forumCount: 0,
+                        joinedForumsCount: 0,
+                        totalImagesUploaded: 0,
+                        totalStorageUsed: 0
+                    },
+                    suspension: {
+                        isSuspended: false,
+                        reason: null,
+                        startDate: null,
+                        endDate: null,
+                        suspendedBy: null
+                    },
+                    joinedForums: [],
                     joinDate: new Date(),
                     lastLogin: new Date(),
                     isActive: true,
                     isDeleted: false,
-                    deletedAt: null
+                    deletedAt: null,
+                    emailVerified: true
                 });
             } else {
                 // Actualizar lastLogin para usuarios existentes
                 await updateDoc(doc(db, 'users', user.uid), {
-                    lastLogin: new Date()
+                    lastLogin: new Date(),
+                    emailVerified: true
                 });
             }
             
         } catch (error) {
             setError(getErrorMessage(error.code));
-        } finally {
             setLoading(false);
         }
     };
 
     const getErrorMessage = (errorCode) => {    
-    switch (errorCode) {
-        case 'auth/invalid-email':
-            return 'El correo electrónico es invalido'
-        case 'auth/invalid-credential':
-            return 'El correo electrónico o contraseña no es valido.';
-        case 'auth/user-disabled':
-            return 'Esta cuenta ha sido deshabilitada.';
-        case 'auth/user-not-found':
-            return 'No existe una cuenta con este correo electrónico. Regístrate primero.';
-        case 'auth/wrong-password':
-            return 'La contraseña es incorrecta.';
-        case 'auth/too-many-requests':
-            return 'Demasiados intentos fallidos. Intenta más tarde.';
-        case 'auth/popup-closed-by-user':
-            return 'El inicio de sesión con Google fue cancelado.';
-        case 'auth/network-request-failed':
-            return 'Error de conexión. Verifica tu internet.';
-        case 'auth/invalid-login-credentials': 
-        case 'auth/invalid-credential':
-            return 'Correo o contraseña incorrectos. Verifica tus datos.';
-        default:
-            return `Error al iniciar sesión: ${errorCode}. Intenta nuevamente.`;
-    }
-};
+        switch (errorCode) {
+            case 'auth/invalid-email':
+                return 'El correo electrónico es invalido'
+            case 'auth/invalid-credential':
+                return 'El correo electrónico o contraseña no es valido.';
+            case 'auth/user-disabled':
+                return 'Esta cuenta ha sido deshabilitada.';
+            case 'auth/user-not-found':
+                return 'No existe una cuenta con este correo electrónico. Regístrate primero.';
+            case 'auth/wrong-password':
+                return 'La contraseña es incorrecta.';
+            case 'auth/too-many-requests':
+                return 'Demasiados intentos fallidos. Intenta más tarde.';
+            case 'auth/popup-closed-by-user':
+                return 'El inicio de sesión con Google fue cancelado.';
+            case 'auth/network-request-failed':
+                return 'Error de conexión. Verifica tu internet.';
+            case 'auth/invalid-login-credentials': 
+            case 'auth/invalid-credential':
+                return 'Correo o contraseña incorrectos. Verifica tus datos.';
+            default:
+                return `Error al iniciar sesión: ${errorCode}. Intenta nuevamente.`;
+        }
+    };
 
     return (
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
@@ -158,14 +217,13 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                         placeholder="••••••••"
                     />
 
-                    <button type='button' onClick={toogleShowPassword} className='absolute right-3 top-9 p-1 text-gray-500 hover:text-gray-700 transition duration-200'>
+                    <button type='button' onClick={toggleShowPassword} className='absolute right-3 top-9 p-1 text-gray-500 hover:text-gray-700 transition duration-200'>
                         {showPassword ? (
                             <FaEyeSlash className='w-5 h-5'></FaEyeSlash>
                         ):(
                             <FaEye className='w-5 h-5'></FaEye>
                         )}
                     </button>
-
                 </div>
 
                 <button
@@ -192,7 +250,6 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                     disabled={loading}
                     className="w-full mt-4 bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 flex items-center justify-center"
                 >
-                    
                     Google
                 </button>
             </div>

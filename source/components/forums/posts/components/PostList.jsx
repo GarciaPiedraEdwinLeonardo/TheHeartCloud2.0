@@ -3,7 +3,19 @@ import { FaSpinner, FaExclamationTriangle, FaPlus } from 'react-icons/fa';
 import PostCard from './PostCard';
 import CreatePostModal from './../modals/CreatePostModal';
 
-function PostList({ posts, loading, error, forumId, forumName, userRole, onPostUpdate }) {
+function PostList({ 
+  posts, 
+  loading, 
+  error, 
+  forumId, 
+  forumName, 
+  userRole, 
+  userMembership, 
+  requiresPostApproval,
+  onPostUpdate, 
+  onDeleteContent, 
+  onBanUser 
+}) {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const canCreatePost = ['doctor', 'moderator', 'admin'].includes(userRole);
@@ -46,6 +58,15 @@ function PostList({ posts, loading, error, forumId, forumName, userRole, onPostU
             : 'Los miembros de esta comunidad aún no han publicado contenido'
           }
         </p>
+        {canCreatePost && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition duration-200 font-medium flex items-center gap-2 mx-auto"
+          >
+            <FaPlus className="w-4 h-4" />
+            Crear Primera Publicación
+          </button>
+        )}
       </div>
     );
   }
@@ -64,16 +85,20 @@ function PostList({ posts, loading, error, forumId, forumName, userRole, onPostU
 
   return (
     <div className="space-y-6">
-      
-      {/* Lista de posts */}
+      {/* Lista de posts*/}
       <div className="space-y-4">
         {posts.map((post) => (
           <PostCard
             key={post.id}
             post={post}
-            onCommentClick={() => console.log('Abrir comentarios:', post.id)} // Para implementar después
-            onPostUpdated = {handlePostUpdated}
-            onPostDeleted = {handlePostDeleted}
+            onCommentClick={() => console.log('Abrir comentarios:', post.id)}
+            onPostUpdated={handlePostUpdated}
+            onPostDeleted={handlePostDeleted}
+            onDeleteContent={onDeleteContent}
+            onBanUser={onBanUser}
+            userRole={userRole} 
+            userMembership={userMembership} 
+            requiresPostApproval={requiresPostApproval}
           />
         ))}
       </div>
@@ -85,6 +110,8 @@ function PostList({ posts, loading, error, forumId, forumName, userRole, onPostU
           onClose={() => setShowCreateModal(false)}
           forumId={forumId}
           forumName={forumName}
+          requiresPostApproval={requiresPostApproval}
+          canPostWithoutApproval={userMembership?.role === 'owner' || userMembership?.role === 'moderator'}
         />
       )}
     </div>

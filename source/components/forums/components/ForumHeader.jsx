@@ -37,52 +37,52 @@ function ForumHeader({ forumDetails, userMembership, onBack }) {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-        <div className="flex items-start gap-4">
-          <div className="p-3 rounded-full bg-green-100">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+        <div className="flex items-start gap-4 flex-1 min-w-0">
+          <div className="p-3 rounded-full bg-green-100 flex-shrink-0">
             <FaUsers className="w-6 h-6 text-green-600" />
           </div>
           <div className='min-w-0 flex-1'>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 break-words">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 break-words overflow-hidden">
               {forumDetails.name}
             </h1>
-            <p className="text-gray-600 text-lg break-words whitespace-normal">
+            <p className="text-gray-600 text-base sm:text-lg break-words whitespace-normal line-clamp-3 sm:line-clamp-none">
               {forumDetails.description}
             </p>
           </div>
         </div>
         <button 
           onClick={onBack}
-          className="mt-4 sm:mt-0 flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition duration-200"
+          className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition duration-200 flex-shrink-0 self-start sm:self-center"
         >
           <FaArrowLeft className="w-4 h-4" />
-          Volver al Inicio
+          <span className="whitespace-nowrap">Volver al Inicio</span>
         </button>
       </div>
 
       {/* Estadísticas del Foro */}
-      <div className="flex flex-wrap gap-6 text-sm text-gray-500 border-t border-gray-200 pt-4">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap gap-4 sm:gap-6 text-sm text-gray-500 border-t border-gray-200 pt-4">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <FaCalendar className="w-4 h-4" />
-          <span>Creado el {formatDate(forumDetails.createdAt)}</span>
+          <span className="whitespace-nowrap">Creado el {formatDate(forumDetails.createdAt)}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <FaUsers className="w-4 h-4" />
-          <span>{(forumDetails.memberCount || 0).toLocaleString()} miembros</span>
+          <span className="whitespace-nowrap">{(forumDetails.memberCount || 0).toLocaleString()} miembros</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <FaEdit className="w-4 h-4" />
-          <span>{(forumDetails.postCount || 0)} publicaciones</span>
+          <span className="whitespace-nowrap">{(forumDetails.postCount || 0)} publicaciones</span>
         </div>
         {userMembership.role && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {getRoleBadge(userMembership.role)}
           </div>
         )}
         {forumDetails.requiresPostApproval && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <FaCheckCircle className="w-4 h-4 text-blue-500" />
-            <span>Validación de posts activa</span>
+            <span className="whitespace-nowrap">Validación de posts activa</span>
           </div>
         )}
       </div>

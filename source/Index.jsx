@@ -10,7 +10,18 @@ function Index() {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
-            setUser(user);
+            if (user) {
+                // VERIFICAR SI EL EMAIL ESTÁ CONFIRMADO
+                if (!user.emailVerified) {
+                    // Si no está verificado, cerrar sesión automáticamente
+                    auth.signOut();
+                    setUser(null);
+                } else {
+                    setUser(user);
+                }
+            } else {
+                setUser(null);
+            }
             setLoading(false);
         });
 

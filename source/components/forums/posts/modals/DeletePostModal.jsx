@@ -1,19 +1,28 @@
 import { useState } from 'react';
-import { FaTimes, FaSpinner, FaExclamationTriangle, FaTrash } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaExclamationTriangle, FaTrash, FaUserShield } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
+import { auth, db } from './../../../../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
-function DeletePostModal({ isOpen, onClose, post, onPostDeleted }) {
+function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorAction = false }) {
+  const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [confirmText, setConfirmText] = useState('');
   
   const { deletePost } = usePostActions();
+  const user = auth.currentUser;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (confirmText !== 'ELIMINAR') {
-      setError('Por favor escribe "ELIMINAR" para confirmar');
+    // Validaciones diferentes según quién elimina
+    if (isModeratorAction && !reason.trim()) {
+      setError('Como moderador, debes proporcionar un motivo para la eliminación');
+      return;
+    }
+
+    if (isModeratorAction && reason.length < 10) {
+      setError('El motivo debe tener al menos 10 caracteres para acciones de moderación');
       return;
     }
 
@@ -21,18 +30,33 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted }) {
     setError('');
 
     try {
-      const result = await deletePost(post.id);
+      let result;
+      
+      if (isModeratorAction) {
+        // Eliminación por moderador - se guarda en deleted_posts
+        result = await deletePost(post.id, reason, true);
+      } else {
+        // Eliminación por usuario - se borra permanentemente
+        result = await deletePost(post.id, 'user_deleted', false);
+      }
 
       if (result.success) {
         if (onPostDeleted) {
-          onPostDeleted();
+          onPostDeleted(result.deletionType);
         }
         onClose();
-        setConfirmText('');
+        setReason('');
+        
+        // Mostrar mensaje diferente según el tipo de eliminación
+        if (isModeratorAction) {
+          alert('✅ Publicación eliminada y guardada para auditoría de moderación.');
+        } else {
+          alert('✅ Publicación eliminada permanentemente.');
+        }
       } else {
         setError(result.error);
       }
-    } catch (error) {
+    } catch (err) {
       setError('Error al eliminar la publicación');
     } finally {
       setLoading(false);
@@ -48,6 +72,20 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted }) {
 
   if (!isOpen || !post) return null;
 
+  const getModalTitle = () => {
+    if (isModeratorAction) {
+      return 'Eliminar Publicación (Moderación)';
+    }
+    return 'Eliminar Publicación';
+  };
+
+  const getModalDescription = () => {
+    if (isModeratorAction) {
+      return 'Esta acción se registrará para auditoría del sistema';
+    }
+    return '¿Estás seguro de que quieres eliminar esta publicación?';
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Contenedor principal con max-height y overflow */}
@@ -58,12 +96,20 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted }) {
         {/* Header fijo */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10 rounded-t-2xl">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <FaExclamationTriangle className="w-5 h-5 text-red-600" />
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+              isModeratorAction ? 'bg-red-100' : 'bg-orange-100'
+            }`}>
+              {isModeratorAction ? (
+                <FaUserShield className="w-5 h-5 text-red-600" />
+              ) : (
+                <FaExclamationTriangle className="w-5 h-5 text-orange-600" />
+              )}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-bold text-gray-900 truncate">Eliminar Publicación</h2>
-              <p className="text-sm text-gray-500 truncate">Esta acción no se puede deshacer</p>
+              <h2 className="text-xl font-bold text-gray-900 truncate">
+                {getModalTitle()}
+              </h2>
+              <p className="text-sm text-gray-500 truncate">{getModalDescription()}</p>
             </div>
           </div>
           <button 
@@ -84,51 +130,74 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted }) {
               </div>
             )}
 
-            {/* Información de la publicación */}
+            {/* Información del post */}
             <div className="mb-6">
               <h3 className="font-medium text-gray-900 mb-2">Publicación a eliminar:</h3>
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                <p className="font-semibold text-gray-900 text-sm mb-1 break-words">
-                  {post.title}
-                </p>
+                <p className="font-semibold text-gray-900 text-sm mb-1 break-words">{post.title}</p>
                 <p className="text-xs text-gray-600 line-clamp-2 break-words">
-                  {post.content}
+                  {post.content?.substring(0, 150)}...
                 </p>
-                <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-gray-500">
-                  <span>Likes: {post.likes?.length || 0}</span>
-                  <span>Comentarios: {post.stats?.commentCount || 0}</span>
-                </div>
               </div>
             </div>
 
-            {/* Confirmación */}
-            <div className="mb-6">
-              <label htmlFor="confirmText" className="block text-sm font-medium text-gray-700 mb-2">
-                Para confirmar, escribe <span className="font-mono text-red-600">ELIMINAR</span>:
-              </label>
-              <input
-                type="text"
-                id="confirmText"
-                value={confirmText}
-                onChange={(e) => setConfirmText(e.target.value)}
-                disabled={loading}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition duration-200 disabled:opacity-50 font-mono"
-                placeholder="ELIMINAR"
-                required
-              />
-            </div>
+            {/* Motivo (solo para moderadores) */}
+            {isModeratorAction && (
+              <div className="mb-6">
+                <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-2">
+                  Motivo de la eliminación *
+                </label>
+                <textarea
+                  id="reason"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  disabled={loading}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition duration-200 disabled:opacity-50 resize-none"
+                  placeholder="Explica detalladamente por qué eliminas esta publicación. Este motivo será revisado por la moderación global."
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {reason.length} caracteres (mínimo 10)
+                </p>
+              </div>
+            )}
 
             {/* Advertencia */}
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className={`border rounded-lg p-4 mb-6 ${
+              isModeratorAction 
+                ? 'bg-red-50 border-red-200' 
+                : 'bg-orange-50 border-orange-200'
+            }`}>
               <div className="flex items-start gap-3">
-                <FaExclamationTriangle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                <FaExclamationTriangle className={`w-5 h-5 mt-0.5 flex-shrink-0 ${
+                  isModeratorAction ? 'text-red-600' : 'text-orange-600'
+                }`} />
                 <div>
-                  <h4 className="text-sm font-medium text-red-800 mb-1">Advertencia</h4>
-                  <ul className="text-xs text-red-700 space-y-1">
-                    <li>• Esta acción no se puede deshacer</li>
-                    <li>• La publicación será eliminada permanentemente</li>
-                    <li>• Los comentarios asociados también se eliminarán</li>
-                    <li>• Se reducirá tu contador de publicaciones</li>
+                  <h4 className={`text-sm font-medium mb-1 ${
+                    isModeratorAction ? 'text-red-800' : 'text-orange-800'
+                  }`}>
+                    {isModeratorAction ? 'Acción de moderación' : 'Esta acción es permanente'}
+                  </h4>
+                  <ul className={`text-xs space-y-1 ${
+                    isModeratorAction ? 'text-red-700' : 'text-orange-700'
+                  }`}>
+                    {isModeratorAction ? (
+                      <>
+                        <li>• La publicación se guardará en registros de moderación</li>
+                        <li>• El autor será notificado sobre la eliminación</li>
+                        <li>• El motivo será revisado por moderación global</li>
+                        <li>• Puede conllevar sanciones para el autor</li>
+                        <li>• ⚠️ Esta acción queda registrada en el sistema</li>
+                      </>
+                    ) : (
+                      <>
+                        <li>• La publicación será eliminada permanentemente</li>
+                        <li>• No podrás recuperar esta publicación</li>
+                        <li>• Los comentarios y reacciones también se eliminarán</li>
+                        <li>• Esta acción no se puede deshacer</li>
+                      </>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -150,12 +219,16 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted }) {
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={loading || confirmText !== 'ELIMINAR'}
-              className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
+              disabled={loading || (isModeratorAction && reason.length < 10)}
+              className={`px-6 py-3 rounded-lg transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2 ${
+                isModeratorAction
+                  ? 'bg-red-600 text-white hover:bg-red-700'
+                  : 'bg-orange-600 text-white hover:bg-orange-700'
+              }`}
             >
               {loading && <FaSpinner className="w-4 h-4 animate-spin" />}
               <FaTrash className="w-4 h-4" />
-              {loading ? 'Eliminando...' : 'Eliminar Publicación'}
+              {isModeratorAction ? 'Eliminar como Moderador' : 'Eliminar Publicación'}
             </button>
           </div>
         </div>

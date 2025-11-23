@@ -136,11 +136,30 @@ function PostCard({
     }
   };
 
-  // Verificar permisos para modificar
+  // DEBUG: Verificar permisos
+  useEffect(() => {
+    if (user) {
+      console.log("🔍 DEBUG PostCard Permissions:", {
+        userUid: user.uid,
+        postAuthorId: post.authorId,
+        userMembership: userMembership,
+        userDataRole: userData?.role,
+        isAuthor: user.uid === post.authorId,
+        isModerator: ['owner', 'moderator'].includes(userMembership?.role),
+        isGlobalModerator: ['moderator', 'admin'].includes(userData?.role),
+        canModerate: (['owner', 'moderator'].includes(userMembership?.role) || ['moderator', 'admin'].includes(userData?.role))
+      });
+    }
+  }, [user, post.authorId, userMembership, userData]);
+
+  // Verificar permisos para modificar - CORREGIDO
   const isAuthor = user && user.uid === post.authorId;
-  const isModerator = ['owner', 'moderator'].includes(userMembership?.role);
-  const canModify = user && (isAuthor || userData?.role === 'moderator' || userData?.role === 'admin');
-  const canModerate = user && (isModerator || userData?.role === 'moderator' || userData?.role === 'admin');
+  const isForumModerator = user && ['owner', 'moderator'].includes(userMembership?.role);
+  const isGlobalModerator = user && ['moderator', 'admin'].includes(userData?.role);
+  const canModerate = isForumModerator || isGlobalModerator;
+  
+  // Mostrar menú si: es el autor O puede moderar
+  const showOptionsMenu = isAuthor || canModerate;
 
   const handleEdit = () => {
     setShowEditModal(true);
@@ -153,9 +172,7 @@ function PostCard({
   };
 
   const handleModeratorDelete = () => {
-    if (onDeleteContent) {
-      onDeleteContent(post, 'post');
-    }
+    setShowDeleteModal(true);
     setShowMenu(false);
   };
 
@@ -277,7 +294,8 @@ function PostCard({
               </span>
             )}
             
-            {(canModify || canModerate) && (
+            {/* MOSTRAR MENÚ SI: es autor O puede moderar */}
+            {showOptionsMenu && (
               <div className="relative">
                 <button
                   onClick={() => setShowMenu(!showMenu)}
@@ -309,8 +327,8 @@ function PostCard({
                       </button>
                     )}
 
-                    {/* Separador para acciones de moderación */}
-                    {canModerate && (
+                    {/* Separador para acciones de moderación - SOLO si puede moderar y NO es el autor */}
+                    {canModerate && !isAuthor && (
                       <>
                         <div className="border-t border-gray-200 my-1"></div>
                         <div className="px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50">
@@ -444,6 +462,7 @@ function PostCard({
         onClose={() => setShowDeleteModal(false)}
         post={post}
         onPostDeleted={handlePostDeleted}
+        isModeratorAction={canModerate && !isAuthor}
       />
     </>
   );

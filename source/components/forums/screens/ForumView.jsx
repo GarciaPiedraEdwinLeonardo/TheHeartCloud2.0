@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { FaSpinner, FaMobile } from 'react-icons/fa';
+import { FaSpinner} from 'react-icons/fa';
+import { BiSolidFoodMenu } from "react-icons/bi";
 import { useForumActions } from './../hooks/useForumsActions';
 import { useForumSettings } from './../hooks/useForumSettings';
 import { usePostModeration } from './../hooks/usePostModeration';
@@ -31,6 +32,7 @@ function ForumView({ forumData, onBack }) {
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [forumDetails, setForumDetails] = useState(forumData);
   const [pendingPostsCount, setPendingPostsCount] = useState(0);
+  const [isUserBanned, setIsUserBanned] = useState(false); // ← NUEVO ESTADO
   
   // Estados de modales
   const [showAddModeratorModal, setShowAddModeratorModal] = useState(false);
@@ -46,7 +48,7 @@ function ForumView({ forumData, onBack }) {
   const [selectedUser, setSelectedUser] = useState(null);
 
   // Hooks
-  const { joinForum, leaveForum, checkUserMembership, getForumData } = useForumActions();
+  const { joinForum, leaveForum, checkUserMembership, getForumData, isUserBannedFromForum } = useForumActions();
   const { leaveForumAsOwner } = useForumSettings();
   const { getPendingPosts, deletePost } = usePostModeration();
   const { banUser } = useCommunityBans();
@@ -57,9 +59,9 @@ function ForumView({ forumData, onBack }) {
   // Variables computadas
   const isOwner = userMembership.role === 'owner';
   const isModerator = userMembership.role === 'moderator';
-  const canPost = userMembership.isMember && (userData?.role === 'doctor' || userData?.role === 'moderator' || userData?.role === 'admin');
-  const canPostWithoutApproval = isOwner || isModerator;
-  const canReport = !!user && userMembership.role === 'member';
+  const canPost = userMembership.isMember && (userData?.role === 'doctor' || userData?.role === 'moderator' || userData?.role === 'admin') && !isUserBanned;
+  const canPostWithoutApproval = (isOwner || isModerator) && !isUserBanned;
+  const canReport = !!user && userMembership.role === 'member' && !isUserBanned;
   const isVerified = userData?.role !== 'unverified';
   const requiresApproval = forumDetails.membershipSettings?.requiresApproval;
   const requiresPostApproval = forumDetails.requiresPostApproval;
@@ -86,6 +88,20 @@ function ForumView({ forumData, onBack }) {
       loadPending();
     }
   }, [forumDetails.id, isOwner, isModerator, requiresPostApproval]);
+
+  // Función para verificar si el usuario está baneado
+  const checkBanStatus = async () => {
+    if (user && forumDetails.id) {
+      try {
+        const banned = await isUserBannedFromForum(forumDetails.id, user.uid);
+        setIsUserBanned(banned);
+        console.log("🔍 Estado de baneo:", banned);
+      } catch (error) {
+        console.error("Error verificando baneo:", error);
+        setIsUserBanned(false);
+      }
+    }
+  };
 
   // Funciones
   const loadUserData = async () => {
@@ -117,6 +133,9 @@ function ForumView({ forumData, onBack }) {
       
       const membership = await checkUserMembership(forumData.id);
       setUserMembership(membership);
+
+      // Verificar estado de baneo después de cargar los datos del foro
+      await checkBanStatus();
     } catch (error) {
       console.error('Error cargando detalles del foro:', error);
     } finally {
@@ -132,6 +151,12 @@ function ForumView({ forumData, onBack }) {
   const handleJoinLeave = async () => {
     if (!user) {
       alert('Debes iniciar sesión para unirte a comunidades');
+      return;
+    }
+
+    // Verificar si está baneado antes de intentar unirse
+    if (isUserBanned) {
+      alert('No puedes unirte a esta comunidad porque has sido baneado');
       return;
     }
 
@@ -207,8 +232,10 @@ function ForumView({ forumData, onBack }) {
     loadPendingPostsCount();
   };
 
-  const handleUserBanned = () => {
-    loadForumDetails();
+  const handleUserBanned = async () => {
+    // Recargar datos del foro y verificar baneos
+    await loadForumDetails();
+    await checkBanStatus();
   };
 
   const reloadForumData = async () => {
@@ -241,7 +268,7 @@ function ForumView({ forumData, onBack }) {
     }] : []),
 
     // Gestionar moderadores (solo dueño)
-    ...(isOwner ? [{
+    ...(isOwner && !isUserBanned ? [{
       label: 'Gestionar Moderadores',
       icon: 'manageModerators',
       type: 'primary',
@@ -249,7 +276,7 @@ function ForumView({ forumData, onBack }) {
     }] : []),
 
     // Configuración (solo dueño)
-    ...(isOwner ? [{
+    ...(isOwner && !isUserBanned ? [{
       label: 'Configuración',
       icon: 'settings',
       type: 'secondary',
@@ -257,7 +284,7 @@ function ForumView({ forumData, onBack }) {
     }] : []),
 
     // Gestionar miembros (dueño/moderadores con aprobación requerida)
-    ...((isOwner || isModerator) && requiresApproval ? [{
+    ...((isOwner || isModerator) && requiresApproval && !isUserBanned ? [{
       label: `Gestionar Solicitudes${pendingRequestsCount > 0 ? ` (${pendingRequestsCount})` : ''}`,
       icon: 'manageMembers',
       type: 'warning',
@@ -273,7 +300,7 @@ function ForumView({ forumData, onBack }) {
     }] : []),
 
     // Unirse/Abandonar
-    ...(isVerified && !userMembership.isMember ? [{
+    ...(isVerified && !userMembership.isMember && !isUserBanned ? [{
       label: hasPendingRequest ? 'Solicitud Enviada' : (requiresApproval ? 'Solicitar Unirse' : 'Unirse'),
       icon: 'join',
       type: 'success',
@@ -282,7 +309,7 @@ function ForumView({ forumData, onBack }) {
     }] : []),
 
     // Abandonar comunidad
-    ...(userMembership.isMember ? [{
+    ...(userMembership.isMember && !isUserBanned ? [{
       label: isOwner ? 'Transferir y Salir' : 'Abandonar Comunidad',
       icon: 'leave',
       type: 'danger',
@@ -317,7 +344,7 @@ function ForumView({ forumData, onBack }) {
             />
 
             {/* Mensaje de bienvenida SOLO para usuarios no miembros pero verificados */}
-            {!userMembership.isMember && isVerified && (
+            {!userMembership.isMember && isVerified && !isUserBanned && (
               <WelcomeMessage 
                 requiresApproval={requiresApproval}
                 hasPendingRequest={hasPendingRequest}
@@ -361,6 +388,7 @@ function ForumView({ forumData, onBack }) {
               actionLoading={actionLoading}
               hasPendingRequest={hasPendingRequest}
               forumDetails={forumDetails}
+              isUserBanned={isUserBanned} // ← NUEVA PROP
               // Handlers
               onCreatePost={() => setShowCreatePostModal(true)}
               onJoinLeave={handleJoinLeave}
@@ -451,7 +479,7 @@ function ForumView({ forumData, onBack }) {
           onClick={() => setShowMobileActions(true)}
           className="w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition duration-200 flex items-center justify-center"
         >
-          <FaMobile className="w-6 h-6" />
+          <BiSolidFoodMenu className="w-6 h-6" />
         </button>
       </div>
     </div>

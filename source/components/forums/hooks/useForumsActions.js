@@ -16,6 +16,62 @@ import { db, auth } from "./../../../config/firebase";
 export const useForumActions = () => {
   const user = auth.currentUser;
 
+  // Función auxiliar para verificar si usuario está baneado
+  const isUserBannedFromForum = async (forumId, userId) => {
+    try {
+      const forumRef = doc(db, "forums", forumId);
+      const forumDoc = await getDoc(forumRef);
+
+      if (!forumDoc.exists()) return false;
+
+      const forumData = forumDoc.data();
+      const bannedUsers = forumData.bannedUsers || [];
+
+      // Buscar usuario en la lista de baneados
+      const userBan = bannedUsers.find(
+        (ban) => ban.userId === userId && ban.isActive !== false
+      );
+
+      if (!userBan) return false;
+
+      // Verificar si el baneo ha expirado
+      if (userBan.duration !== "permanent") {
+        const banDate =
+          userBan.bannedAt?.toDate?.() || new Date(userBan.bannedAt);
+        const now = new Date();
+        const daysDiff = Math.floor((now - banDate) / (1000 * 60 * 60 * 24));
+
+        let maxDays = 0;
+        switch (userBan.duration) {
+          case "1d":
+            maxDays = 1;
+            break;
+          case "7d":
+            maxDays = 7;
+            break;
+          case "30d":
+            maxDays = 30;
+            break;
+          default:
+            maxDays = 0;
+        }
+
+        if (daysDiff >= maxDays) {
+          // Baneo expirado, remover de la lista
+          await updateDoc(forumRef, {
+            bannedUsers: bannedUsers.filter((ban) => ban.userId !== userId),
+          });
+          return false;
+        }
+      }
+
+      return true; // Usuario está baneado
+    } catch (error) {
+      console.error("Error verificando baneo:", error);
+      return false;
+    }
+  };
+
   // Función auxiliar para actualizar estadísticas del usuario
   const updateUserStats = async (userId, action, forumId = null) => {
     try {
@@ -73,11 +129,12 @@ export const useForumActions = () => {
         ownerId: user.uid,
         createdAt: serverTimestamp(),
         membershipSettings: {
-          requiresApproval: forumData.requiresApproval || false
+          requiresApproval: forumData.requiresApproval || false,
         },
         members: [user.uid],
         memberCount: 1,
         pendingMembers: {},
+        bannedUsers: [], // Inicializar lista de baneados vacía
         status: "active",
         disabledAt: null,
         disabledBy: null,
@@ -106,11 +163,19 @@ export const useForumActions = () => {
     }
   };
 
-  // Unirse a comunidad 
+  // Unirse a comunidad - CON VERIFICACIÓN DE BANEO
   const joinForum = async (forumId) => {
     try {
       if (!user)
         throw new Error("Debes iniciar sesión para unirte a una comunidad");
+
+      // VERIFICAR SI EL USUARIO ESTÁ BANEADO
+      const isBanned = await isUserBannedFromForum(forumId, user.uid);
+      if (isBanned) {
+        throw new Error(
+          "No puedes unirte a esta comunidad porque has sido baneado"
+        );
+      }
 
       const forumRef = doc(db, "forums", forumId);
       const forumDoc = await getDoc(forumRef);
@@ -139,17 +204,19 @@ export const useForumActions = () => {
           [`pendingMembers.${user.uid}`]: {
             requestedAt: serverTimestamp(),
             userEmail: userData?.email || "Email no disponible",
-            userName: userData?.name ? 
-              `${userData.name.name || ''} ${userData.name.apellidopat || ''} ${userData.name.apellidomat || ''}`.trim() 
-              : 'Usuario',
-            userRole: userData?.role || 'unverified'
-          }
+            userName: userData?.name
+              ? `${userData.name.name || ""} ${
+                  userData.name.apellidopat || ""
+                } ${userData.name.apellidomat || ""}`.trim()
+              : "Usuario",
+            userRole: userData?.role || "unverified",
+          },
         });
 
-        return { 
-          success: true, 
+        return {
+          success: true,
           requiresApproval: true,
-          message: "Solicitud enviada. Espera la aprobación de un moderador."
+          message: "Solicitud enviada. Espera la aprobación de un moderador.",
         };
       } else {
         // Entrada libre - unirse directamente
@@ -182,10 +249,19 @@ export const useForumActions = () => {
 
       // Verificar permisos (dueño o moderador)
       const isOwner = forumData.ownerId === user.uid;
-      const isModerator = forumData.moderators && forumData.moderators[user.uid];
-      
+      const isModerator =
+        forumData.moderators && forumData.moderators[user.uid];
+
       if (!isOwner && !isModerator) {
         throw new Error("Solo dueños y moderadores pueden aprobar miembros");
+      }
+
+      // VERIFICAR SI EL USUARIO ESTÁ BANEADO
+      const isBanned = await isUserBannedFromForum(forumId, userId);
+      if (isBanned) {
+        throw new Error(
+          "No puedes aprobar este usuario porque está baneado de la comunidad"
+        );
       }
 
       // Verificar que existe solicitud pendiente
@@ -204,7 +280,7 @@ export const useForumActions = () => {
 
       // 2. Remover de pendientes
       batch.update(forumRef, {
-        [`pendingMembers.${userId}`]: deleteField()
+        [`pendingMembers.${userId}`]: deleteField(),
       });
 
       await batch.commit();
@@ -232,15 +308,16 @@ export const useForumActions = () => {
 
       // Verificar permisos (dueño o moderador)
       const isOwner = forumData.ownerId === user.uid;
-      const isModerator = forumData.moderators && forumData.moderators[user.uid];
-      
+      const isModerator =
+        forumData.moderators && forumData.moderators[user.uid];
+
       if (!isOwner && !isModerator) {
         throw new Error("Solo dueños y moderadores pueden rechazar miembros");
       }
 
       // Remover de pendientes
       await updateDoc(forumRef, {
-        [`pendingMembers.${userId}`]: deleteField()
+        [`pendingMembers.${userId}`]: deleteField(),
       });
 
       return { success: true };
@@ -263,11 +340,13 @@ export const useForumActions = () => {
 
       // Solo el dueño puede cambiar esta configuración
       if (forumData.ownerId !== user.uid) {
-        throw new Error("Solo el dueño puede cambiar la configuración de membresía");
+        throw new Error(
+          "Solo el dueño puede cambiar la configuración de membresía"
+        );
       }
 
       await updateDoc(forumRef, {
-        "membershipSettings.requiresApproval": requiresApproval
+        "membershipSettings.requiresApproval": requiresApproval,
       });
 
       return { success: true };
@@ -427,6 +506,7 @@ export const useForumActions = () => {
           // Asegurar valores por defecto
           memberCount: forumData.memberCount || 0,
           postCount: forumData.postCount || 0,
+          bannedUsers: forumData.bannedUsers || [],
           rules:
             forumData.rules ||
             "• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional",
@@ -448,6 +528,7 @@ export const useForumActions = () => {
     getForumData,
     approveMember,
     rejectMember,
-    updateMembershipSettings
+    updateMembershipSettings,
+    isUserBannedFromForum,
   };
 };

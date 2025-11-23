@@ -7,6 +7,8 @@ import {
   getDoc,
   addDoc,
   collection,
+  serverTimestamp,
+  deleteField,
 } from "firebase/firestore";
 import { db, auth } from "../../../config/firebase";
 import { notificationService } from "./../../notifications/services/notificationService";
@@ -21,33 +23,56 @@ export const useCommunityBans = () => {
       const forumDoc = await getDoc(forumRef);
       const forumData = forumDoc.data();
 
+      // Obtener información del usuario a banear
+      const userToBanDoc = await getDoc(doc(db, "users", userId));
+      const userToBanData = userToBanDoc.data();
+
+      // Crear objeto de baneo
+      const banData = {
+        userId,
+        bannedAt: new Date(),
+        bannedBy: auth.currentUser.uid,
+        reason,
+        duration,
+        isActive: true,
+        userEmail: userToBanData?.email || "Email no disponible",
+        userName: userToBanData?.name
+          ? `${userToBanData.name.name || ""} ${
+              userToBanData.name.apellidopat || ""
+            } ${userToBanData.name.apellidomat || ""}`.trim()
+          : "Usuario",
+        userRole: userToBanData?.role || "unverified",
+        forumId: forumId,
+        forumName: forumData.name,
+      };
+
       // Agregar a lista de baneados
       await updateDoc(forumRef, {
-        bannedUsers: arrayUnion({
-          userId,
-          bannedAt: new Date(),
-          bannedBy: auth.currentUser.uid,
-          reason,
-          duration,
-          isActive: true,
-        }),
+        bannedUsers: arrayUnion(banData),
       });
 
       // Remover de miembros si es miembro
-      await updateDoc(forumRef, {
-        members: arrayRemove(userId),
-        memberCount: forumData.memberCount > 0 ? forumData.memberCount - 1 : 0,
-      });
+      if (forumData.members && forumData.members.includes(userId)) {
+        await updateDoc(forumRef, {
+          members: arrayRemove(userId),
+          memberCount:
+            forumData.memberCount > 0 ? forumData.memberCount - 1 : 0,
+        });
+      }
 
       // Remover de moderadores si es moderador
-      await updateDoc(forumRef, {
-        [`moderators.${userId}`]: deleteField(),
-      });
+      if (forumData.moderators && forumData.moderators[userId]) {
+        await updateDoc(forumRef, {
+          [`moderators.${userId}`]: deleteField(),
+        });
+      }
 
       // Remover de pendientes si está pendiente
-      await updateDoc(forumRef, {
-        [`pendingMembers.${userId}`]: deleteField(),
-      });
+      if (forumData.pendingMembers && forumData.pendingMembers[userId]) {
+        await updateDoc(forumRef, {
+          [`pendingMembers.${userId}`]: deleteField(),
+        });
+      }
 
       // Notificar al usuario
       await notificationService.sendCommunityBan(
@@ -57,27 +82,44 @@ export const useCommunityBans = () => {
         duration
       );
 
-      // Reportar a moderación global
-      await reportToGlobalModeration(userId, reason, "community_ban");
+      // Reportar a moderación global con más detalles
+      await reportToGlobalModeration(
+        userId,
+        reason,
+        "community_ban",
+        forumId,
+        forumData.name
+      );
 
-      return { success: true };
+      return { success: true, banData };
     } catch (error) {
+      console.error("Error baneando usuario:", error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
     }
   };
 
-  const reportToGlobalModeration = async (userId, reason, actionType) => {
+  const reportToGlobalModeration = async (
+    userId,
+    reason,
+    actionType,
+    forumId = null,
+    forumName = null
+  ) => {
     try {
-      await addDoc(collection(db, "moderation_reports"), {
+      await addDoc(collection(db, "global_moderation_reports"), {
         userId,
         reason,
         moderatorId: auth.currentUser.uid,
         actionType,
-        reportedAt: new Date(),
+        forumId,
+        forumName,
+        reportedAt: serverTimestamp(),
         status: "pending_review",
         communityContext: true,
+        requiresAction: true,
+        severity: "high", // Los baneos son de alta severidad
       });
     } catch (error) {
       console.error("Error reporting to global moderation:", error);
@@ -100,9 +142,29 @@ export const useCommunityBans = () => {
     }
   };
 
+  // Nueva función: obtener historial de baneos de un usuario
+  const getUserBanHistory = async (userId) => {
+    try {
+      // Esto requeriría una consulta más compleja, pero para empezar:
+      const userRef = doc(db, "users", userId);
+      const userDoc = await getDoc(userRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        // Podrías almacenar el historial de baneos en el usuario o hacer consultas a los foros
+        return userData.banHistory || [];
+      }
+      return [];
+    } catch (error) {
+      console.error("Error getting user ban history:", error);
+      return [];
+    }
+  };
+
   return {
     banUser,
     isUserBanned,
+    getUserBanHistory,
     loading,
   };
 };
