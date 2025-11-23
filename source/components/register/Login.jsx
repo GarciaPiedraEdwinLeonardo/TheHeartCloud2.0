@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword, signInWithPopup, deleteUser } from 'firebase/auth';
-import { doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './../../config/firebase';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
@@ -100,57 +100,67 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             const userDoc = await getDoc(doc(db, 'users', user.uid));
             
             if (!userDoc.exists()) {
-                // Crear usuario nuevo con estructura completa
                 await setDoc(doc(db, 'users', user.uid), {
                     id: user.uid,
-                    email: user.email,
-                    name: null,
-                    role: "unverified",
-                    profileMedia: null,
-                    professionalInfo: null,
-                    stats: {
-                        aura: 0,
-                        contributionCount: 0,
-                        postCount: 0,
-                        commentCount: 0,
-                        forumCount: 0,
-                        joinedForumsCount: 0,
-                        totalImagesUploaded: 0,
-                        totalStorageUsed: 0
-                    },
-                    suspension: {
-                        isSuspended: false,
-                        reason: null,
-                        startDate: null,
-                        endDate: null,
-                        suspendedBy: null
-                    },
-                    joinedForums: [],
-                    joinDate: new Date(),
-                    lastLogin: new Date(),
-                    isActive: true,
-                    isDeleted: false,
-                    deletedAt: null,
-                    emailVerified: true
+                email: user.email,
+                name: null,
+                role: "unverified",
+                profileMedia: null,
+                professionalInfo: null,
+                stats: {
+                    aura: 0,
+                    contributionCount: 0,
+                    postCount: 0,
+                    commentCount: 0,
+                    forumCount: 0,
+                    joinedForumsCount: 0,
+                    totalImagesUploaded: 0,
+                    totalStorageUsed: 0
+                },
+                suspension: {
+                    isSuspended: false,
+                    reason: null,
+                    startDate: null,
+                    endDate: null,
+                    suspendedBy: null
+                },
+                joinedForums: [],
+                joinDate: new Date(),
+                lastLogin: new Date(),
+                isActive: true,
+                isDeleted: false,
+                deletedAt: null,
+                emailVerified: true,
+                emailVerificationSentAt: new Date()
                 });
+                console.log('Nuevo usuario de Google creado en Firestore');
             } else {
                 // Actualizar lastLogin para usuarios existentes
                 await updateDoc(doc(db, 'users', user.uid), {
                     lastLogin: new Date(),
                     emailVerified: true
                 });
+                console.log('Usuario existente de Google actualizado');
             }
             
         } catch (error) {
+            console.error('Error en login con Google:', error);
             setError(getErrorMessage(error.code));
+            setLoading(false);
+        } finally {
             setLoading(false);
         }
     };
 
     const getErrorMessage = (errorCode) => {    
+        // Si errorCode es undefined, retornar mensaje genérico
+        if (!errorCode) {
+            return 'Error al iniciar sesión. Intenta nuevamente.';
+        }
+        
         switch (errorCode) {
             case 'auth/invalid-email':
-                return 'El correo electrónico es invalido'
+                return 'El correo electrónico es invalido';
             case 'auth/invalid-credential':
                 return 'El correo electrónico o contraseña no es valido.';
             case 'auth/user-disabled':
@@ -250,7 +260,7 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                     disabled={loading}
                     className="w-full mt-4 bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 flex items-center justify-center"
                 >
-                    Google
+                    {loading ? 'Iniciando sesión...' : 'Iniciar con Google'}
                 </button>
             </div>
 

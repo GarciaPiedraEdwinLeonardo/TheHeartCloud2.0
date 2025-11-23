@@ -14,7 +14,8 @@ function PostList({
   requiresPostApproval,
   onPostUpdate, 
   onDeleteContent, 
-  onBanUser 
+  onBanUser,
+  onCommentClick
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -58,15 +59,6 @@ function PostList({
             : 'Los miembros de esta comunidad aún no han publicado contenido'
           }
         </p>
-        {canCreatePost && (
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-green-600 text-white py-2 px-6 rounded-lg hover:bg-green-700 transition duration-200 font-medium flex items-center gap-2 mx-auto"
-          >
-            <FaPlus className="w-4 h-4" />
-            Crear Primera Publicación
-          </button>
-        )}
       </div>
     );
   }
@@ -91,7 +83,7 @@ function PostList({
           <PostCard
             key={post.id}
             post={post}
-            onCommentClick={() => console.log('Abrir comentarios:', post.id)}
+            onCommentClick={onCommentClick}
             onPostUpdated={handlePostUpdated}
             onPostDeleted={handlePostDeleted}
             onDeleteContent={onDeleteContent}

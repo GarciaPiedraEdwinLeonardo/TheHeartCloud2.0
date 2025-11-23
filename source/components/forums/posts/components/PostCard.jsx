@@ -433,7 +433,11 @@ function PostCard({
 
               {/* Comentar */}
               <button
-                onClick={onCommentClick}
+                onClick={() => {
+                  if (onCommentClick) {
+                    onCommentClick(post); // Pasar el objeto post completo
+                  }
+                }}
                 disabled={post.status !== 'active'}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
                   post.status === 'active' 
@@ -442,7 +446,7 @@ function PostCard({
                 }`}
               >
                 <FaComment className="w-4 h-4" />
-                <span className="text-sm">Comentar</span>
+                <span className="text-sm">Comentar ({post.stats?.commentCount || 0})</span>
               </button>
             </div>
           )}

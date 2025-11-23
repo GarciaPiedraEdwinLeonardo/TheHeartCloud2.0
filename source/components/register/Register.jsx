@@ -74,7 +74,7 @@ function Register({ onSwitchToLogin }) {
         return errors.length === 0;
     }
 
-    // FUNCIÓN CLAVE: Limpiar usuario no verificado existente
+    // Limpiar usuario no verificado existente
     const cleanupExistingUnverifiedUser = async (email) => {
         try {
             const usersRef = collection(db, 'users');
@@ -222,7 +222,6 @@ function Register({ onSwitchToLogin }) {
     };
 
     const handleGoogleRegister = async () => {
-        setLoading(true);
         setError('');
 
         try {

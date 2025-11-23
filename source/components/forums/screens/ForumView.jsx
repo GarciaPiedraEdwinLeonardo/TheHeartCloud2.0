@@ -14,7 +14,6 @@ import CreatePostModal from './../posts/modals/CreatePostModal';
 import ReportModal from './../modals/ReportModal';
 import ForumSettingsModal from './../modals/ForumSettingsModal';
 import PostValidationModal from './../modals/PostValidationModal';
-import DeleteContentModal from './../modals/DeleteContentModal';
 import BanUserModal from './../modals/BanUserModal';
 import MobileActionsModal from '../modals/MobileActionsModal';
 import ManageMembersModal from '../modals/ManageMembersModal';
@@ -23,7 +22,7 @@ import WelcomeMessage from './../components/WelcomeMessage';
 import ForumSidebar from './../components/ForumSidebar';
 import PostList from './../posts/components/PostList';
 
-function ForumView({ forumData, onBack }) {
+function ForumView({ forumData, onBack, onShowPost }) {
   // Estados principales
   const [userMembership, setUserMembership] = useState({ isMember: false, role: null });
   const [userData, setUserData] = useState(null);
@@ -51,6 +50,7 @@ function ForumView({ forumData, onBack }) {
   const { joinForum, leaveForum, checkUserMembership, getForumData, isUserBannedFromForum } = useForumActions();
   const { leaveForumAsOwner } = useForumSettings();
   const { getPendingPosts, deletePost } = usePostModeration();
+  const [currentPost, setCurrentPost] = useState(null);
   const { banUser } = useCommunityBans();
   const { members } = useForumMembers(forumDetails.id);
   const { posts, loading: postsLoading, error: postsError } = usePosts(forumDetails.id);
@@ -330,6 +330,12 @@ function ForumView({ forumData, onBack }) {
     );
   }
 
+  const handleCommentClick = (post) => {
+    if (onShowPost) {
+      onShowPost(post);
+    }
+};
+
   return (
     <div className="min-h-screen bg-gray-50 py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -366,6 +372,7 @@ function ForumView({ forumData, onBack }) {
               onPostUpdate={handlePostUpdate}
               onDeleteContent={handleDeleteContent}
               onBanUser={handleBanUser}
+              onCommentClick={handleCommentClick}
             />
           </main>
 
@@ -447,15 +454,6 @@ function ForumView({ forumData, onBack }) {
         forumId={forumDetails.id}
         forumName={forumDetails.name}
         onPostsValidated={loadPendingPostsCount}
-      />
-
-      <DeleteContentModal
-        isOpen={showDeleteModal}
-        onClose={() => setShowDeleteModal(false)}
-        content={selectedContent}
-        contentType={selectedContent?.contentType}
-        forumId={forumDetails.id}
-        onContentDeleted={handleContentDeleted}
       />
 
       <BanUserModal

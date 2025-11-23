@@ -17,6 +17,7 @@ function VerificationSent({ email, onBackToLogin, onResendEmail, loading }) {
                     <p className="mt-2 text-sm">
                         Hemos enviado un enlace de verificación a <strong>{email}</strong>. 
                         Por favor revisa tu bandeja de entrada y haz clic en el enlace para activar tu cuenta.
+                        Después de activar tu cuenta inicia sesión
                     </p>
                 </div>
 

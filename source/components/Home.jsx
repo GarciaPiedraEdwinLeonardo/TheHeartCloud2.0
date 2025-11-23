@@ -11,6 +11,7 @@ import SearchResults from './navegation/search/screens/SearchingResults';
 import ForumView from './forums/screens/ForumView';
 import VerifyAccount from './screens/VerifyAccount';
 import VerificationRequests from './admin/VerificationRequests';
+import PostDetailView from './forums/posts/PostDetailView';
 
 function Home() {
   const [isSidebarModalOpen, setIsSidebarModalOpen] = useState(false);
@@ -68,7 +69,7 @@ function Home() {
   };
 
   const handleBackFromPost = () => {
-    setCurrentView('main'); 
+    setCurrentView('forum'); 
   };
 
   const handleVerifyAccount = () =>{
@@ -133,6 +134,7 @@ function Home() {
               <ForumView 
                 forumData={currentForum}
                 onBack={handleBackFromForum}
+                onShowPost={handleShowPost}
               />
             )}
             {currentView === 'post' && (
