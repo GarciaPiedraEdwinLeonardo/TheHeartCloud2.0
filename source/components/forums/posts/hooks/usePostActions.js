@@ -10,6 +10,9 @@ import {
   getDoc,
   writeBatch,
   deleteField,
+  query,
+  where,
+  getDocs,
 } from "firebase/firestore";
 import { db, auth } from "./../../../../config/firebase";
 
@@ -135,6 +138,74 @@ export const usePostActions = () => {
     }
   };
 
+  const deletePostComments = async (postId) => {
+    try {
+      // Buscar todos los comentarios del post
+      const commentsQuery = query(
+        collection(db, "comments"),
+        where("postId", "==", postId)
+      );
+
+      const commentsSnapshot = await getDocs(commentsQuery);
+      const batch = writeBatch(db);
+
+      // Eliminar cada comentario
+      commentsSnapshot.forEach((commentDoc) => {
+        batch.delete(commentDoc.ref);
+      });
+
+      await batch.commit();
+      console.log(
+        `✅ Eliminados ${commentsSnapshot.size} comentarios del post ${postId}`
+      );
+
+      return { success: true, deletedComments: commentsSnapshot.size };
+    } catch (error) {
+      console.error("Error eliminando comentarios del post:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  const updateUsersCommentStats = async (postId) => {
+    try {
+      // Buscar todos los comentarios del post para obtener los autores
+      const commentsQuery = query(
+        collection(db, "comments"),
+        where("postId", "==", postId)
+      );
+
+      const commentsSnapshot = await getDocs(commentsQuery);
+      const authorsMap = new Map();
+
+      // Contar comentarios por autor
+      commentsSnapshot.forEach((commentDoc) => {
+        const commentData = commentDoc.data();
+        const authorId = commentData.authorId;
+        if (authorId) {
+          authorsMap.set(authorId, (authorsMap.get(authorId) || 0) + 1);
+        }
+      });
+
+      // Actualizar estadísticas de cada autor
+      const batch = writeBatch(db);
+      for (const [authorId, commentCount] of authorsMap) {
+        const authorRef = doc(db, "users", authorId);
+        batch.update(authorRef, {
+          "stats.commentCount": increment(-commentCount),
+          "stats.contributionCount": increment(-commentCount),
+        });
+      }
+
+      await batch.commit();
+      console.log(`✅ Actualizadas estadísticas de ${authorsMap.size} autores`);
+
+      return { success: true, updatedAuthors: authorsMap.size };
+    } catch (error) {
+      console.error("Error actualizando estadísticas de autores:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
   // Eliminar post
   const deletePost = async (
     postId,
@@ -145,16 +216,29 @@ export const usePostActions = () => {
       const { postData, isAuthor, isModeratorOrAdmin, isForumModerator } =
         await checkPostPermissions(postId);
 
-      // Determinar el tipo de eliminación
       const isModeratorDeletion =
         isModeratorAction ||
         (!isAuthor && (isModeratorOrAdmin || isForumModerator));
 
-      // Usar Batch para operación atómica
+      // PRIMERO: Eliminar comentarios del post
+      console.log("🗑️ Eliminando comentarios del post...");
+      const commentsResult = await deletePostComments(postId);
+      const deletedCommentsCount = commentsResult.deletedComments || 0;
+
+      // SEGUNDO: Actualizar estadísticas de autores de comentarios
+      let updatedAuthorsCount = 0;
+      if (deletedCommentsCount > 0) {
+        console.log(
+          `✅ ${deletedCommentsCount} comentarios eliminados, actualizando estadísticas...`
+        );
+        const statsResult = await updateUsersCommentStats(postId);
+        updatedAuthorsCount = statsResult.updatedAuthors || 0;
+      }
+
+      // TERCERO: Eliminar el post y actualizar contadores
       const batch = writeBatch(db);
 
       if (isModeratorDeletion) {
-        //Guardar en deleted_posts para auditoría
         const deletedPostRef = doc(collection(db, "deleted_posts"), postId);
         batch.set(deletedPostRef, {
           ...postData,
@@ -172,17 +256,15 @@ export const usePostActions = () => {
             comments: postData.stats?.commentCount || 0,
             views: postData.stats?.viewCount || 0,
           },
-          // Información para reportes de moderación
-          reportedToGlobal: false, // Se marcará como true cuando se reporte a moderación global
+          reportedToGlobal: false,
         });
       }
-      // Si es eliminación por el autor, NO se guarda en deleted_posts (se elimina permanentemente)
 
-      // 2. Eliminar post original de la colección activa
+      // Eliminar post
       const postRef = doc(db, "posts", postId);
       batch.delete(postRef);
 
-      // 3. Actualizar contador del foro solo si el post estaba activo
+      // Actualizar contador del foro
       if (postData.status === "active") {
         const forumRef = doc(db, "forums", postData.forumId);
         batch.update(forumRef, {
@@ -190,19 +272,19 @@ export const usePostActions = () => {
         });
       }
 
-      // 4. Actualizar estadísticas del autor solo si es el autor
+      // Actualizar estadísticas del autor del post
       if (isAuthor) {
-        const userRef = doc(db, "users", user.uid);
-        batch.update(userRef, {
+        const authorRef = doc(db, "users", user.uid);
+        batch.update(authorRef, {
           "stats.postCount": increment(-1),
           "stats.contributionCount": increment(-1),
         });
       }
 
-      // Ejecutar batch atómico
       await batch.commit();
+      console.log("✅ Post eliminado correctamente");
 
-      // 5. Si fue eliminación por moderador, reportar a moderación global
+      // Reportar a moderación global si es necesario
       if (isModeratorDeletion) {
         await reportToGlobalModeration(
           postData.authorId,
@@ -216,6 +298,8 @@ export const usePostActions = () => {
         success: true,
         deletionType: isModeratorDeletion ? "moderator" : "user",
         savedForAudit: isModeratorDeletion,
+        deletedComments: deletedCommentsCount,
+        updatedAuthors: updatedAuthorsCount,
       };
     } catch (error) {
       console.error("Error eliminando post:", error);

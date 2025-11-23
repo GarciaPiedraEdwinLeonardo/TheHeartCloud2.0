@@ -304,7 +304,7 @@ function PostCard({
             )}
             
             {/* MOSTRAR MENÚ SI: es autor O puede moderar */}
-            {showOptionsMenu || canReport && (
+            {(showOptionsMenu || canReport) && (
               <div className="relative">
                 <button
                   onClick={() => setShowMenu(!showMenu)}

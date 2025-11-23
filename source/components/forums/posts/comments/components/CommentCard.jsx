@@ -57,7 +57,6 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
     if (forumData) {
       setForumDetails(forumData);
     } else if (postId) {
-      // Cargar datos del foro desde el post si no se proporcionan
       try {
         const postDoc = await getDoc(doc(db, 'posts', postId));
         if (postDoc.exists()) {
@@ -140,9 +139,11 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
   const isForumOwner = forumDetails && forumDetails.ownerId === user?.uid;
   
   const canModerate = isGlobalModerator || isForumModerator || isForumOwner;
-  const showOptionsMenu = isAuthor || canModerate;
   const canReply = userData && ['doctor', 'moderator', 'admin'].includes(userData?.role);
-  const canReport = user && !isAuthor; // No puedes reportar tu propio comentario
+  const canReport = user && !isAuthor && !canModerate; // Solo usuarios normales pueden reportar (no autores ni moderadores)
+
+  // CORRECCIÓN: Mostrar menú si el usuario tiene CUALQUIER permiso
+  const showMenuButton = user && (isAuthor || canModerate || canReport);
 
   const getAuthorName = () => {
     if (!authorData) return 'Usuario';
@@ -178,7 +179,6 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
     }
   };
 
-  // Función para renderizar contenido con formato básico
   const renderFormattedContent = (content) => {
     if (!content) return '';
     
@@ -218,74 +218,76 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
             </div>
           </div>
 
-          {/* Menú de opciones */}
-          <div className="relative">
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-1 hover:bg-gray-100 rounded transition duration-200"
-            >
-              <FaEllipsisH className="w-4 h-4 text-gray-500" />
-            </button>
-            
-            {showMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-                {/* Acciones del autor */}
-                {isAuthor && (
-                  <>
-                    <button
-                      onClick={handleEdit}
-                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <FaEdit className="w-3 h-3" />
-                      Editar
-                    </button>
-                    <button
-                      onClick={handleDelete}
-                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    >
-                      <FaTrash className="w-3 h-3" />
-                      Eliminar
-                    </button>
-                  </>
-                )}
+          {/* CORRECCIÓN: Mostrar menú si el usuario tiene algún permiso */}
+          {showMenuButton && (
+            <div className="relative">
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-1 hover:bg-gray-100 rounded transition duration-200"
+              >
+                <FaEllipsisH className="w-4 h-4 text-gray-500" />
+              </button>
+              
+              {showMenu && (
+                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                  {/* Acciones del autor */}
+                  {isAuthor && (
+                    <>
+                      <button
+                        onClick={handleEdit}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <FaEdit className="w-3 h-3" />
+                        Editar
+                      </button>
+                      <button
+                        onClick={handleDelete}
+                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <FaTrash className="w-3 h-3" />
+                        Eliminar
+                      </button>
+                    </>
+                  )}
 
-                {/* Reportar (solo si no es el autor) */}
-                {canReport && (
-                  <button
-                    onClick={handleReport}
-                    className="w-full text-left px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"
-                  >
-                    <FaFlag className="w-3 h-3" />
-                    Reportar
-                  </button>
-                )}
+                  {/* Reportar (solo usuarios normales) */}
+                  {canReport && (
+                    <button
+                      onClick={handleReport}
+                      className="w-full text-left px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                    >
+                      <FaFlag className="w-3 h-3" />
+                      Reportar
+                    </button>
+                  )}
 
-                {/* Acciones de moderación */}
-                {canModerate && !isAuthor && (
-                  <>
-                    <div className="border-t border-gray-200 my-1"></div>
-                    <div className="px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50">
-                      Moderación
-                    </div>
-                    <button
-                      onClick={handleDelete}
-                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    >
-                      <FaTrash className="w-3 h-3" />
-                      Eliminar Comentario
-                    </button>
-                    <button
-                      onClick={handleBanAuthor}
-                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                    >
-                      <FaBan className="w-3 h-3" />
-                      Banear Usuario
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
+                  {/* Acciones de moderación */}
+                  {canModerate && !isAuthor && (
+                    <>
+                      <div className="border-t border-gray-200 my-1"></div>
+                      <div className="px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50">
+                        Moderación
+                      </div>
+                      <button
+                        onClick={handleDelete}
+                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <FaTrash className="w-3 h-3" />
+                        Eliminar Comentario
+                      </button>
+                      <button
+                        onClick={handleBanAuthor}
+                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                      >
+                        <FaBan className="w-3 h-3" />
+                        Banear Usuario
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Contenido del Comentario */}
