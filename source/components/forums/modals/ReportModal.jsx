@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaTimes, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaExclamationTriangle, FaUser } from 'react-icons/fa';
 
 function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
   const [formData, setFormData] = useState({
@@ -39,10 +39,25 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
     ],
     user: [
       'Comportamiento abusivo',
-      'Spam',
+      'Spam o autopromoción excesiva',
       'Suplantación de identidad',
-      'Perfil falso',
-      'Acoso',
+      'Perfil falso o información fraudulenta',
+      'Acoso o intimidación',
+      'Contenido inapropiado en el perfil',
+      'Usuario no verificado ejerciendo como médico',
+      'Compartir información médica peligrosa',
+      'Otro'
+    ],
+    profile: [ // ← NUEVO: Razones específicas para reportar perfiles
+      'Información profesional falsa',
+      'Suplantación de identidad médica',
+      'Foto de perfil inapropiada',
+      'Comportamiento abusivo en mensajes',
+      'Spam o autopromoción excesiva',
+      'Acoso a otros usuarios',
+      'Compartir información médica peligrosa',
+      'Usuario no verificado ejerciendo como médico',
+      'Credenciales falsas o alteradas',
       'Otro'
     ]
   };
@@ -64,6 +79,8 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         return `Reportar Comentario`;
       case 'user':
         return `Reportar Usuario: ${targetName}`;
+      case 'profile': // ← NUEVO
+        return `Reportar Perfil: ${targetName}`;
       default:
         return 'Reportar Contenido';
     }
@@ -79,8 +96,36 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         return 'Reportar problemas con este comentario';
       case 'user':
         return 'Reportar problemas con este usuario';
+      case 'profile': // ← NUEVO
+        return 'Reportar problemas con este perfil de usuario';
       default:
         return 'Reportar contenido inapropiado';
+    }
+  };
+
+  const getReportIcon = () => {
+    switch (reportType) {
+      case 'profile': // ← NUEVO: Icono específico para perfiles
+        return <FaUser className="w-5 h-5 text-red-600" />;
+      default:
+        return <FaExclamationTriangle className="w-5 h-5 text-red-600" />;
+    }
+  };
+
+  const getPlaceholderText = () => {
+    switch (reportType) {
+      case 'profile': // ← NUEVO: Placeholder específico para perfiles
+        return "Describe detalladamente el problema con este perfil. Incluye información específica sobre: credenciales falsas, comportamiento inapropiado, información médica fraudulenta, etc.";
+      case 'user':
+        return "Describe detalladamente el problema con este usuario. Incluye ejemplos específicos de comportamiento inapropiado.";
+      case 'forum':
+        return "Describe detalladamente el problema con esta comunidad.";
+      case 'post':
+        return "Describe detalladamente el problema con esta publicación.";
+      case 'comment':
+        return "Describe detalladamente el problema con este comentario.";
+      default:
+        return "Proporciona todos los detalles relevantes sobre el problema.";
     }
   };
 
@@ -155,8 +200,10 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         {/* Header fijo */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10 rounded-t-2xl">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <FaExclamationTriangle className="w-5 h-5 text-red-600" />
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+              reportType === 'profile' ? 'bg-purple-100' : 'bg-red-100'
+            }`}>
+              {getReportIcon()}
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-xl font-bold text-gray-900 truncate">{getReportTitle()}</h2>
@@ -252,22 +299,27 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
                 disabled={loading}
                 rows={5}
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none disabled:opacity-50"
-                placeholder="Proporciona todos los detalles relevantes sobre el problema. Esto ayudará a los moderadores a entender la situación."
+                placeholder={getPlaceholderText()}
                 required
               />
               <p className="text-xs text-gray-500 mt-1">
                 {formData.description.length} caracteres (mínimo 10)
               </p>
             </div>
-
-            {/* Información adicional */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          
+            {/* Información adicional general */}
+            <div className={`border rounded-lg p-4 mb-6 ${
+              reportType === 'profile' ? 'bg-blue-50 border-blue-200' : 'bg-blue-50 border-blue-200'
+            }`}>
               <h4 className="text-sm font-medium text-blue-800 mb-2">Información importante</h4>
               <ul className="text-xs text-blue-700 space-y-1">
                 <li>• Los reportes son anónimos para otros usuarios</li>
                 <li>• Los moderadores revisarán tu reporte en 24-48 horas</li>
                 <li>• Usa este sistema solo para contenido que viole las normas</li>
                 <li>• Los reportes falsos pueden resultar en sanciones</li>
+                {reportType === 'profile' && (
+                  <li>• Los perfiles médicos reportados serán investigados exhaustivamente</li>
+                )}
               </ul>
             </div>
           </form>

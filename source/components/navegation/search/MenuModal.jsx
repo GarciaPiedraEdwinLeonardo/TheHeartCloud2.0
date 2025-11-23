@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
 import { doc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './../../../config/firebase'; 
-import { FaTimes, FaSignOutAlt, FaUser, FaTrash } from 'react-icons/fa';
+import { FaTimes, FaSignOutAlt, FaUser, FaTrash, FaUserCircle } from 'react-icons/fa';
 import VerificarCuenta from './../../buttons/VerificarCuenta';
 import DeleteAcount from '../../modals/DeleteAcount';
 
@@ -84,7 +84,7 @@ function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
     // Verificar si el usuario necesita verificación
     const needsVerification = userData?.role === 'unverified';
 
-    // AÑADE: Variables seguras
+    // Variables seguras
     const userInitial = user?.email ? user.email[0].toUpperCase() : 'U';
     const userName = user?.displayName || user?.email || 'Usuario';
     const userRole = userData?.role === 'unverified' ? 'Sin verificar' : 
@@ -92,6 +92,7 @@ function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
                     userData?.role === 'moderator' ? 'Moderador':
                     userData?.role === 'admin' ? "Admin":
                     userData?.role || 'Usuario';
+    const userPhoto = userData?.photoURL; // Obtener la foto de perfil
 
     if (!isOpen) return null;
 
@@ -136,11 +137,20 @@ function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
                             ) : 
                                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                                     <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                                            <span className="text-white font-semibold">
-                                                {userInitial}
-                                            </span>
-                                        </div>
+                                        {/* Foto de perfil o avatar por defecto */}
+                                        {userPhoto ? (
+                                            <img 
+                                                src={userPhoto} 
+                                                alt="Foto de perfil"
+                                                className="w-12 h-12 rounded-full object-cover border-2 border-blue-100"
+                                            />
+                                        ) : (
+                                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                                                <span className="text-white font-semibold">
+                                                    {userInitial}
+                                                </span>
+                                            </div>
+                                        )}
                                         <div>
                                             <p className="font-semibold text-blue-800">
                                                 {userName}

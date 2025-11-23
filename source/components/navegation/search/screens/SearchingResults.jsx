@@ -3,7 +3,13 @@ import { useSearch } from './../hooks/useSearch';
 import SearchForumsList from './../lists/SearchForumsList';
 import SearchUsersList from './../lists/SearchUsersList';
 
-function SearchResults({ searchQuery, searchType = 'forums', onThemeClick, onUserClick }) {
+function SearchResults({ 
+  searchQuery, 
+  searchType = 'forums', 
+  onThemeClick, 
+  onUserClick,
+  onShowUserProfile  
+}) {
   const [activeTab, setActiveTab] = useState(searchType);
   const { results, loading, error } = useSearch(searchQuery);
 
@@ -18,10 +24,15 @@ function SearchResults({ searchQuery, searchType = 'forums', onThemeClick, onUse
   };
 
   const handleUserClick = (user) => {
-    if (onUserClick) {
-      onUserClick(user);
+  
+  if (onShowUserProfile) {
+    if (user && user.id) {
+      onShowUserProfile(user);
+    } else {
+      console.error('El objeto usuario no tiene ID:', user);
     }
-  };
+  }
+};
 
   // Obtener resultados del tipo activo (cambio instantáneo)
   const activeResults = activeTab === 'forums' ? results.forums : results.users;

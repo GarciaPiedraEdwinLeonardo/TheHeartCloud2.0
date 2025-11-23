@@ -105,6 +105,11 @@ export const useSearch = (searchQuery) => {
             type: "user",
             ...userData,
             fullName: fullName,
+            // Asegurar que tenemos los datos necesarios para mostrar en la lista
+            photoURL: userData.photoURL || null,
+            role: userData.role || "unverified",
+            professionalInfo: userData.professionalInfo || {},
+            stats: userData.stats || {},
           };
         });
 

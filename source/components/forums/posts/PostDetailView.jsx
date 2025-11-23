@@ -7,7 +7,7 @@ import PostCard from './components/PostCard';
 import CommentList from './comments/components/CommentList';
 import CreateCommentModal from './comments/modals/CreateCommentModal';
 
-function PostDetailView({ post, onBack }) {
+function PostDetailView({ post, onBack, onShowUserProfile }) {
   const [postData, setPostData] = useState(post);
   const [authorData, setAuthorData] = useState(null);
   const [userData, setUserData] = useState(null);
@@ -165,6 +165,7 @@ function PostDetailView({ post, onBack }) {
             onCommentClick={() => {}} // Deshabilitar en esta vista ya que estamos en la vista de comentarios
             onPostUpdated={handlePostUpdated}
             onPostDeleted={handlePostDeleted}
+            onShowUserProfile={onShowUserProfile}
             userRole={userData?.role}
             userMembership={{}} // No necesitamos membresía del foro aquí
             requiresPostApproval={false}
@@ -213,6 +214,7 @@ function PostDetailView({ post, onBack }) {
               postId={postData.id}
               userData={userData}
               onCommentCreated={handleCommentCreated}
+              onShowUserProfile={onShowUserProfile}
               forumData={forumData}
             />
           </div>

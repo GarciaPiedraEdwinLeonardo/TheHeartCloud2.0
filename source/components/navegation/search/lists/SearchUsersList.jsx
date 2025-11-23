@@ -1,5 +1,5 @@
 // components/SearchUsersList.jsx
-import { FaUser, FaAward, FaComment } from 'react-icons/fa';
+import { FaUser, FaAward, FaComment, FaArrowRight } from 'react-icons/fa';
 
 function SearchUsersList({ users, searchQuery, onUserClick }) {
   if (users.length === 0) {
@@ -33,26 +33,40 @@ function SearchUsersList({ users, searchQuery, onUserClick }) {
     }
   };
 
+  const handleUserClick = (user) => {
+    if (onUserClick) {
+      onUserClick(user);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {users.map(user => (
         <div 
           key={user.id} 
-          className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition duration-200 cursor-pointer group"
-          onClick={() => onUserClick(user)}
+          className="bg-white rounded-lg p-4 border border-gray-200 hover:border-blue-300 hover:shadow-md transition duration-200 cursor-pointer group"
+          onClick={() => handleUserClick(user)}
         >
           <div className="flex items-center space-x-4">
-            {/* Avatar */}
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-blue-600 font-semibold text-sm">
-                {user.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'US'}
-              </span>
-            </div>
+            {/* Avatar - Mostrar foto si existe */}
+            {user.photoURL ? (
+              <img 
+                src={user.photoURL} 
+                alt={user.fullName}
+                className="w-12 h-12 rounded-full object-cover border-2 border-blue-100"
+              />
+            ) : (
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-blue-600 font-semibold text-sm">
+                  {user.fullName?.split(' ').map(n => n[0]).join('').slice(0, 2) || 'US'}
+                </span>
+              </div>
+            )}
             
             {/* Información del usuario */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap">
-                <h3 className="font-semibold text-gray-900 break-words">
+                <h3 className="font-semibold text-gray-900 break-words group-hover:text-blue-600 transition duration-200">
                   {user.fullName || 'Usuario'}
                 </h3>
                 {getRoleBadge(user.role)}
@@ -66,24 +80,27 @@ function SearchUsersList({ users, searchQuery, onUserClick }) {
               
               <div className="flex flex-wrap gap-4 text-xs text-gray-500">
                 <div className="flex items-center gap-1">
-                  <FaAward className="w-3 h-3" />
+                  <FaAward className="w-3 h-3 text-yellow-500" />
                   <span>Aura: {user.stats?.aura || 0}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <FaComment className="w-3 h-3" />
+                  <FaComment className="w-3 h-3 text-blue-500" />
                   <span>Contribuciones: {user.stats?.contributionCount || 0}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <FaUser className="w-3 h-3" />
+                  <FaUser className="w-3 h-3 text-green-500" />
                   <span>Comunidades: {user.stats?.joinedForumsCount || 0}</span>
                 </div>
               </div>
             </div>
             
             {/* Botón de acción */}
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 text-sm opacity-0 group-hover:opacity-100">
-              Ver Perfil
-            </button>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-400 text-sm hidden group-hover:block transition duration-200">
+                Ver perfil
+              </span>
+              <FaArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition duration-200" />
+            </div>
           </div>
         </div>
       ))}

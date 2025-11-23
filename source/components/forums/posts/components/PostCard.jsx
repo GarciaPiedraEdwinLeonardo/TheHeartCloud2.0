@@ -19,6 +19,7 @@ function PostCard({
   onPostDeleted, 
   onDeleteContent, 
   onBanUser,
+  onShowUserProfile, // Nueva prop para mostrar perfil de usuario
   userRole,
   userMembership,
   requiresPostApproval,
@@ -165,6 +166,16 @@ function PostCard({
   const showOptionsMenu = isAuthor || canModerate;
   const canReport = user && !isAuthor && !canModerate;
 
+  // Nueva función para manejar clic en perfil de usuario
+  const handleAuthorClick = () => {
+    if (onShowUserProfile && authorData) {
+      onShowUserProfile({
+        id: post.authorId,
+        ...authorData
+      });
+    }
+  };
+
   const handleEdit = () => {
     setShowEditModal(true);
     setShowMenu(false);
@@ -251,6 +262,12 @@ function PostCard({
     return authorData.stats?.aura || 0;
   };
 
+  // Obtener foto de perfil del autor
+  const getAuthorPhoto = () => {
+    if (!authorData) return null;
+    return authorData.photoURL || null;
+  };
+
   // Determinar estado del post
   const getPostStatus = () => {
     if (post.status === 'pending') {
@@ -273,25 +290,41 @@ function PostCard({
         {/* Header del Post */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-              <FaUser className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">{getAuthorName()}</h3>
-              {getAuthorSpecialty() && (
-                <p className="text-sm text-gray-600">{getAuthorSpecialty()}</p>
+            {/* Foto de perfil del autor - Clickable */}
+            <button 
+              onClick={handleAuthorClick}
+              className="flex items-center gap-3 hover:bg-gray-50 rounded-lg p-1 transition duration-200 group"
+            >
+              {getAuthorPhoto() ? (
+                <img 
+                  src={getAuthorPhoto()} 
+                  alt={`Foto de ${getAuthorName()}`}
+                  className="w-10 h-10 rounded-full object-cover border-2 border-blue-100 group-hover:border-blue-300 transition duration-200"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center group-hover:from-blue-600 group-hover:to-purple-700 transition duration-200">
+                  <FaUser className="w-5 h-5 text-white" />
+                </div>
               )}
-              <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                <FaCalendar className="w-3 h-3" />
-                <span>{formatDate(post.createdAt)}</span>
-                {post.updatedAt && (
-                  <>
-                    <span>•</span>
-                    <span className="text-gray-400">Editado</span>
-                  </>
+              <div className="text-left">
+                <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition duration-200">
+                  {getAuthorName()}
+                </h3>
+                {getAuthorSpecialty() && (
+                  <p className="text-sm text-gray-600">{getAuthorSpecialty()}</p>
                 )}
+                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                  <FaCalendar className="w-3 h-3" />
+                  <span>{formatDate(post.createdAt)}</span>
+                  {post.updatedAt && (
+                    <>
+                      <span>•</span>
+                      <span className="text-gray-400">Editado</span>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
+            </button>
           </div>
 
           {/* Estado del post y menú de opciones */}

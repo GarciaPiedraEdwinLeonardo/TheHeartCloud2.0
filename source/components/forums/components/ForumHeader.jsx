@@ -56,7 +56,7 @@ function ForumHeader({ forumDetails, userMembership, onBack }) {
           className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition duration-200 flex-shrink-0 self-start sm:self-center"
         >
           <FaArrowLeft className="w-4 h-4" />
-          <span className="whitespace-nowrap">Volver al Inicio</span>
+          <span className="whitespace-nowrap">Volver</span>
         </button>
       </div>
 

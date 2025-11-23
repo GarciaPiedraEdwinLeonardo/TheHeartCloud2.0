@@ -22,7 +22,7 @@ import WelcomeMessage from './../components/WelcomeMessage';
 import ForumSidebar from './../components/ForumSidebar';
 import PostList from './../posts/components/PostList';
 
-function ForumView({ forumData, onBack, onShowPost }) {
+function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   // Estados principales
   const [userMembership, setUserMembership] = useState({ isMember: false, role: null });
   const [userData, setUserData] = useState(null);
@@ -228,8 +228,11 @@ function ForumView({ forumData, onBack, onShowPost }) {
     setShowBanModal(true);
   };
 
-  const handleContentDeleted = () => {
-    loadPendingPostsCount();
+  const handleShowUserProfile = (userData) => {
+    console.log('👤 Mostrar perfil de usuario desde ForumView:', userData);
+    if (onShowUserProfile) {
+      onShowUserProfile(userData);
+    }
   };
 
   const handleUserBanned = async () => {
@@ -248,6 +251,7 @@ function ForumView({ forumData, onBack, onShowPost }) {
   const handlePostUpdate = () => {
     loadPendingPostsCount();
   };
+
 
   // Acciones para móviles
   const mobileActions = [
@@ -373,6 +377,7 @@ function ForumView({ forumData, onBack, onShowPost }) {
               onDeleteContent={handleDeleteContent}
               onBanUser={handleBanUser}
               onCommentClick={handleCommentClick}
+              onShowUserProfile={handleShowUserProfile}
               forumData={forumData}
             />
           </main>

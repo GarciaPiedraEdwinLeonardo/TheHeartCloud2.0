@@ -16,6 +16,7 @@ function PostList({
   onDeleteContent, 
   onBanUser,
   onCommentClick,
+  onShowUserProfile, // Nueva prop para manejar navegación a perfil
   forumData,
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -89,6 +90,7 @@ function PostList({
             onPostDeleted={handlePostDeleted}
             onDeleteContent={onDeleteContent}
             onBanUser={onBanUser}
+            onShowUserProfile={onShowUserProfile} 
             userRole={userRole} 
             userMembership={userMembership} 
             requiresPostApproval={requiresPostApproval}

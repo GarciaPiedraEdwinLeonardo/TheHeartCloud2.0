@@ -22,7 +22,15 @@ import CreateCommentModal from './../modals/CreateCommentModal';
 import ReportModal from './../../../modals/ReportModal';
 import BanUserModal from './../../../modals/BanUserModal'
 
-function CommentCard({ comment, postId, userData, onCommentCreated, isReply = false, forumData }) {
+function CommentCard({ 
+  comment, 
+  postId, 
+  userData, 
+  onCommentCreated, 
+  isReply = false, 
+  forumData,
+  onShowUserProfile // ← Nueva prop
+}) {
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -69,6 +77,16 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
       } catch (error) {
         console.error('Error cargando datos del foro:', error);
       }
+    }
+  };
+
+  // Nueva función para manejar clic en perfil de usuario
+  const handleAuthorClick = () => {
+    if (onShowUserProfile && authorData) {
+      onShowUserProfile({
+        id: comment.authorId,
+        ...authorData
+      });
     }
   };
 
@@ -161,6 +179,12 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
     return authorData.professionalInfo?.specialty || null;
   };
 
+  // Obtener foto de perfil del autor
+  const getAuthorPhoto = () => {
+    if (!authorData) return null;
+    return authorData.photoURL || null;
+  };
+
   const formatDate = (timestamp) => {
     if (!timestamp) return '';
     try {
@@ -193,29 +217,45 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
         {/* Header del Comentario */}
         <div className="flex justify-between items-start mb-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <FaUser className="w-4 h-4 text-blue-600" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-gray-900 text-sm">{getAuthorName()}</h3>
-                {getAuthorSpecialty() && (
-                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                    {getAuthorSpecialty()}
-                  </span>
-                )}
+            {/* Foto de perfil del autor - Clickable */}
+            <button 
+              onClick={handleAuthorClick}
+              className="flex items-center gap-3 hover:bg-gray-50 rounded-lg p-1 transition duration-200 group"
+            >
+              {getAuthorPhoto() ? (
+                <img 
+                  src={getAuthorPhoto()} 
+                  alt={`Foto de ${getAuthorName()}`}
+                  className="w-8 h-8 rounded-full object-cover border-2 border-blue-100 group-hover:border-blue-300 transition duration-200 flex-shrink-0"
+                />
+              ) : (
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center group-hover:from-blue-600 group-hover:to-purple-700 transition duration-200 flex-shrink-0">
+                  <FaUser className="w-4 h-4 text-white" />
+                </div>
+              )}
+              <div className="text-left">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-gray-900 text-sm group-hover:text-blue-600 transition duration-200">
+                    {getAuthorName()}
+                  </h3>
+                  {getAuthorSpecialty() && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                      {getAuthorSpecialty()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                  <FaCalendar className="w-3 h-3" />
+                  <span>{formatDate(comment.createdAt)}</span>
+                  {comment.updatedAt && (
+                    <>
+                      <span>•</span>
+                      <span className="text-gray-400">Editado</span>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                <FaCalendar className="w-3 h-3" />
-                <span>{formatDate(comment.createdAt)}</span>
-                {comment.updatedAt && (
-                  <>
-                    <span>•</span>
-                    <span className="text-gray-400">Editado</span>
-                  </>
-                )}
-              </div>
-            </div>
+            </button>
           </div>
 
           {/* CORRECCIÓN: Mostrar menú si el usuario tiene algún permiso */}

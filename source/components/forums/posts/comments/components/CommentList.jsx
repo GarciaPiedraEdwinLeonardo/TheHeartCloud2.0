@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FaSpinner, FaExclamationTriangle, FaCommentSlash, FaChevronDown, FaChevronRight, FaReply } from 'react-icons/fa';
 import CommentCard from './CommentCard';
 
-function CommentList({ comments, loading, error, postId, userData, onCommentCreated, forumData }) {
+function CommentList({ comments, loading, error, postId, userData, onCommentCreated, onShowUserProfile, forumData }) {
   const [expandedThreads, setExpandedThreads] = useState(new Set());
   const [showAllReplies, setShowAllReplies] = useState(new Set());
 
@@ -142,6 +142,7 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
           postId={postId}
           userData={userData}
           onCommentCreated={onCommentCreated}
+          onShowUserProfile={onShowUserProfile}
           isReply={depth > 0}
           forumData={forumData}
         />
