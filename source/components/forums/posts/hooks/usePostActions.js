@@ -135,42 +135,62 @@ export const usePostActions = () => {
     }
   };
 
-  // Eliminar post - MOVIENDO A deleted_posts
-  const deletePost = async (postId, deleteReason = "user_deleted") => {
+  // Eliminar post
+  const deletePost = async (
+    postId,
+    deleteReason = "user_deleted",
+    isModeratorAction = false
+  ) => {
     try {
-      const { postData, isAuthor } = await checkPostPermissions(postId);
+      const { postData, isAuthor, isModeratorOrAdmin, isForumModerator } =
+        await checkPostPermissions(postId);
+
+      // Determinar el tipo de eliminación
+      const isModeratorDeletion =
+        isModeratorAction ||
+        (!isAuthor && (isModeratorOrAdmin || isForumModerator));
 
       // Usar Batch para operación atómica
       const batch = writeBatch(db);
 
-      // 1. Copiar post a deleted_posts
-      const deletedPostRef = doc(collection(db, "deleted_posts"), postId);
-      batch.set(deletedPostRef, {
-        ...postData,
-        id: postId,
-        deletedAt: serverTimestamp(),
-        deletedBy: user.uid,
-        deleteReason: deleteReason,
-        originalForumId: postData.forumId,
-        statsAtDeletion: {
-          likes: postData.likes?.length || 0,
-          dislikes: postData.dislikes?.length || 0,
-          comments: postData.stats?.commentCount || 0,
-          views: postData.stats?.viewCount || 0,
-        },
-      });
+      if (isModeratorDeletion) {
+        //Guardar en deleted_posts para auditoría
+        const deletedPostRef = doc(collection(db, "deleted_posts"), postId);
+        batch.set(deletedPostRef, {
+          ...postData,
+          id: postId,
+          deletedAt: serverTimestamp(),
+          deletedBy: user.uid,
+          deleteReason: deleteReason,
+          deleteType: "moderator_deletion",
+          originalForumId: postData.forumId,
+          authorId: postData.authorId,
+          moderatorAction: true,
+          statsAtDeletion: {
+            likes: postData.likes?.length || 0,
+            dislikes: postData.dislikes?.length || 0,
+            comments: postData.stats?.commentCount || 0,
+            views: postData.stats?.viewCount || 0,
+          },
+          // Información para reportes de moderación
+          reportedToGlobal: false, // Se marcará como true cuando se reporte a moderación global
+        });
+      }
+      // Si es eliminación por el autor, NO se guarda en deleted_posts (se elimina permanentemente)
 
       // 2. Eliminar post original de la colección activa
       const postRef = doc(db, "posts", postId);
       batch.delete(postRef);
 
-      // 3. Actualizar contador del foro
-      const forumRef = doc(db, "forums", postData.forumId);
-      batch.update(forumRef, {
-        postCount: increment(-1),
-      });
+      // 3. Actualizar contador del foro solo si el post estaba activo
+      if (postData.status === "active") {
+        const forumRef = doc(db, "forums", postData.forumId);
+        batch.update(forumRef, {
+          postCount: increment(-1),
+        });
+      }
 
-      // 4. Actualizar estadísticas del usuario solo si es el autor
+      // 4. Actualizar estadísticas del autor solo si es el autor
       if (isAuthor) {
         const userRef = doc(db, "users", user.uid);
         batch.update(userRef, {
@@ -182,7 +202,21 @@ export const usePostActions = () => {
       // Ejecutar batch atómico
       await batch.commit();
 
-      return { success: true };
+      // 5. Si fue eliminación por moderador, reportar a moderación global
+      if (isModeratorDeletion) {
+        await reportToGlobalModeration(
+          postData.authorId,
+          deleteReason,
+          "post_deleted_by_moderator",
+          postId
+        );
+      }
+
+      return {
+        success: true,
+        deletionType: isModeratorDeletion ? "moderator" : "user",
+        savedForAudit: isModeratorDeletion,
+      };
     } catch (error) {
       console.error("Error eliminando post:", error);
       return { success: false, error: error.message };
@@ -276,6 +310,30 @@ export const usePostActions = () => {
     } catch (error) {
       console.error("Error reaccionando al post:", error);
       return { success: false, error: error.message };
+    }
+  };
+
+  // Reportar a moderación global (para eliminaciones de moderadores)
+  const reportToGlobalModeration = async (
+    userId,
+    reason,
+    actionType,
+    postId = null
+  ) => {
+    try {
+      await addDoc(collection(db, "global_moderation_reports"), {
+        userId,
+        reason,
+        moderatorId: user.uid,
+        actionType,
+        postId,
+        reportedAt: serverTimestamp(),
+        status: "pending_review",
+        communityContext: true,
+        requiresAction: true, // Indica que necesita revisión para posibles sanciones
+      });
+    } catch (error) {
+      console.error("Error reporting to global moderation:", error);
     }
   };
 
