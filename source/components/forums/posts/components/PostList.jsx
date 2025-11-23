@@ -15,7 +15,8 @@ function PostList({
   onPostUpdate, 
   onDeleteContent, 
   onBanUser,
-  onCommentClick
+  onCommentClick,
+  forumData,
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -91,6 +92,7 @@ function PostList({
             userRole={userRole} 
             userMembership={userMembership} 
             requiresPostApproval={requiresPostApproval}
+            forumData={forumData}
           />
         ))}
       </div>

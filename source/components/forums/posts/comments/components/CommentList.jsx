@@ -1,7 +1,7 @@
 import { FaSpinner, FaExclamationTriangle, FaCommentSlash } from 'react-icons/fa';
 import CommentCard from './CommentCard';
 
-function CommentList({ comments, loading, error, postId, userData, onCommentCreated }) {
+function CommentList({ comments, loading, error, postId, userData, onCommentCreated, forumData }) {
   // Función para organizar comentarios en hilos
   const organizeComments = (comments) => {
     const commentMap = new Map();
@@ -80,6 +80,7 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
           userData={userData}
           onCommentCreated={onCommentCreated}
           isReply={depth > 0}
+          forumData={forumData}
         />
         
         {/* Renderizar respuestas */}

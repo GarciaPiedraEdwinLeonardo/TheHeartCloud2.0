@@ -373,6 +373,7 @@ function ForumView({ forumData, onBack, onShowPost }) {
               onDeleteContent={handleDeleteContent}
               onBanUser={handleBanUser}
               onCommentClick={handleCommentClick}
+              forumData={forumData}
             />
           </main>
 

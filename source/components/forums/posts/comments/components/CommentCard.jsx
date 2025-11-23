@@ -9,7 +9,8 @@ import {
   FaEdit, 
   FaTrash, 
   FaBan,
-  FaSpinner
+  FaSpinner,
+  FaFlag
 } from 'react-icons/fa';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from './../../../../../config/firebase';
@@ -18,13 +19,18 @@ import { useCommentLikes } from './../hooks/useCommentLikes';
 import EditCommentModal from './../modals/EditCommentModal';
 import DeleteCommentModal from './../modals/DeleteCommentModal';
 import CreateCommentModal from './../modals/CreateCommentModal';
+import ReportModal from './../../../modals/ReportModal';
+import BanUserModal from './../../../modals/BanUserModal'
 
-function CommentCard({ comment, postId, userData, onCommentCreated, isReply = false }) {
+function CommentCard({ comment, postId, userData, onCommentCreated, isReply = false, forumData }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showReplyModal, setShowReplyModal] = useState(false);
+  const [showBanModal, setShowBanModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [authorData, setAuthorData] = useState(null);
+  const [forumDetails, setForumDetails] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   
   const { likeComment } = useCommentActions();
@@ -33,7 +39,8 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
 
   useEffect(() => {
     loadAuthorData();
-  }, [comment.authorId]);
+    loadForumDetails();
+  }, [comment.authorId, forumData]);
 
   const loadAuthorData = async () => {
     try {
@@ -43,6 +50,26 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
       }
     } catch (error) {
       console.error('Error cargando datos del autor:', error);
+    }
+  };
+
+  const loadForumDetails = async () => {
+    if (forumData) {
+      setForumDetails(forumData);
+    } else if (postId) {
+      // Cargar datos del foro desde el post si no se proporcionan
+      try {
+        const postDoc = await getDoc(doc(db, 'posts', postId));
+        if (postDoc.exists()) {
+          const postData = postDoc.data();
+          const forumDoc = await getDoc(doc(db, 'forums', postData.forumId));
+          if (forumDoc.exists()) {
+            setForumDetails({ id: forumDoc.id, ...forumDoc.data() });
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando datos del foro:', error);
+      }
     }
   };
 
@@ -73,6 +100,18 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
     setShowMenu(false);
   };
 
+  const handleBanAuthor = () => {
+    if (authorData) {
+      setShowBanModal(true);
+      setShowMenu(false);
+    }
+  };
+
+  const handleReport = () => {
+    setShowReportModal(true);
+    setShowMenu(false);
+  };
+
   const handleCommentUpdated = () => {
     setShowEditModal(false);
   };
@@ -88,11 +127,22 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
     }
   };
 
+  const handleUserBanned = () => {
+    setShowBanModal(false);
+  };
+
   // Verificar permisos
   const isAuthor = user && user.uid === comment.authorId;
-  const canModerate = userData && ['moderator', 'admin'].includes(userData?.role);
+  const isGlobalModerator = userData && ['moderator', 'admin'].includes(userData?.role);
+  
+  // Verificar si es moderador del foro
+  const isForumModerator = forumDetails && forumDetails.moderators && forumDetails.moderators[user?.uid];
+  const isForumOwner = forumDetails && forumDetails.ownerId === user?.uid;
+  
+  const canModerate = isGlobalModerator || isForumModerator || isForumOwner;
   const showOptionsMenu = isAuthor || canModerate;
   const canReply = userData && ['doctor', 'moderator', 'admin'].includes(userData?.role);
+  const canReport = user && !isAuthor; // No puedes reportar tu propio comentario
 
   const getAuthorName = () => {
     if (!authorData) return 'Usuario';
@@ -128,11 +178,10 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
     }
   };
 
-  // Función para renderizar contenido con formato básico (negritas y cursivas)
+  // Función para renderizar contenido con formato básico
   const renderFormattedContent = (content) => {
     if (!content) return '';
     
-    // Soporte básico para Markdown: **negrita** y *cursiva*
     return content
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>');
@@ -170,57 +219,73 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
           </div>
 
           {/* Menú de opciones */}
-          {showOptionsMenu && (
-            <div className="relative">
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="p-1 hover:bg-gray-100 rounded transition duration-200"
-              >
-                <FaEllipsisH className="w-4 h-4 text-gray-500" />
-              </button>
-              
-              {showMenu && (
-                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[140px]">
-                  {/* Acciones del autor */}
-                  {isAuthor && (
-                    <>
-                      <button
-                        onClick={handleEdit}
-                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
-                      >
-                        <FaEdit className="w-3 h-3" />
-                        Editar
-                      </button>
-                      <button
-                        onClick={handleDelete}
-                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      >
-                        <FaTrash className="w-3 h-3" />
-                        Eliminar
-                      </button>
-                    </>
-                  )}
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-1 hover:bg-gray-100 rounded transition duration-200"
+            >
+              <FaEllipsisH className="w-4 h-4 text-gray-500" />
+            </button>
+            
+            {showMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
+                {/* Acciones del autor */}
+                {isAuthor && (
+                  <>
+                    <button
+                      onClick={handleEdit}
+                      className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <FaEdit className="w-3 h-3" />
+                      Editar
+                    </button>
+                    <button
+                      onClick={handleDelete}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <FaTrash className="w-3 h-3" />
+                      Eliminar
+                    </button>
+                  </>
+                )}
 
-                  {/* Acciones de moderación */}
-                  {canModerate && !isAuthor && (
-                    <>
-                      <div className="border-t border-gray-200 my-1"></div>
-                      <div className="px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50">
-                        Moderación
-                      </div>
-                      <button
-                        onClick={handleDelete}
-                        className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      >
-                        <FaBan className="w-3 h-3" />
-                        Eliminar
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+                {/* Reportar (solo si no es el autor) */}
+                {canReport && (
+                  <button
+                    onClick={handleReport}
+                    className="w-full text-left px-3 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                  >
+                    <FaFlag className="w-3 h-3" />
+                    Reportar
+                  </button>
+                )}
+
+                {/* Acciones de moderación */}
+                {canModerate && !isAuthor && (
+                  <>
+                    <div className="border-t border-gray-200 my-1"></div>
+                    <div className="px-3 py-1 text-xs font-medium text-gray-500 bg-gray-50">
+                      Moderación
+                    </div>
+                    <button
+                      onClick={handleDelete}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <FaTrash className="w-3 h-3" />
+                      Eliminar Comentario
+                    </button>
+                    <button
+                      onClick={handleBanAuthor}
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    >
+                      <FaBan className="w-3 h-3" />
+                      Banear Usuario
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Contenido del Comentario */}
@@ -289,6 +354,25 @@ function CommentCard({ comment, postId, userData, onCommentCreated, isReply = fa
         postTitle="Responder comentario"
         parentCommentId={comment.id}
         onCommentCreated={handleReplyCreated}
+      />
+
+      {forumDetails && (
+        <BanUserModal
+          isOpen={showBanModal}
+          onClose={() => setShowBanModal(false)}
+          user={authorData ? { id: comment.authorId, ...authorData } : null}
+          forumId={forumDetails.id}
+          forumName={forumDetails.name}
+          onUserBanned={handleUserBanned}
+        />
+      )}
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        reportType="comment"
+        targetId={comment.id}
+        targetName={`Comentario de ${getAuthorName()}`}
       />
     </>
   );

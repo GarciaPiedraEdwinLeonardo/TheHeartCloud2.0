@@ -11,6 +11,7 @@ function PostDetailView({ post, onBack }) {
   const [postData, setPostData] = useState(post);
   const [authorData, setAuthorData] = useState(null);
   const [userData, setUserData] = useState(null);
+  const [forumData, setForumData] = useState(null);
   const [showCreateCommentModal, setShowCreateCommentModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,6 +23,7 @@ function PostDetailView({ post, onBack }) {
     if (post) {
       loadPostDetails();
       loadUserData();
+      loadForumData();
     }
   }, [post]);
 
@@ -63,6 +65,19 @@ function PostDetailView({ post, onBack }) {
       } catch (error) {
         console.error('Error cargando userData:', error);
       }
+    }
+  };
+
+  const loadForumData = async () => {
+    try {
+      if (post.forumId) {
+        const forumDoc = await getDoc(doc(db, 'forums', post.forumId));
+        if (forumDoc.exists()) {
+          setForumData({ id: forumDoc.id, ...forumDoc.data() });
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando datos del foro:', error);
     }
   };
 
@@ -198,6 +213,7 @@ function PostDetailView({ post, onBack }) {
               postId={postData.id}
               userData={userData}
               onCommentCreated={handleCommentCreated}
+              forumData={forumData}
             />
           </div>
         </div>

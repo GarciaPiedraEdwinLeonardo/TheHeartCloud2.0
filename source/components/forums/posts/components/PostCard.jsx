@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   FaHeart, FaRegHeart, FaThumbsDown, FaRegThumbsDown, FaComment, 
   FaEllipsisH, FaUser, FaCalendar, FaEdit, FaTrash, FaBan,
-  FaClock, FaCheckCircle, FaTimesCircle
+  FaClock, FaCheckCircle, FaTimesCircle, FaFlag
 } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
 import { auth, db } from './../../../../config/firebase';
@@ -10,6 +10,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import PostImages from './PostImages';
 import EditPostModal from './../modals/EditPostModal';
 import DeletePostModal from './../modals/DeletePostModal';
+import ReportModal from '../../modals/ReportModal';
 
 function PostCard({ 
   post, 
@@ -20,7 +21,8 @@ function PostCard({
   onBanUser,
   userRole,
   userMembership,
-  requiresPostApproval 
+  requiresPostApproval,
+  forumData
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [userReaction, setUserReaction] = useState(null);
@@ -28,6 +30,7 @@ function PostCard({
   const [userData, setUserData] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
   const [localLikes, setLocalLikes] = useState(post.likes || []);
   const [localDislikes, setLocalDislikes] = useState(post.dislikes || []);
   
@@ -160,6 +163,7 @@ function PostCard({
   
   // Mostrar menú si: es el autor O puede moderar
   const showOptionsMenu = isAuthor || canModerate;
+  const canReport = user && !isAuthor && !canModerate;
 
   const handleEdit = () => {
     setShowEditModal(true);
@@ -183,6 +187,11 @@ function PostCard({
         ...authorData
       });
     }
+    setShowMenu(false);
+  };
+
+  const handleReport = () => {
+    setShowReportModal(true);
     setShowMenu(false);
   };
 
@@ -295,7 +304,7 @@ function PostCard({
             )}
             
             {/* MOSTRAR MENÚ SI: es autor O puede moderar */}
-            {showOptionsMenu && (
+            {showOptionsMenu || canReport && (
               <div className="relative">
                 <button
                   onClick={() => setShowMenu(!showMenu)}
@@ -324,6 +333,17 @@ function PostCard({
                       >
                         <FaTrash className="w-3 h-3" />
                         Eliminar
+                      </button>
+                    )}
+
+                    {/* Reportar (solo si no es autor y no es moderador) */}
+                    {canReport && (
+                      <button
+                        onClick={handleReport}
+                        className="w-full text-left px-4 py-2 text-sm text-orange-600 hover:bg-orange-50 flex items-center gap-2"
+                      >
+                        <FaFlag className="w-3 h-3" />
+                        Reportar
                       </button>
                     )}
 
@@ -467,6 +487,14 @@ function PostCard({
         post={post}
         onPostDeleted={handlePostDeleted}
         isModeratorAction={canModerate && !isAuthor}
+      />
+
+      <ReportModal
+        isOpen={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        reportType="post"
+        targetId={post.id}
+        targetName={post.title}
       />
     </>
   );
