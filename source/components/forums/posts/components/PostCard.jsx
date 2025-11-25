@@ -19,7 +19,7 @@ function PostCard({
   onPostDeleted, 
   onDeleteContent, 
   onBanUser,
-  onShowUserProfile, // Nueva prop para mostrar perfil de usuario
+  onShowUserProfile, 
   userRole,
   userMembership,
   requiresPostApproval,
