@@ -167,6 +167,18 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
         reportType="profile"
         targetId={userId || userData.id}
         targetName={userData.nombreCompleto || 'Usuario'}
+        targetData={{
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          professionalInfo: userData.professionalInfo || {},
+          joinDate: userData.createdAt,
+          photoURL: userData.photoURL,
+          stats: userData.stats || {},
+          verificationStatus: userData.verificationStatus || 'unverified',
+          specialty: userData.professionalInfo?.specialty || null,
+          institution: userData.professionalInfo?.institution || null
+        }}
       />
     </>
   );
