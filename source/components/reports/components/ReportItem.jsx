@@ -1,3 +1,4 @@
+// reports/components/ReportItem.jsx
 import { useState } from 'react';
 import { 
   FaExclamationTriangle, 
@@ -86,8 +87,7 @@ export const ReportItem = ({ report, onActionTaken, onDismiss }) => {
       if (action === 'dismiss') {
         await onDismiss(report.id, reason);
       } else {
-        // Pasar el objeto report completo como último parámetro
-        await onActionTaken(report.id, action, reason, '', report);
+        await onActionTaken(report.id, action, reason);
       }
       setShowActions(false);
     } catch (error) {

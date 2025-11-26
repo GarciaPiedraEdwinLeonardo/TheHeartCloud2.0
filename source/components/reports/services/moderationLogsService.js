@@ -18,20 +18,20 @@ export const moderationLogsService = {
 
       const log = {
         // Información de la acción
-        action: actionData.action || "unknown_action", // Valor por defecto
-        targetType: actionData.targetType || "unknown", // Valor por defecto
-        targetId: actionData.targetId || "unknown_id", // Valor por defecto
+        action: actionData.action, // 'user_suspended', 'post_removed', 'user_verified', etc.
+        targetType: actionData.targetType, // 'user', 'post', 'comment', 'forum'
+        targetId: actionData.targetId,
 
-        // Detalles de la acción - Asegurar que no sea undefined
-        reason: actionData.reason || "Sin motivo especificado",
-        details: actionData.details || {}, // Usar objeto vacío si es undefined
+        // Detalles de la acción
+        reason: actionData.reason,
+        details: actionData.details, // Objeto flexible con snapshots
 
         // Información del moderador
         performedBy: user.uid,
         timestamp: serverTimestamp(),
 
-        // Contexto adicional con valores por defecto
-        severity: actionData.severity || "medium",
+        // Contexto adicional
+        severity: actionData.severity || "medium", // 'low', 'medium', 'high', 'critical'
         requiresFollowUp: actionData.requiresFollowUp || false,
         automated: actionData.automated || false,
       };

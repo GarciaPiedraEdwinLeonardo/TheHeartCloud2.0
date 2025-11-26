@@ -11,10 +11,7 @@ export const useModerationActions = () => {
     setError(null);
 
     try {
-      const result = await moderationService.takeModerationAction({
-        ...actionData,
-        details: actionData.details || {},
-      });
+      const result = await moderationService.takeModerationAction(actionData);
 
       if (result.success) {
         // Enviar notificación al usuario afectado si aplica
@@ -63,21 +60,12 @@ export const useModerationActions = () => {
           return;
       }
 
-      // TODO: Implementar cuando notificationService esté disponible
-      console.log("📧 Notificación de moderación:", {
+      await notificationService.sendModerationAction(
         targetUserId,
         notificationType,
         message,
-        details: actionData.details,
-      });
-
-      // Comentado temporalmente hasta que notificationService esté implementado
-      // await notificationService.sendModerationAction(
-      //   targetUserId,
-      //   notificationType,
-      //   message,
-      //   actionData.details
-      // );
+        actionData.details
+      );
     } catch (error) {
       console.error("Error enviando notificación de moderación:", error);
     }
@@ -93,7 +81,6 @@ export const useModerationActions = () => {
       relatedReports,
       severity: "medium",
       notifyUser: true,
-      details: { postId, reason },
     });
   };
 
@@ -106,17 +93,10 @@ export const useModerationActions = () => {
       relatedReports,
       severity: "medium",
       notifyUser: true,
-      details: { commentId, reason },
     });
   };
 
-  const suspendUser = async (
-    userId,
-    duration,
-    reason,
-    strikePoints = 1,
-    report = null
-  ) => {
+  const suspendUser = async (userId, duration, reason, strikePoints = 1) => {
     return takeAction({
       action: "user_suspended",
       targetType: "user",
@@ -126,7 +106,6 @@ export const useModerationActions = () => {
       duration,
       severity: "high",
       notifyUser: true,
-      details: { userId, duration, reason, strikePoints },
       strikeData: {
         userId,
         reason,
@@ -136,14 +115,11 @@ export const useModerationActions = () => {
           duration === "permanent"
             ? null
             : new Date(Date.now() + getDurationMs(duration)),
-        // Incluir información del contenido relacionado si hay reporte
-        contentType: report?.targetType || "general",
-        contentId: report?.targetId || "unknown",
       },
     });
   };
 
-  const warnUser = async (userId, reason, report = null) => {
+  const warnUser = async (userId, reason) => {
     return takeAction({
       action: "user_warned",
       targetType: "user",
@@ -152,16 +128,12 @@ export const useModerationActions = () => {
       reason,
       severity: "low",
       notifyUser: true,
-      details: { userId, reason },
       strikeData: {
         userId,
         reason,
         severity: "low",
         points: 1,
         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
-        // Incluir información del contenido relacionado si hay reporte
-        contentType: report?.targetType || "general",
-        contentId: report?.targetId || "unknown",
       },
     });
   };

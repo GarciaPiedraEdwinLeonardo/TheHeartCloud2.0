@@ -137,8 +137,7 @@ export const ModerationActionModal = ({
       if (selectedAction === 'dismiss') {
         result = await onDismiss(report.id, reason);
       } else {
-        // Pasar el objeto report completo como último parámetro
-        result = await onActionTaken(report.id, selectedAction, reason, notes, report);
+        result = await onActionTaken(report.id, selectedAction, reason, notes);
       }
 
       if (result.success) {

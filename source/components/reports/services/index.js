@@ -1,6 +1,6 @@
-import { reportsService } from "./reportsService";
-import { moderationLogsService } from "./moderationLogsService";
-import { strikesService } from "./strikesService";
+export { reportsService } from "./reportsService";
+export { moderationLogsService } from "./moderationLogsService";
+export { strikesService } from "./strikesService";
 
 // Servicio unificado para acciones de moderación
 export const moderationService = {
@@ -9,6 +9,7 @@ export const moderationService = {
     try {
       const { action, targetType, targetId, reason, details } = actionData;
 
+      // 1. Registrar en logs
       const logResult = await moderationLogsService.logAction({
         action,
         targetType,
