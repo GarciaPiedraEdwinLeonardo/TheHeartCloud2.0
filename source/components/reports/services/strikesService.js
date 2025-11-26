@@ -21,20 +21,20 @@ export const strikesService = {
 
       const strike = {
         userId: strikeData.userId,
-        reason: strikeData.reason,
-        severity: strikeData.severity, // 'low', 'medium', 'high'
+        reason: strikeData.reason || "Sin motivo especificado",
+        severity: strikeData.severity || "medium", // Valor por defecto
         points: strikeData.points || 1, // Puntos del strike (1-3)
-        expiresAt: strikeData.expiresAt, // Fecha de expiración
+        expiresAt: strikeData.expiresAt || null, // Fecha de expiración
         givenBy: user.uid,
         givenAt: serverTimestamp(),
 
-        // Información del contenido relacionado
+        // Información del contenido relacionado - Asegurar valores válidos
         relatedContent: {
-          type: strikeData.contentType,
-          id: strikeData.contentId,
+          type: strikeData.contentType || "general", // Valor por defecto
+          id: strikeData.contentId || "unknown_id", // Valor por defecto
         },
 
-        // Estado
+        // Estado con valores por defecto
         isActive: true,
         appealed: false,
         appealReason: null,

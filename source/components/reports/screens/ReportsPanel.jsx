@@ -47,9 +47,15 @@ export const ReportsPanel = () => {
     setFilters(newFilters);
   };
 
-  const handleActionTaken = async (reportId, action, reason, notes = '') => {
+  const handleActionTaken = async (reportId, action, reason, notes = '', report) => {
     let result;
     
+    // Verificar que report existe
+    if (!report) {
+      console.error('Report no definido en handleActionTaken');
+      return { success: false, error: 'Reporte no encontrado' };
+    }
+
     // Mapear acciones a funciones específicas
     switch (action) {
       case 'remove_post':
@@ -60,11 +66,11 @@ export const ReportsPanel = () => {
         break;
       case 'suspend_author':
       case 'suspend_user':
-        result = await suspendUser(report.targetData?.authorId || report.targetId, '7d', reason, 2);
+        result = await suspendUser(report.targetData?.authorId || report.targetId, '7d', reason, 2, report);
         break;
       case 'warn_author':
       case 'warn_user':
-        result = await warnUser(report.targetData?.authorId || report.targetId, reason);
+        result = await warnUser(report.targetData?.authorId || report.targetId, reason, report);
         break;
       default:
         result = await takeAction({
