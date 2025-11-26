@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { FaAngleDown, FaAngleUp, FaCrown, FaUserShield, FaUser, FaUsers, FaFlag, FaHistory } from "react-icons/fa";
+import { FaAngleDown, FaAngleUp, FaCrown, FaUserShield, FaUser, FaUsers } from "react-icons/fa";
 import { IoIosAddCircleOutline } from "react-icons/io";
 import { useForums } from './../../forums/hooks/useForums';
 import { useUserForums } from './../../forums/hooks/useUserForums';
 import CreateForumModal from './../../forums/modals/CreateForumModal';
 
-function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, onReportsClick, onModerationLogsClick }) {
+function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick }) {
   const [isForumsOpen, setIsForumsOpen] = useState(true);
   const [isMyForumsOpen, setIsMyForumsOpen] = useState(false);
   const [showCreateForumModal, setShowCreateForumModal] = useState(false);
@@ -17,8 +17,6 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, o
   const showCreateForum = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
   const showMyForums = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
   const showReviewVerifications = userRole === 'admin';
-  const showReviewReports = userRole === 'moderator' || userRole === 'admin';
-  const showModerationLogs = userRole === 'admin'; // Solo para admins
 
   const handleCreateForum = () => {
     setShowCreateForumModal(true);
@@ -189,47 +187,24 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, o
             </div>
           )}
 
-          {/* Sección de Administración */}
-          {(showReviewReports || showModerationLogs || showReviewVerifications) && (
+          {/* Revisar Reportes - Para moderador y admin */}
+          {(userRole === 'moderator' || userRole === 'admin') && (
             <div className="mb-4">
-              <div className="px-3 py-2">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Administración
-                </h3>
-              </div>
+              <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 hover:text-orange-600 transition duration-200 w-full text-left">
+                <span className="font-medium">Revisar Reportes</span>
+              </button>
+            </div>
+          )}
 
-              {/* Revisar Reportes - Para moderador y admin */}
-              {showReviewReports && (
-                <button 
-                  onClick={onReportsClick}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 hover:text-orange-600 transition duration-200 w-full text-left mb-2"
-                >
-                  <FaFlag className="w-4 h-4" />
-                  <span className="font-medium">Revisar Reportes</span>
-                </button>
-              )}
-
-              {/* Historial de Moderación - Solo para admin */}
-              {showModerationLogs && (
-                <button 
-                  onClick={onModerationLogsClick}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200 w-full text-left mb-2"
-                >
-                  <FaHistory className="w-4 h-4" />
-                  <span className="font-medium">Historial de Moderación</span>
-                </button>
-              )}
-
-              {/* Revisar Solicitudes - Solo para admin */}
-              {showReviewVerifications && (
-                <button 
-                  onClick={onVerificationClick}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-50 text-gray-700 hover:text-blue-600 transition duration-200 w-full text-left"
-                >
-                  <FaUserShield className="w-4 h-4" />
-                  <span className="font-medium">Solicitudes de Verificación</span>
-                </button>
-              )}
+          {/* Revisar Solicitudes - Solo para admin */}
+          {showReviewVerifications && (
+            <div className="mb-4">
+              <button 
+                onClick={onVerificationClick}
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition duration-200 w-full text-left"
+              >
+                <span className="font-medium">Revisar Solicitudes de Verificación</span>
+              </button>
             </div>
           )}
 

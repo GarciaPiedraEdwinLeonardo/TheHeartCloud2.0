@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { FaTimes, FaSpinner, FaExclamationTriangle, FaUser } from 'react-icons/fa';
-import { useCreateReport } from './../../reports/hooks/useCreateReport'
 
-function ReportModal({ isOpen, onClose, reportType, targetId, targetName, targetData }) {
+function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
   const [formData, setFormData] = useState({
     reason: '',
     description: '',
     urgency: 'medium'
   });
-  
-  const { createReport, loading, error, success, reset } = useCreateReport();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const reportReasons = {
     forum: [
@@ -39,18 +38,17 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
       'Otro'
     ],
     user: [
-      'Información profesional falsa',
-      'Suplantación de identidad médica',
-      'Foto de perfil inapropiada',
-      'Comportamiento abusivo en mensajes',
+      'Comportamiento abusivo',
       'Spam o autopromoción excesiva',
-      'Acoso a otros usuarios',
-      'Compartir información médica peligrosa',
+      'Suplantación de identidad',
+      'Perfil falso o información fraudulenta',
+      'Acoso o intimidación',
+      'Contenido inapropiado en el perfil',
       'Usuario no verificado ejerciendo como médico',
-      'Credenciales falsas o alteradas',
+      'Compartir información médica peligrosa',
       'Otro'
     ],
-    profile: [
+    profile: [ // ← NUEVO: Razones específicas para reportar perfiles
       'Información profesional falsa',
       'Suplantación de identidad médica',
       'Foto de perfil inapropiada',
@@ -81,7 +79,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
         return `Reportar Comentario`;
       case 'user':
         return `Reportar Usuario: ${targetName}`;
-      case 'profile':
+      case 'profile': // ← NUEVO
         return `Reportar Perfil: ${targetName}`;
       default:
         return 'Reportar Contenido';
@@ -98,7 +96,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
         return 'Reportar problemas con este comentario';
       case 'user':
         return 'Reportar problemas con este usuario';
-      case 'profile':
+      case 'profile': // ← NUEVO
         return 'Reportar problemas con este perfil de usuario';
       default:
         return 'Reportar contenido inapropiado';
@@ -107,8 +105,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
 
   const getReportIcon = () => {
     switch (reportType) {
-      case 'user':
-      case 'profile':
+      case 'profile': // ← NUEVO: Icono específico para perfiles
         return <FaUser className="w-5 h-5 text-red-600" />;
       default:
         return <FaExclamationTriangle className="w-5 h-5 text-red-600" />;
@@ -117,9 +114,10 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
 
   const getPlaceholderText = () => {
     switch (reportType) {
-      case 'user':
-      case 'profile':
+      case 'profile': // ← NUEVO: Placeholder específico para perfiles
         return "Describe detalladamente el problema con este perfil. Incluye información específica sobre: credenciales falsas, comportamiento inapropiado, información médica fraudulenta, etc.";
+      case 'user':
+        return "Describe detalladamente el problema con este usuario. Incluye ejemplos específicos de comportamiento inapropiado.";
       case 'forum':
         return "Describe detalladamente el problema con esta comunidad.";
       case 'post':
@@ -137,57 +135,50 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
       ...prev,
       [name]: value
     }));
+    setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!formData.reason || !formData.description.trim()) {
+      setError('Por favor selecciona un motivo y proporciona una descripción');
       return;
     }
 
     if (formData.description.length < 10) {
+      setError('La descripción debe tener al menos 10 caracteres');
       return;
     }
 
-    // Preparar datos para el reporte
-    const reportData = {
-      targetType: reportType,
-      targetId: targetId,
-      targetData: targetData || {
-        name: targetName,
-        reportedAt: new Date()
-      },
-      reason: formData.reason,
-      description: formData.description,
-      urgency: formData.urgency
-    };
-
-    const result = await createReport(reportData);
-
-    if (result.success) {
-      // Cerrar modal después de éxito
-      setTimeout(() => {
-        onClose();
-        setFormData({
-          reason: '',
-          description: '',
-          urgency: 'medium'
-        });
-        reset();
-      }, 1500);
+    setLoading(true);
+    
+    try {
+      // TODO: Integrar con Firebase para guardar el reporte
+      console.log('Enviando reporte:', {
+        type: reportType,
+        targetId,
+        targetName,
+        ...formData,
+        reportedAt: new Date(),
+        reportedBy: 'current-user-id' // Reemplazar con ID del usuario actual
+      });
+      
+      // Simular delay de envío
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      alert('¡Reporte enviado exitosamente! Los moderadores revisarán tu reporte pronto.');
+      onClose();
+      setFormData({
+        reason: '',
+        description: '',
+        urgency: 'medium'
+      });
+    } catch (error) {
+      setError('Error al enviar el reporte');
+    } finally {
+      setLoading(false);
     }
-  };
-
-  // Resetear el formulario cuando se cierra el modal
-  const handleClose = () => {
-    setFormData({
-      reason: '',
-      description: '',
-      urgency: 'medium'
-    });
-    reset();
-    onClose();
   };
 
   // Prevenir scroll del body cuando el modal está abierto
@@ -201,6 +192,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
+      {/* Contenedor principal con max-height y overflow */}
       <div 
         className="bg-white rounded-2xl shadow-xl w-full max-w-md my-8"
         onClick={(e) => e.stopPropagation()}
@@ -209,7 +201,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10 rounded-t-2xl">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-              reportType === 'user' || reportType === 'profile' ? 'bg-purple-100' : 'bg-red-100'
+              reportType === 'profile' ? 'bg-purple-100' : 'bg-red-100'
             }`}>
               {getReportIcon()}
             </div>
@@ -219,7 +211,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
             </div>
           </div>
           <button 
-            onClick={handleClose}
+            onClick={onClose}
             disabled={loading}
             className="p-2 hover:bg-gray-100 rounded-lg transition duration-200 disabled:opacity-50 flex-shrink-0 ml-2"
           >
@@ -230,16 +222,6 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
         {/* Contenido scrolleable */}
         <div className="max-h-[calc(80vh-120px)] overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-6">
-            {/* Mensaje de éxito */}
-            {success && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-green-700 text-sm">
-                  ¡Reporte enviado exitosamente! Los moderadores revisarán tu reporte pronto.
-                </p>
-              </div>
-            )}
-
-            {/* Mensaje de error */}
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-700 text-sm">{error}</p>
@@ -280,7 +262,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
                       formData.urgency === level.value
                         ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500 ring-opacity-50'
                         : 'border-gray-300 hover:bg-gray-50'
-                    } ${loading ? 'opacity-50' : ''}`}
+                    }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
                       <input
@@ -327,7 +309,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
           
             {/* Información adicional general */}
             <div className={`border rounded-lg p-4 mb-6 ${
-              reportType === 'user' || reportType === 'profile' ? 'bg-blue-50 border-blue-200' : 'bg-blue-50 border-blue-200'
+              reportType === 'profile' ? 'bg-blue-50 border-blue-200' : 'bg-blue-50 border-blue-200'
             }`}>
               <h4 className="text-sm font-medium text-blue-800 mb-2">Información importante</h4>
               <ul className="text-xs text-blue-700 space-y-1">
@@ -335,7 +317,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
                 <li>• Los moderadores revisarán tu reporte en 24-48 horas</li>
                 <li>• Usa este sistema solo para contenido que viole las normas</li>
                 <li>• Los reportes falsos pueden resultar en sanciones</li>
-                {(reportType === 'user' || reportType === 'profile') && (
+                {reportType === 'profile' && (
                   <li>• Los perfiles médicos reportados serán investigados exhaustivamente</li>
                 )}
               </ul>
@@ -348,7 +330,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
-              onClick={handleClose}
+              onClick={onClose}
               disabled={loading}
               className="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium disabled:opacity-50 order-2 sm:order-1"
             >
@@ -357,7 +339,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName, target
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={loading || !formData.reason || !formData.description.trim() || formData.description.length < 10}
+              disabled={loading}
               className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
             >
               {loading && <FaSpinner className="w-4 h-4 animate-spin" />}

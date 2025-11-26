@@ -12,8 +12,6 @@ import ForumView from './forums/screens/ForumView';
 import VerifyAccount from './screens/VerifyAccount';
 import VerificationRequests from './admin/VerificationRequests';
 import PostDetailView from './forums/posts/PostDetailView';
-import { ReportsPanel } from './reports/screens/ReportsPanel';
-import { ModerationLogs } from './reports/screens/ModerationLogs'; // Importar ModerationLogs
 
 function Home() {
   const [isSidebarModalOpen, setIsSidebarModalOpen] = useState(false);
@@ -25,7 +23,7 @@ function Home() {
   const [user, setUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
   const [verificationRequest, setVerificationRequest] = useState(null);
-  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState(null); // Nuevo estado para el perfil seleccionado
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -52,7 +50,7 @@ function Home() {
   };
 
   const handleShowProfile = () => {
-    setSelectedUserId(null);
+    setSelectedUserId(null); // Ver perfil propio
     navigateToView('profile');
   };
 
@@ -76,10 +74,12 @@ function Home() {
   };
 
   const handleBackFromForum = () => { 
+    // Volver a la vista anterior, no siempre al main
     setCurrentView(previousView);
   };
 
   const handleBackFromPost = () => {
+    // Volver a la vista anterior (podría ser profile, forum, search, etc.)
     setCurrentView(previousView);
   };
 
@@ -91,30 +91,25 @@ function Home() {
     navigateToView('verificationRequests');
   };
 
-  const handleShowReports = () => {
-    navigateToView('reports');
-  };
-
-  // Nueva función para mostrar el historial de moderación
-  const handleShowModerationLogs = () => {
-    navigateToView('moderationLogs');
-  };
-
+  // Función mejorada para mostrar perfil de usuario desde búsqueda
   const handleShowUserProfile = (userData) => {
     console.log('👤 Mostrar perfil de usuario:', userData);
     if (userData && userData.id) {
-      setSelectedUserId(userData.id);
+      setSelectedUserId(userData.id); // Guardar el ID del usuario seleccionado
       navigateToView('profile');
     } else {
       console.error('❌ No se pudo obtener el ID del usuario');
     }
   };
 
+  // Función para volver desde un perfil de usuario
   const handleBackFromProfile = () => {
     if (selectedUserId && selectedUserId !== user?.uid) {
+      // Si estábamos viendo el perfil de otro usuario, volver a la búsqueda
       setCurrentView('search');
       setSelectedUserId(null);
     } else {
+      // Si era nuestro propio perfil, volver al main
       handleShowMain();
     }
   };
@@ -135,8 +130,6 @@ function Home() {
           onThemeClick={handleShowForum} 
           userData={userData}
           onVerificationClick={handleVerificationRequests}
-          onReportsClick={handleShowReports}
-          onModerationLogsClick={handleShowModerationLogs} // Nueva prop
         />
         
         {/* Modal del sidebar para móvil */}
@@ -150,14 +143,6 @@ function Home() {
           onThemeClick={handleShowForum} 
           userData={userData}
           onVerificationClick={handleVerificationRequests}
-          onReportsClick={() => {
-            handleShowReports();
-            setIsSidebarModalOpen(false);
-          }}
-          onModerationLogsClick={() => {
-            handleShowModerationLogs();
-            setIsSidebarModalOpen(false);
-          }} // Nueva prop
         />
         
         {/* Contenido Principal - Cambia según la vista */}
@@ -167,9 +152,9 @@ function Home() {
             
             {currentView === 'profile' && (
               <ProfileView 
-                userId={selectedUserId}
+                userId={selectedUserId} // Pasar el ID del usuario seleccionado
                 onShowForum={handleShowForum}
-                onShowMain={handleBackFromProfile}
+                onShowMain={handleBackFromProfile} // Usar la nueva función de back
                 onShowPost={handleShowPost}
               />
             )}
@@ -179,7 +164,7 @@ function Home() {
                 searchQuery={searchData.query} 
                 searchType={searchData.type} 
                 onThemeClick={handleShowForum} 
-                onShowUserProfile={handleShowUserProfile}
+                onShowUserProfile={handleShowUserProfile} // Cambiar a onShowUserProfile
               />
             )}
             
@@ -206,15 +191,6 @@ function Home() {
             
             {currentView === 'verificationRequests' && (
               <VerificationRequests/>
-            )}
-
-            {currentView === 'reports' && (
-              <ReportsPanel />
-            )}
-
-            {/* Nueva vista para el historial de moderación */}
-            {currentView === 'moderationLogs' && (
-              <ModerationLogs />
             )}
           </div>
         </div>
