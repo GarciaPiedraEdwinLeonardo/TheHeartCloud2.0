@@ -528,6 +528,17 @@ function PostCard({
         reportType="post"
         targetId={post.id}
         targetName={post.title}
+        targetData={{
+          title: post.title,
+          content: post.content,
+          authorId: post.authorId,
+          authorName: getAuthorName(),
+          createdAt: post.createdAt,
+          images: post.images || [],
+          status: post.status,
+          forumId: forumData?.id,
+          forumName: forumData?.name
+        }}
       />
     </>
   );
