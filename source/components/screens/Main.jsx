@@ -1,5 +1,3 @@
-import PublicationCard from './../cards/PublicationCard';
-
 function Main() {
   // Datos de ejemplo para publicaciones
   const publicaciones = [
@@ -28,14 +26,6 @@ function Main() {
       <div className="max-w-4xl mx-auto">
         
         {/* Lista de Posts */}
-        <div className="space-y-6">
-          {publicaciones.map(publicacion => (
-            <PublicationCard 
-              key={publicacion.id} 
-              publicacion={publicacion} 
-            />
-          ))}
-        </div>
 
         {/* Espacio para más posts */}
         <div className="mt-8 text-center">
