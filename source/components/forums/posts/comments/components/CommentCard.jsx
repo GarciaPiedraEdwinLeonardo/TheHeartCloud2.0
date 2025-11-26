@@ -415,14 +415,6 @@ function CommentCard({
         reportType="comment"
         targetId={comment.id}
         targetName={`Comentario de ${getAuthorName()}`}
-        targetData={{
-          content: comment.content,
-          authorId: comment.authorId,
-          authorName: getAuthorName(),
-          createdAt: comment.createdAt,
-          postId: postId,
-          authorSpecialty: getAuthorSpecialty(),
-        }}
       />
     </>
   );
