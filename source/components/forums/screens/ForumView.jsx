@@ -438,17 +438,6 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
         reportType="forum"
         targetId={forumDetails.id}
         targetName={forumDetails.name}
-        targetData={{
-          name: forumDetails.name,
-          description: forumDetails.description,
-          ownerId: forumDetails.ownerId,
-          createdAt: forumDetails.createdAt,
-          memberCount: forumDetails.memberCount || 0,
-          rules: forumDetails.rules || [],
-          membershipSettings: forumDetails.membershipSettings || {},
-          requiresApproval: forumDetails.membershipSettings?.requiresApproval || false,
-          requiresPostApproval: forumDetails.requiresPostApproval || false
-        }}
       />
 
       <ManageMembersModal 
