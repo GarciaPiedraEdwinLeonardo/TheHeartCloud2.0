@@ -29,7 +29,7 @@ function CommentCard({
   onCommentCreated, 
   isReply = false, 
   forumData,
-  onShowUserProfile // ← Nueva prop
+  onShowUserProfile 
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
