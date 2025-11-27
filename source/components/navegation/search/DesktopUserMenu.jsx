@@ -120,10 +120,10 @@ function DesktopUserMenu({ onProfileClick, onVerifyAccount }) {
                         </p>
                         <p className="text-xs text-gray-500">
                             {userData?.role === 'unverified' ? 'Sin verificar' : 
-                             userData?.role === 'doctor' ? 'Médico' : 
-                             userData?.role === 'moderator' ? 'Moderador':
-                             userData?.role === 'admin' ? "Admin":
-                             userData?.role || 'Usuario'}
+                            userData?.role === 'doctor' ? 'Médico' : 
+                            userData?.role === 'moderator' ? 'Moderador':
+                            userData?.role === 'admin' ? "Admin":
+                            userData?.role || 'Usuario'}
                         </p>
                     </div>
                     <FaChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showDropdown ? 'rotate-180' : ''}`} />

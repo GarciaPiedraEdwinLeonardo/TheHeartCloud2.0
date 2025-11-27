@@ -20,7 +20,8 @@ import EditCommentModal from './../modals/EditCommentModal';
 import DeleteCommentModal from './../modals/DeleteCommentModal';
 import CreateCommentModal from './../modals/CreateCommentModal';
 import ReportModal from './../../../modals/ReportModal';
-import BanUserModal from './../../../modals/BanUserModal'
+import BanUserModal from './../../../modals/BanUserModal';
+import ModerateCommentModal from './../modals/ModerateCommentModal';
 
 function CommentCard({ 
   comment, 
@@ -40,6 +41,7 @@ function CommentCard({
   const [authorData, setAuthorData] = useState(null);
   const [forumDetails, setForumDetails] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showModerateModal, setShowModerateModal] = useState(false);
   
   const { likeComment } = useCommentActions();
   const { likeCount, userLiked, loading: likesLoading } = useCommentLikes(comment.id);
@@ -135,6 +137,11 @@ function CommentCard({
 
   const handleCommentDeleted = () => {
     setShowDeleteModal(false);
+  };
+
+  const handleModeratorDelete = () => {
+    setShowModerateModal(true);
+    setShowMenu(false);
   };
 
   const handleReplyCreated = () => {
@@ -309,7 +316,7 @@ function CommentCard({
                         Moderación
                       </div>
                       <button
-                        onClick={handleDelete}
+                        onClick={handleModeratorDelete}
                         className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                       >
                         <FaTrash className="w-3 h-3" />
@@ -415,6 +422,19 @@ function CommentCard({
         reportType="comment"
         targetId={comment.id}
         targetName={`Comentario de ${getAuthorName()}`}
+      />
+
+      <ModerateCommentModal
+        isOpen={showModerateModal}
+        onClose={() => setShowModerateModal(false)}
+        comment={comment}
+        forumData={forumDetails}
+        onCommentModerated={(deletedCount) => {
+          setShowModerateModal(false);
+          if (onCommentCreated) {
+            onCommentCreated();
+          }
+        }}
       />
     </>
   );
