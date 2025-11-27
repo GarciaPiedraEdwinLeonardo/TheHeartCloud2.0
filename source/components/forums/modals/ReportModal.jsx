@@ -37,26 +37,32 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       
       try {
         let targetDoc;
+        let collectionName;
+        
         switch (reportType) {
-          case 'user':
           case 'profile':
-            targetDoc = await getDoc(doc(db, 'users', targetId));
+            collectionName = 'users';
             break;
           case 'post':
-            targetDoc = await getDoc(doc(db, 'posts', targetId));
+            collectionName = 'posts';
             break;
           case 'comment':
-            targetDoc = await getDoc(doc(db, 'comments', targetId));
+            collectionName = 'comments';
             break;
           case 'forum':
-            targetDoc = await getDoc(doc(db, 'forums', targetId));
+            collectionName = 'forums';
             break;
           default:
             return;
         }
 
+        targetDoc = await getDoc(doc(db, collectionName, targetId));
+        
         if (targetDoc.exists()) {
+          console.log(`📋 Datos del target (${reportType}):`, targetDoc.data());
           setTargetData(targetDoc.data());
+        } else {
+          console.warn(`⚠️ No se encontró el target ${targetId} en ${collectionName}`);
         }
       } catch (error) {
         console.error('Error cargando datos del target:', error);
@@ -197,32 +203,85 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
     setError('');
   };
 
-  const getAuthorInfoFromTarget = () => {
-    if (!targetData) return { authorId: null, authorName: null };
-    
-    switch (reportType) {
-      case 'post':
-        return { 
-          authorId: targetData.authorId, 
-          authorName: targetData.authorName || 'Autor desconocido' 
-        };
-      case 'comment':
-        return { 
-          authorId: targetData.authorId, 
-          authorName: targetData.authorName || 'Autor desconocido' 
-        };
-      case 'user':
-      case 'profile':
-        return { 
-          authorId: targetId, 
-          authorName: targetData.name ? 
-            `${targetData.name.name || ''} ${targetData.name.apellidopat || ''} ${targetData.name.apellidomat || ''}`.trim() 
-            : targetData.email || 'Usuario'
-        };
-      default:
-        return { authorId: null, authorName: null };
-    }
-  };
+  const getAuthorInfoFromTarget = async () => {
+  if (!targetData) return { authorId: null, authorName: null };
+  
+  switch (reportType) {
+    case 'post':
+      // Obtener nombre del autor desde users
+      if (targetData.authorId) {
+        try {
+          const authorDoc = await getDoc(doc(db, 'users', targetData.authorId));
+          if (authorDoc.exists()) {
+            const authorData = authorDoc.data();
+            const authorName = authorData.name ? 
+              `${authorData.name.name || ''} ${authorData.name.apellidopat || ''} ${authorData.name.apellidomat || ''}`.trim() 
+              : authorData.email || 'Usuario';
+            
+            return { 
+              authorId: targetData.authorId, 
+              authorName: authorName,
+              forumId: targetData.forumId,
+              forumName: targetData.forumName || 'Foro desconocido'
+            };
+          }
+        } catch (error) {
+          console.error('Error obteniendo datos del autor:', error);
+        }
+      }
+      return { 
+        authorId: targetData.authorId, 
+        authorName: 'Autor desconocido',
+        forumId: targetData.forumId,
+        forumName: targetData.forumName || 'Foro desconocido'
+      };
+      
+    case 'comment':
+      // Misma lógica para comentarios
+      if (targetData.authorId) {
+        try {
+          const authorDoc = await getDoc(doc(db, 'users', targetData.authorId));
+          if (authorDoc.exists()) {
+            const authorData = authorDoc.data();
+            const authorName = authorData.name ? 
+              `${authorData.name.name || ''} ${authorData.name.apellidopat || ''} ${authorData.name.apellidomat || ''}`.trim() 
+              : authorData.email || 'Usuario';
+            
+            return { 
+              authorId: targetData.authorId, 
+              authorName: authorName,
+              postId: targetData.postId,
+              postTitle: targetData.postTitle || 'Post desconocido'
+            };
+          }
+        } catch (error) {
+          console.error('Error obteniendo datos del autor:', error);
+        }
+      }
+      return { 
+        authorId: targetData.authorId, 
+        authorName: 'Autor desconocido',
+        postId: targetData.postId,
+        postTitle: targetData.postTitle || 'Post desconocido'
+      };
+      
+    case 'user':
+    case 'profile':
+      return { 
+        authorId: targetId, 
+        authorName: targetData.name ? 
+          `${targetData.name.name || ''} ${targetData.name.apellidopat || ''} ${targetData.name.apellidomat || ''}`.trim() 
+          : targetData.email || 'Usuario'
+      };
+    case 'forum':
+      return { 
+        authorId: targetData.ownerId || null,
+        authorName: targetData.ownerName || null
+      };
+    default:
+      return { authorId: null, authorName: null };
+  }
+};
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -243,7 +302,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       return;
     }
 
-    const { authorId, authorName } = getAuthorInfoFromTarget();
+    const { authorId, authorName, forumId, forumName, postId, postTitle } = getAuthorInfoFromTarget();
 
     const reportData = {
       type: reportType,
@@ -262,20 +321,16 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       description: formData.description.trim(),
       urgency: formData.urgency,
       
-      // Información contextual
-      targetAuthorId: authorId,
-      targetAuthorName: authorName,
-      
-      // Información adicional específica por tipo
-      ...(reportType === 'post' && targetData?.forumId && {
-        forumId: targetData.forumId,
-        forumName: targetData.forumName
-      }),
-      ...(reportType === 'comment' && targetData?.postId && {
-        postId: targetData.postId,
-        postTitle: targetData.postTitle
-      })
+      // Información contextual - SOLO incluir si existe
+      ...(authorId && { targetAuthorId: authorId }),
+      ...(authorName && { targetAuthorName: authorName }),
+      ...(forumId && { forumId }),
+      ...(forumName && { forumName }),
+      ...(postId && { postId }),
+      ...(postTitle && { postTitle })
     };
+
+    console.log('📝 Enviando reporte:', reportData); // Para debug
 
     const result = await createReport(reportData);
     

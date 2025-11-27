@@ -1,13 +1,19 @@
-// Servicio para operaciones con reportes en Firestore
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "./../../../config/firebase";
+import { db } from "../../../config/firebase";
 
 export const reportService = {
   // Crear un nuevo reporte
   async createReport(reportData) {
     try {
+      // Limpiar el objeto - remover campos undefined
+      const cleanReportData = Object.fromEntries(
+        Object.entries(reportData).filter(
+          ([_, value]) => value !== undefined && value !== null
+        )
+      );
+
       const reportWithMetadata = {
-        ...reportData,
+        ...cleanReportData,
         status: "pending",
         assignedModerator: null,
         resolution: null,
@@ -16,6 +22,8 @@ export const reportService = {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       };
+
+      console.log("📝 Guardando reporte:", reportWithMetadata); // Para debug
 
       const docRef = await addDoc(
         collection(db, "reports"),
