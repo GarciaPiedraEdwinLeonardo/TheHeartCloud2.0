@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FaTimes, FaSpinner, FaExclamationTriangle, FaUser } from 'react-icons/fa';
+import { auth, db } from '../../../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { useReportActions } from './../../reports/hooks/useReportActions';
 
 function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
   const [formData, setFormData] = useState({
@@ -7,8 +10,64 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
     description: '',
     urgency: 'medium'
   });
-  const [loading, setLoading] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [targetData, setTargetData] = useState(null);
   const [error, setError] = useState('');
+  
+  const { createReport, loading } = useReportActions();
+
+  // Cargar datos del usuario actual y información del target
+  useEffect(() => {
+    const loadUserData = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists()) {
+            setUserData(userDoc.data());
+          }
+        } catch (error) {
+          console.error('Error cargando datos del usuario:', error);
+        }
+      }
+    };
+
+    const loadTargetData = async () => {
+      if (!targetId) return;
+      
+      try {
+        let targetDoc;
+        switch (reportType) {
+          case 'user':
+          case 'profile':
+            targetDoc = await getDoc(doc(db, 'users', targetId));
+            break;
+          case 'post':
+            targetDoc = await getDoc(doc(db, 'posts', targetId));
+            break;
+          case 'comment':
+            targetDoc = await getDoc(doc(db, 'comments', targetId));
+            break;
+          case 'forum':
+            targetDoc = await getDoc(doc(db, 'forums', targetId));
+            break;
+          default:
+            return;
+        }
+
+        if (targetDoc.exists()) {
+          setTargetData(targetDoc.data());
+        }
+      } catch (error) {
+        console.error('Error cargando datos del target:', error);
+      }
+    };
+
+    if (isOpen) {
+      loadUserData();
+      loadTargetData();
+    }
+  }, [isOpen, targetId, reportType]);
 
   const reportReasons = {
     forum: [
@@ -48,7 +107,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       'Compartir información médica peligrosa',
       'Otro'
     ],
-    profile: [ // ← NUEVO: Razones específicas para reportar perfiles
+    profile: [
       'Información profesional falsa',
       'Suplantación de identidad médica',
       'Foto de perfil inapropiada',
@@ -79,7 +138,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         return `Reportar Comentario`;
       case 'user':
         return `Reportar Usuario: ${targetName}`;
-      case 'profile': // ← NUEVO
+      case 'profile':
         return `Reportar Perfil: ${targetName}`;
       default:
         return 'Reportar Contenido';
@@ -96,7 +155,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         return 'Reportar problemas con este comentario';
       case 'user':
         return 'Reportar problemas con este usuario';
-      case 'profile': // ← NUEVO
+      case 'profile':
         return 'Reportar problemas con este perfil de usuario';
       default:
         return 'Reportar contenido inapropiado';
@@ -105,7 +164,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
 
   const getReportIcon = () => {
     switch (reportType) {
-      case 'profile': // ← NUEVO: Icono específico para perfiles
+      case 'profile':
         return <FaUser className="w-5 h-5 text-red-600" />;
       default:
         return <FaExclamationTriangle className="w-5 h-5 text-red-600" />;
@@ -114,7 +173,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
 
   const getPlaceholderText = () => {
     switch (reportType) {
-      case 'profile': // ← NUEVO: Placeholder específico para perfiles
+      case 'profile':
         return "Describe detalladamente el problema con este perfil. Incluye información específica sobre: credenciales falsas, comportamiento inapropiado, información médica fraudulenta, etc.";
       case 'user':
         return "Describe detalladamente el problema con este usuario. Incluye ejemplos específicos de comportamiento inapropiado.";
@@ -138,6 +197,33 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
     setError('');
   };
 
+  const getAuthorInfoFromTarget = () => {
+    if (!targetData) return { authorId: null, authorName: null };
+    
+    switch (reportType) {
+      case 'post':
+        return { 
+          authorId: targetData.authorId, 
+          authorName: targetData.authorName || 'Autor desconocido' 
+        };
+      case 'comment':
+        return { 
+          authorId: targetData.authorId, 
+          authorName: targetData.authorName || 'Autor desconocido' 
+        };
+      case 'user':
+      case 'profile':
+        return { 
+          authorId: targetId, 
+          authorName: targetData.name ? 
+            `${targetData.name.name || ''} ${targetData.name.apellidopat || ''} ${targetData.name.apellidomat || ''}`.trim() 
+            : targetData.email || 'Usuario'
+        };
+      default:
+        return { authorId: null, authorName: null };
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -151,22 +237,49 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       return;
     }
 
-    setLoading(true);
+    const user = auth.currentUser;
+    if (!user) {
+      setError('Debes iniciar sesión para reportar contenido');
+      return;
+    }
+
+    const { authorId, authorName } = getAuthorInfoFromTarget();
+
+    const reportData = {
+      type: reportType,
+      targetId,
+      targetName,
+      
+      // Información del reporter
+      reporterId: user.uid,
+      reporterName: userData?.name ? 
+        `${userData.name.name || ''} ${userData.name.apellidopat || ''} ${userData.name.apellidomat || ''}`.trim() 
+        : user.email || 'Usuario',
+      reporterEmail: user.email,
+      
+      // Detalles del reporte
+      reason: formData.reason,
+      description: formData.description.trim(),
+      urgency: formData.urgency,
+      
+      // Información contextual
+      targetAuthorId: authorId,
+      targetAuthorName: authorName,
+      
+      // Información adicional específica por tipo
+      ...(reportType === 'post' && targetData?.forumId && {
+        forumId: targetData.forumId,
+        forumName: targetData.forumName
+      }),
+      ...(reportType === 'comment' && targetData?.postId && {
+        postId: targetData.postId,
+        postTitle: targetData.postTitle
+      })
+    };
+
+    const result = await createReport(reportData);
     
-    try {
-      // TODO: Integrar con Firebase para guardar el reporte
-      console.log('Enviando reporte:', {
-        type: reportType,
-        targetId,
-        targetName,
-        ...formData,
-        reportedAt: new Date(),
-        reportedBy: 'current-user-id' // Reemplazar con ID del usuario actual
-      });
-      
-      // Simular delay de envío
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+    if (result.success) {
       alert('¡Reporte enviado exitosamente! Los moderadores revisarán tu reporte pronto.');
       onClose();
       setFormData({
@@ -174,25 +287,28 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         description: '',
         urgency: 'medium'
       });
-    } catch (error) {
-      setError('Error al enviar el reporte');
-    } finally {
-      setLoading(false);
+    } else {
+      setError(result.error || 'Error al enviar el reporte');
     }
   };
 
   // Prevenir scroll del body cuando el modal está abierto
-  if (isOpen) {
-    document.body.style.overflow = 'hidden';
-  } else {
-    document.body.style.overflow = 'unset';
-  }
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      {/* Contenedor principal con max-height y overflow */}
       <div 
         className="bg-white rounded-2xl shadow-xl w-full max-w-md my-8"
         onClick={(e) => e.stopPropagation()}
