@@ -6,52 +6,41 @@ import { useComments } from './comments/hooks/useComments';
 import PostCard from './components/PostCard';
 import CommentList from './comments/components/CommentList';
 import CreateCommentModal from './comments/modals/CreateCommentModal';
+import { usePost } from './hooks/usePost';
 
 function PostDetailView({ post, onBack, onShowUserProfile }) {
-  const [postData, setPostData] = useState(post);
+  const { post: postData, loading: postLoading, error: postError } = usePost(post?.id);
   const [authorData, setAuthorData] = useState(null);
   const [userData, setUserData] = useState(null);
   const [forumData, setForumData] = useState(null);
   const [showCreateCommentModal, setShowCreateCommentModal] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const { comments, loading: commentsLoading, error: commentsError } = useComments(post?.id);
   const user = auth.currentUser;
 
+  // Cargar userData inmediatamente cuando el componente se monta o cambia el usuario
   useEffect(() => {
-    if (post) {
-      loadPostDetails();
-      loadUserData();
+    loadUserData();
+  }, [user]);
+
+  // Cargar autor y foro cuando postData esté disponible
+  useEffect(() => {
+    if (postData) {
+      loadAuthorData();
       loadForumData();
     }
-  }, [post]);
+  }, [postData]);
 
-  const loadPostDetails = async () => {
-    try {
-      setLoading(true);
-      
-      // Recargar datos del post para asegurar que tenemos la información más reciente
-      if (post.id) {
-        const postDoc = await getDoc(doc(db, 'posts', post.id));
-        if (postDoc.exists()) {
-          setPostData({ id: postDoc.id, ...postDoc.data() });
-        }
-      }
-
-      // Cargar datos del autor
-      if (post.authorId) {
-        const authorDoc = await getDoc(doc(db, 'users', post.authorId));
+  const loadAuthorData = async () => {
+    if (postData?.authorId) {
+      try {
+        const authorDoc = await getDoc(doc(db, 'users', postData.authorId));
         if (authorDoc.exists()) {
           setAuthorData(authorDoc.data());
         }
+      } catch (error) {
+        console.error('Error cargando datos del autor:', error);
       }
-
-      setLoading(false);
-    } catch (err) {
-      console.error('Error cargando detalles del post:', err);
-      setError('Error cargando el post');
-      setLoading(false);
     }
   };
 
@@ -70,8 +59,8 @@ function PostDetailView({ post, onBack, onShowUserProfile }) {
 
   const loadForumData = async () => {
     try {
-      if (post.forumId) {
-        const forumDoc = await getDoc(doc(db, 'forums', post.forumId));
+      if (postData?.forumId) {
+        const forumDoc = await getDoc(doc(db, 'forums', postData.forumId));
         if (forumDoc.exists()) {
           setForumData({ id: forumDoc.id, ...forumDoc.data() });
         }
@@ -83,20 +72,20 @@ function PostDetailView({ post, onBack, onShowUserProfile }) {
 
   const handleCommentCreated = () => {
     setShowCreateCommentModal(false);
-    // Los comentarios se actualizarán automáticamente por el hook useComments
+    // ¡Ahora el postData se actualizará automáticamente gracias a usePost!
   };
 
   const handlePostUpdated = () => {
-    loadPostDetails(); // Recargar datos del post
+    // Ya no necesitamos recargar manualmente, usePost se encarga
   };
 
   const handlePostDeleted = () => {
     if (onBack) {
-      onBack(); // Volver si el post fue eliminado
+      onBack();
     }
   };
 
-  if (loading) {
+  if (postLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -107,13 +96,13 @@ function PostDetailView({ post, onBack, onShowUserProfile }) {
     );
   }
 
-  if (error) {
+  if (postError) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <FaExclamationTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar la publicación</h3>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-gray-600 mb-4">{postError}</p>
           <button
             onClick={onBack}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200"
@@ -158,18 +147,18 @@ function PostDetailView({ post, onBack, onShowUserProfile }) {
           </button>
         </div>
 
-        {/* Post Principal */}
+        {/* Post Principal - AHORA CON DATOS EN TIEMPO REAL */}
         <div className="mb-8">
           <PostCard
             post={postData}
-            onCommentClick={() => {}} // Deshabilitar en esta vista ya que estamos en la vista de comentarios
+            onCommentClick={() => {}}
             onPostUpdated={handlePostUpdated}
             onPostDeleted={handlePostDeleted}
             onShowUserProfile={onShowUserProfile}
             userRole={userData?.role}
-            userMembership={{}} // No necesitamos membresía del foro aquí
+            userMembership={{}}
             requiresPostApproval={false}
-            showCommentsButton={false} // Ocultar botón de comentarios
+            showCommentsButton={false}
           />
         </div>
 

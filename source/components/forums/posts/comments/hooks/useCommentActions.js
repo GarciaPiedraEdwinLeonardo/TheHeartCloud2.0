@@ -217,7 +217,6 @@ export const useCommentActions = () => {
     }
   };
 
-  // En useCommentActions.js - agregar esta función
   const deleteCommentWithReplies = async (
     commentId,
     isModeratorAction = false
@@ -227,6 +226,9 @@ export const useCommentActions = () => {
         await checkCommentPermissions(commentId);
 
       const batch = writeBatch(db);
+
+      // Variable para contar TODOS los comentarios eliminados (incluyendo anidados profundos)
+      let totalCommentsDeleted = 0;
 
       // Función recursiva para eliminar comentarios y sus respuestas
       const deleteCommentRecursive = async (currentCommentId, currentBatch) => {
@@ -240,9 +242,13 @@ export const useCommentActions = () => {
         const repliesSnapshot = await getDocs(repliesQuery);
         const replies = repliesSnapshot.docs;
 
-        // 2. Eliminar recursivamente cada respuesta
+        // 2. Eliminar recursivamente cada respuesta y contar cuántas se eliminan
+        let repliesDeletedCount = 0;
         for (const replyDoc of replies) {
-          await deleteCommentRecursive(replyDoc.id, currentBatch);
+          repliesDeletedCount += await deleteCommentRecursive(
+            replyDoc.id,
+            currentBatch
+          );
         }
 
         // 3. Eliminar el comentario actual
@@ -250,7 +256,7 @@ export const useCommentActions = () => {
         const commentDoc = await getDoc(commentRef);
 
         if (commentDoc.exists()) {
-          const commentData = commentDoc.data();
+          const currentCommentData = commentDoc.data();
 
           if (
             isModeratorAction ||
@@ -262,27 +268,19 @@ export const useCommentActions = () => {
               deletedAt: serverTimestamp(),
               deletedBy: user.uid,
               moderatorDelete: true,
-              deletedContent: commentData.content, // Guardar contenido original
+              deletedContent: currentCommentData.content,
             });
-          } else if (isAuthor) {
+          } else {
             // Eliminación por autor
             currentBatch.update(commentRef, {
               isDeleted: true,
               deletedAt: serverTimestamp(),
-              deletedContent: commentData.content, // Guardar contenido original
-            });
-          }
-
-          // Actualizar contador de comentarios en el post (solo una vez por post)
-          if (currentCommentId === commentId) {
-            // Solo para el comentario raíz
-            currentBatch.update(doc(db, "posts", commentData.postId), {
-              "stats.commentCount": increment(-1 - replies.length), // Restar comentario + respuestas
+              deletedContent: currentCommentData.content,
             });
           }
 
           // Actualizar estadísticas del autor (solo si es autor del comentario)
-          const commentAuthorId = commentData.authorId;
+          const commentAuthorId = currentCommentData.authorId;
           if (commentAuthorId === user.uid) {
             currentBatch.update(doc(db, "users", commentAuthorId), {
               "stats.commentCount": increment(-1),
@@ -297,16 +295,26 @@ export const useCommentActions = () => {
             });
           }
         }
+
+        // Retornar el total de comentarios eliminados en este sub-árbol
+        // (1 por el comentario actual + todas sus respuestas eliminadas)
+        return 1 + repliesDeletedCount;
       };
 
-      // Ejecutar eliminación recursiva
-      await deleteCommentRecursive(commentId, batch);
+      // Ejecutar eliminación recursiva y obtener el total real
+      totalCommentsDeleted = await deleteCommentRecursive(commentId, batch);
+
+      // Actualizar contador de comentarios en el post UNA SOLA VEZ con el total real
+      batch.update(doc(db, "posts", commentData.postId), {
+        "stats.commentCount": increment(-totalCommentsDeleted),
+      });
+
       await batch.commit();
 
       return {
         success: true,
         deletionType: isAuthor ? "user" : "moderator",
-        deletedCount: 1 + (await countCommentReplies(commentId)), // Comentario + respuestas
+        deletedCount: totalCommentsDeleted,
       };
     } catch (error) {
       console.error("Error eliminando comentario con respuestas:", error);
