@@ -9,6 +9,9 @@ import {
   increment,
   getDoc,
   writeBatch,
+  query,
+  where,
+  getDocs,
 } from "firebase/firestore";
 import { db, auth } from "./../../../../../config/firebase";
 
@@ -143,53 +146,17 @@ export const useCommentActions = () => {
     }
   };
 
-  // Eliminar comentario (soft delete)
   const deleteComment = async (commentId, isModeratorAction = false) => {
     try {
-      const { commentData, isAuthor, isModeratorOrAdmin, isForumModerator } =
-        await checkCommentPermissions(commentId);
+      const { commentData } = await checkCommentPermissions(commentId);
 
-      const commentRef = doc(db, "comments", commentId);
-      const batch = writeBatch(db);
+      // Usar la función recursiva para eliminar comentario y respuestas
+      const result = await deleteCommentWithReplies(
+        commentId,
+        isModeratorAction
+      );
 
-      if (
-        isModeratorAction ||
-        (!isAuthor && (isModeratorOrAdmin || isForumModerator))
-      ) {
-        // Eliminación por moderador - soft delete
-        batch.update(commentRef, {
-          isDeleted: true,
-          deletedAt: serverTimestamp(),
-          deletedBy: user.uid,
-          moderatorDelete: true,
-        });
-      } else if (isAuthor) {
-        // Eliminación por autor - soft delete
-        batch.update(commentRef, {
-          isDeleted: true,
-          deletedAt: serverTimestamp(),
-        });
-      }
-
-      // Actualizar contador de comentarios en el post
-      batch.update(doc(db, "posts", commentData.postId), {
-        "stats.commentCount": increment(-1),
-      });
-
-      // Actualizar estadísticas del autor
-      if (isAuthor) {
-        batch.update(doc(db, "users", user.uid), {
-          "stats.commentCount": increment(-1),
-          "stats.contributionCount": increment(-1),
-        });
-      }
-
-      await batch.commit();
-
-      return {
-        success: true,
-        deletionType: isAuthor ? "user" : "moderator",
-      };
+      return result;
     } catch (error) {
       console.error("Error eliminando comentario:", error);
       return { success: false, error: error.message };
@@ -250,10 +217,133 @@ export const useCommentActions = () => {
     }
   };
 
+  // En useCommentActions.js - agregar esta función
+  const deleteCommentWithReplies = async (
+    commentId,
+    isModeratorAction = false
+  ) => {
+    try {
+      const { commentData, isAuthor, isModeratorOrAdmin, isForumModerator } =
+        await checkCommentPermissions(commentId);
+
+      const batch = writeBatch(db);
+
+      // Función recursiva para eliminar comentarios y sus respuestas
+      const deleteCommentRecursive = async (currentCommentId, currentBatch) => {
+        // 1. Obtener todas las respuestas de este comentario
+        const repliesQuery = query(
+          collection(db, "comments"),
+          where("parentCommentId", "==", currentCommentId),
+          where("isDeleted", "==", false)
+        );
+
+        const repliesSnapshot = await getDocs(repliesQuery);
+        const replies = repliesSnapshot.docs;
+
+        // 2. Eliminar recursivamente cada respuesta
+        for (const replyDoc of replies) {
+          await deleteCommentRecursive(replyDoc.id, currentBatch);
+        }
+
+        // 3. Eliminar el comentario actual
+        const commentRef = doc(db, "comments", currentCommentId);
+        const commentDoc = await getDoc(commentRef);
+
+        if (commentDoc.exists()) {
+          const commentData = commentDoc.data();
+
+          if (
+            isModeratorAction ||
+            (!isAuthor && (isModeratorOrAdmin || isForumModerator))
+          ) {
+            // Eliminación por moderador
+            currentBatch.update(commentRef, {
+              isDeleted: true,
+              deletedAt: serverTimestamp(),
+              deletedBy: user.uid,
+              moderatorDelete: true,
+              deletedContent: commentData.content, // Guardar contenido original
+            });
+          } else if (isAuthor) {
+            // Eliminación por autor
+            currentBatch.update(commentRef, {
+              isDeleted: true,
+              deletedAt: serverTimestamp(),
+              deletedContent: commentData.content, // Guardar contenido original
+            });
+          }
+
+          // Actualizar contador de comentarios en el post (solo una vez por post)
+          if (currentCommentId === commentId) {
+            // Solo para el comentario raíz
+            currentBatch.update(doc(db, "posts", commentData.postId), {
+              "stats.commentCount": increment(-1 - replies.length), // Restar comentario + respuestas
+            });
+          }
+
+          // Actualizar estadísticas del autor (solo si es autor del comentario)
+          const commentAuthorId = commentData.authorId;
+          if (commentAuthorId === user.uid) {
+            currentBatch.update(doc(db, "users", commentAuthorId), {
+              "stats.commentCount": increment(-1),
+              "stats.contributionCount": increment(-1),
+            });
+          } else if (isModeratorAction) {
+            // Si es moderador eliminando comentario de otro, afectar stats del autor original
+            currentBatch.update(doc(db, "users", commentAuthorId), {
+              "stats.commentCount": increment(-1),
+              "stats.contributionCount": increment(-1),
+              "stats.warnings": increment(1),
+            });
+          }
+        }
+      };
+
+      // Ejecutar eliminación recursiva
+      await deleteCommentRecursive(commentId, batch);
+      await batch.commit();
+
+      return {
+        success: true,
+        deletionType: isAuthor ? "user" : "moderator",
+        deletedCount: 1 + (await countCommentReplies(commentId)), // Comentario + respuestas
+      };
+    } catch (error) {
+      console.error("Error eliminando comentario con respuestas:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Función auxiliar para contar respuestas
+  const countCommentReplies = async (commentId) => {
+    try {
+      const repliesQuery = query(
+        collection(db, "comments"),
+        where("parentCommentId", "==", commentId),
+        where("isDeleted", "==", false)
+      );
+
+      const repliesSnapshot = await getDocs(repliesQuery);
+      let total = repliesSnapshot.size;
+
+      // Contar respuestas de forma recursiva
+      for (const replyDoc of repliesSnapshot.docs) {
+        total += await countCommentReplies(replyDoc.id);
+      }
+
+      return total;
+    } catch (error) {
+      console.error("Error contando respuestas:", error);
+      return 0;
+    }
+  };
+
   return {
     createComment,
     editComment,
     deleteComment,
+    deleteCommentWithReplies,
+    countCommentReplies,
     likeComment,
   };
 };
