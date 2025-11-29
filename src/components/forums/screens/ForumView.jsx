@@ -21,6 +21,8 @@ import ForumHeader from './../components/ForumHeader';
 import WelcomeMessage from './../components/WelcomeMessage';
 import ForumSidebar from './../components/ForumSidebar';
 import PostList from './../posts/components/PostList';
+import DeleteCommunityModal from '../modals/DeleteCommunityModal';
+import { useCommunityDeletion } from './../hooks/useCommunityDeletion'
 
 function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   // Estados principales
@@ -31,7 +33,8 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [forumDetails, setForumDetails] = useState(forumData);
   const [pendingPostsCount, setPendingPostsCount] = useState(0);
-  const [isUserBanned, setIsUserBanned] = useState(false); // ← NUEVO ESTADO
+  const [isUserBanned, setIsUserBanned] = useState(false); 
+  const [showDeleteCommunityModal, setShowDeleteCommunityModal] = useState(false);
   
   // Estados de modales
   const [showAddModeratorModal, setShowAddModeratorModal] = useState(false);
@@ -54,6 +57,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   const { banUser } = useCommunityBans();
   const { members } = useForumMembers(forumDetails.id);
   const { posts, loading: postsLoading, error: postsError } = usePosts(forumDetails.id);
+  const { deleteCommunity, loading: deleteLoading, error: deleteError } = useCommunityDeletion();
   const user = auth.currentUser;
 
   // Variables computadas
@@ -222,6 +226,45 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
     setSelectedContent({ ...content, contentType });
     setShowDeleteModal(true);
   };
+
+  const handleDeleteCommunity = () => {
+    setShowDeleteCommunityModal(true);
+  };
+
+  const handleDeleteCommunityConfirmed = async (deleteData) => {
+  console.log('🗑️ Iniciando eliminación de comunidad desde ForumView');
+  
+  if (!forumDetails.id) {
+    alert('Error: No se pudo obtener el ID de la comunidad');
+    return;
+  }
+
+  // Guardar el nombre antes de eliminar (por si acaso)
+  const communityName = forumDetails.name;
+
+  const result = await deleteCommunity(
+    forumDetails.id, 
+    deleteData.reason, 
+    auth.currentUser?.email
+  );
+  
+  if (result.success) {
+    alert(`Comunidad "${communityName}" eliminada exitosamente`);
+    console.log('📊 Estadísticas de eliminación:', result.stats);
+    setShowDeleteCommunityModal(false);
+    onBack(); // Volver atrás después de eliminar
+  } else {
+    // Si el error es que "no existe", probablemente ya fue eliminado
+    if (result.error.includes('no existe')) {
+      alert(`La comunidad "${communityName}" ya fue eliminada o no existe`);
+      setShowDeleteCommunityModal(false);
+      onBack();
+    } else {
+      alert('Error al eliminar comunidad: ' + result.error);
+    }
+  }
+};
+
 
   const handleBanUser = (user) => {
     setSelectedUser(user);
@@ -411,6 +454,8 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
               onManageMembers={() => setShowManageMembersModal(true)}
               onSettings={() => setShowSettingsModal(true)}
               onValidatePosts={() => setShowValidationModal(true)}
+              onDeleteCommunity={handleDeleteCommunity}
+              userRole={userData?.role}
             />
           </aside>
         </div>
@@ -475,6 +520,14 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
         isOpen={showMobileActions}
         onClose={() => setShowMobileActions(false)}
         actions={mobileActions}
+      />
+
+      <DeleteCommunityModal
+        isOpen={showDeleteCommunityModal}
+        onClose={() => setShowDeleteCommunityModal(false)}
+        onDeleteConfirmed={handleDeleteCommunityConfirmed}
+        communityName={forumDetails.name}
+        forumId={forumDetails.id}
       />
 
       {/* Botón flotante para móviles */}

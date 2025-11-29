@@ -216,8 +216,11 @@ export const useUserProfile = (userId = null) => {
       );
       console.log("📈 Estadísticas calculadas:", estadisticas);
 
-      // 6. Formatear datos para el frontend
+      // 6. Formatear datos para el frontend con manejo de suspensión
       const formattedUserData = {
+        // Datos básicos
+        id: targetUserId,
+
         // Datos personales
         nombreCompleto: userDataFromFirebase.name
           ? `${userDataFromFirebase.name.name || ""} ${
@@ -235,14 +238,32 @@ export const useUserProfile = (userId = null) => {
           userDataFromFirebase.professionalInfo?.verificationStatus,
         professionalInfo: userDataFromFirebase.professionalInfo,
 
+        // Información de suspensión (CRÍTICO para el sistema de moderación)
+        suspension: userDataFromFirebase.suspension || {
+          isSuspended: false,
+          reason: null,
+          startDate: null,
+          endDate: null,
+          suspendedBy: null,
+        },
+
+        // Datos de actividad
+        email: userDataFromFirebase.email,
+        isActive: userDataFromFirebase.isActive,
+        lastLogin: userDataFromFirebase.lastLogin,
+
         // Datos cargados
         estadisticas,
         publicaciones: postsData,
         comentarios: commentsData,
         temasParticipacion: userForumsData,
+
+        // Datos originales de Firebase para compatibilidad
+        _rawData: userDataFromFirebase,
       };
 
       console.log("✅ Datos formateados:", formattedUserData);
+      console.log("🚦 Estado de suspensión:", formattedUserData.suspension);
 
       setUserData(formattedUserData);
       setUserPosts(postsData);
@@ -273,11 +294,59 @@ export const useUserProfile = (userId = null) => {
       // Agregar contadores específicos para el frontend
       publicaciones: userData.stats?.postCount || posts.length,
       comentarios: userData.stats?.commentCount || comments.length,
+      // Estadísticas adicionales para moderación
+      contributionCount: userData.stats?.contributionCount || 0,
+      forumCount: userData.stats?.forumCount || 0,
+      joinedForumsCount: userData.stats?.joinedForumsCount || 0,
+      totalImagesUploaded: userData.stats?.totalImagesUploaded || 0,
+      totalStorageUsed: userData.stats?.totalStorageUsed || 0,
     };
   };
 
   const refreshProfile = () => {
     loadUserProfile();
+  };
+
+  // Función auxiliar para verificar si el usuario está suspendido
+  const isUserSuspended = () => {
+    return userData?.suspension?.isSuspended === true;
+  };
+
+  // Función auxiliar para obtener tiempo restante de suspensión
+  const getSuspensionTimeLeft = () => {
+    if (!isUserSuspended()) return null;
+
+    const suspension = userData.suspension;
+
+    // Si es suspensión permanente
+    if (!suspension.endDate) {
+      return "Permanente";
+    }
+
+    // Calcular tiempo restante para suspensiones temporales
+    const endDate = suspension.endDate.toDate();
+    const now = new Date();
+    const diff = endDate - now;
+
+    if (diff <= 0) {
+      return "Expirada";
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (days > 0) {
+      return `${days} día${days > 1 ? "s" : ""}, ${hours} hora${
+        hours > 1 ? "s" : ""
+      }`;
+    } else if (hours > 0) {
+      return `${hours} hora${hours > 1 ? "s" : ""}, ${minutes} minuto${
+        minutes > 1 ? "s" : ""
+      }`;
+    } else {
+      return `${minutes} minuto${minutes > 1 ? "s" : ""}`;
+    }
   };
 
   return {
@@ -288,5 +357,7 @@ export const useUserProfile = (userId = null) => {
     loading,
     error,
     refreshProfile,
+    isUserSuspended,
+    getSuspensionTimeLeft,
   };
 };

@@ -12,7 +12,8 @@ import {
     FaLock,
     FaSpinner,
     FaClock,
-    FaBan 
+    FaBan,
+    FaTrash 
   } from 'react-icons/fa';
   
   function ForumSidebar({ 
@@ -20,7 +21,7 @@ import {
     requiresApproval, requiresPostApproval, pendingRequestsCount, pendingPostsCount,
     userMembership, actionLoading, hasPendingRequest, forumDetails, isUserBanned,
     onCreatePost, onJoinLeave, onLeaveAsOwner, onReport, onManageModerators, 
-    onManageMembers, onSettings, onValidatePosts 
+    onManageMembers, onSettings, onValidatePosts, onDeleteCommunity, userRole 
   }) {
     
     const formatDate = (timestamp) => {
@@ -35,7 +36,10 @@ import {
         return 'Fecha inválida';
       }
     };
-  
+
+    // Verificar si puede eliminar comunidad (admin o moderadores del sistema)
+    const canDeleteCommunity = (userRole === 'admin' || userRole === 'moderator') && !isUserBanned;
+    
     return (
       <div className="sticky top-24 space-y-4">
         {/* Acciones del Foro */}
@@ -54,6 +58,18 @@ import {
                   No puedes unirte, publicar ni interactuar en esta comunidad.
                 </p>
               </div>
+            )}
+
+            {/* Eliminar Comunidad (Solo admin/moderadores) */}
+            {canDeleteCommunity && (
+              <button
+                onClick={onDeleteCommunity}
+                className="w-full bg-red-600 text-white py-3 px-4 rounded-lg hover:bg-red-700 transition duration-200 flex items-center justify-center gap-2 font-medium"
+              >
+                <FaTrash className="w-4 h-4" />
+                Eliminar Comunidad
+                <span className="text-xs bg-red-800 px-2 py-1 rounded-full">Admin</span>
+              </button>
             )}
 
             {/* Crear Publicación */}

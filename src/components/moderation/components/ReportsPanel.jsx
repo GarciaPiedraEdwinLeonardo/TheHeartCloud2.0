@@ -1,7 +1,7 @@
 import { FaInfoCircle } from 'react-icons/fa';
 import ReportItem from './ReportItem'
 
-function ReportsPanel({ reports, activeTab, filters }) {
+function ReportsPanel({ reports, activeTab, filters, onNavigateToProfile, onNavigateToForum }) {
   // Función mejorada de filtrado
   const filteredReports = reports.filter(report => {
     // Filtro de búsqueda
@@ -66,6 +66,8 @@ function ReportsPanel({ reports, activeTab, filters }) {
           key={report.id} 
           report={report} 
           activeTab={activeTab}
+          onNavigateToProfile={onNavigateToProfile}
+          onNavigateToForum={onNavigateToForum}
         />
       ))}
     </div>

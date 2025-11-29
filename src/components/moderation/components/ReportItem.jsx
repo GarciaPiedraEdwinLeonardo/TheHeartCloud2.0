@@ -10,67 +10,62 @@ import {
   FaCheckCircle,
   FaEllipsisH,
   FaEye,
-  FaTimes
+  FaTimes,
+  FaExternalLinkAlt
 } from 'react-icons/fa';
 import ModerationActions from './ModerationActions';
 import ContentPreview from './ContentPreview';
 
-function ReportItem({ report, activeTab }) {
+function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum }) {
   const [showActions, setShowActions] = useState(false);
   const [showContentPreview, setShowContentPreview] = useState(false);
 
-  // Determinar tipo de contenido
+  // Determinar tipo de contenido BASADO EN TU ESTRUCTURA
   const getContentType = () => {
-    if (report.type === 'post' && report.moderatorAction) {
-      return { type: 'deleted_post', label: 'Post Eliminado' };
-    }
-    if (report.type === 'comment' && report.moderatorAction) {
-      return { type: 'deleted_comment', label: 'Comentario Eliminado' };
-    }
-    
+    // Si es de global_moderation_reports
     if (report.actionType) {
-      // Es un reporte global de moderador
       switch (report.actionType) {
-        case 'post_rejected':
-          return { type: 'post', label: 'Post Rechazado' };
-        case 'comment_rejected':
-          return { type: 'comment', label: 'Comentario Rechazado' };
-        case 'community_ban':
-          return { type: 'user', label: 'Usuario Baneado' };
         case 'post_deleted_by_moderator':
-          return { type: 'deleted_post', label: 'Post Eliminado' };
+          return { type: 'deleted_post', label: 'Post Eliminado', source: 'global' };
+        case 'post_rejected':
+          return { type: 'post', label: 'Post Rechazado', source: 'global' };
+        case 'comment_rejected':
+          return { type: 'comment', label: 'Comentario Rechazado', source: 'global' };
+        case 'community_ban':
+          return { type: 'user', label: 'Usuario Baneado', source: 'global' };
         default:
-          return { type: 'moderator_action', label: 'Acción de Moderador' };
+          return { type: 'moderator_action', label: 'Acción de Moderador', source: 'global' };
       }
     }
     
-    // Es un reporte de usuario
+    // Si es de reports normal
     switch (report.type) {
       case 'user':
       case 'profile':
-        return { type: 'user', label: 'Reporte de Usuario' };
+        return { type: 'user', label: 'Reporte de Usuario', source: 'user' };
       case 'post':
-        return { type: 'post', label: 'Reporte de Publicación' };
+        return { type: 'post', label: 'Reporte de Publicación', source: 'user' };
       case 'comment':
-        return { type: 'comment', label: 'Reporte de Comentario' };
+        return { type: 'comment', label: 'Reporte de Comentario', source: 'user' };
       case 'forum':
-        return { type: 'forum', label: 'Reporte de Comunidad' };
+        return { type: 'forum', label: 'Reporte de Comunidad', source: 'user' };
       default:
-        return { type: 'unknown', label: 'Reporte' };
+        return { type: 'unknown', label: 'Reporte', source: 'user' };
     }
   };
 
   const contentType = getContentType();
+  const isGlobalReport = contentType.source === 'global';
   
   const getReportIcon = () => {
     switch (contentType.type) {
       case 'user':
         return <FaUser className="w-5 h-5 text-purple-600" />;
       case 'post':
-      case 'deleted_post':
         return <FaFileAlt className="w-5 h-5 text-blue-600" />;
+      case 'deleted_post':
+        return <FaFileAlt className="w-5 h-5 text-red-600" />;
       case 'comment':
-      case 'deleted_comment':
         return <FaComment className="w-5 h-5 text-green-600" />;
       case 'forum':
         return <FaUsers className="w-5 h-5 text-orange-600" />;
@@ -80,6 +75,8 @@ function ReportItem({ report, activeTab }) {
   };
 
   const getUrgencyColor = () => {
+    if (isGlobalReport) return 'bg-gray-100 text-gray-800 border-gray-200';
+    
     switch (report.urgency) {
       case 'critical':
         return 'bg-red-100 text-red-800 border-red-200';
@@ -95,14 +92,16 @@ function ReportItem({ report, activeTab }) {
   };
 
   const getStatusInfo = () => {
-    if (report.status === 'resolved') {
+    const status = report.status;
+    
+    if (status === 'resolved') {
       return { label: 'Resuelto', color: 'bg-green-100 text-green-800', icon: FaCheckCircle };
     }
-    if (report.status === 'pending_review' || report.status === 'pending') {
+    if (status === 'pending_review' || status === 'pending') {
       return { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800', icon: FaClock };
     }
-    if (report.status === 'dismissed') {
-      return { label: 'Desestimado', color: 'bg-gray-100 text-gray-800', icon: FaTimes };
+    if (status === 'dismissed') {
+      return { label: 'Desestiman', color: 'bg-gray-100 text-gray-800', icon: FaTimes };
     }
     return { label: 'Revisando', color: 'bg-blue-100 text-blue-800', icon: FaExclamationTriangle };
   };
@@ -128,9 +127,83 @@ function ReportItem({ report, activeTab }) {
     }
   };
 
-  // Determinar si mostrar preview del contenido
-  const canShowPreview = ['post', 'comment', 'user', 'forum'].includes(contentType.type) && 
-                        !contentType.type.startsWith('deleted');
+  // Obtener información específica según el tipo de reporte
+  const getReportInfo = () => {
+    if (isGlobalReport) {
+      return {
+        title: report.targetName || `Acción de moderación`,
+        reporter: `Moderador`,
+        date: report.reportedAt,
+        reason: report.reason,
+        description: `Acción: ${report.actionType}`
+      };
+    } else {
+      return {
+        title: report.targetName || 'Contenido reportado',
+        reporter: report.reporterName || 'Usuario',
+        date: report.createdAt,
+        reason: report.reason,
+        description: report.description
+      };
+    }
+  };
+
+  const reportInfo = getReportInfo();
+
+  // Navegación directa para usuarios y foros
+  const handleNavigateToContent = () => {
+    if (contentType.type === 'user' && onNavigateToProfile) {
+      // Para usuarios, navegar al perfil
+      onNavigateToProfile({
+        id: report.targetId,
+        name: report.targetName
+      });
+    } else if (contentType.type === 'forum' && onNavigateToForum) {
+      // Para foros, navegar a la comunidad
+      onNavigateToForum({
+        id: report.targetId,
+        name: report.targetName
+      });
+    } else if (['post', 'comment'].includes(contentType.type)) {
+      // Para posts y comentarios, abrir preview
+      setShowContentPreview(true);
+    }
+  };
+
+  const getActionButton = () => {
+    if (contentType.type === 'user') {
+      return (
+        <button
+          onClick={handleNavigateToContent}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-lg transition duration-200"
+        >
+          <FaExternalLinkAlt className="w-4 h-4" />
+          Ir al perfil
+        </button>
+      );
+    } else if (contentType.type === 'forum') {
+      return (
+        <button
+          onClick={handleNavigateToContent}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 rounded-lg transition duration-200"
+        >
+          <FaExternalLinkAlt className="w-4 h-4" />
+          Ir a la comunidad
+        </button>
+      );
+    } else if (['post', 'comment'].includes(contentType.type)) {
+      return (
+        <button
+          onClick={() => setShowContentPreview(true)}
+          className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition duration-200"
+        >
+          <FaEye className="w-4 h-4" />
+          Ver contenido
+        </button>
+      );
+    }
+    return null;
+  };
 
   return (
     <>
@@ -147,14 +220,18 @@ function ReportItem({ report, activeTab }) {
               {/* Header móvil compacto */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
-                  {report.targetName || 'Contenido reportado'}
+                  {reportInfo.title}
                 </h3>
                 
                 <div className="flex flex-wrap gap-2">
                   <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${getUrgencyColor()}`}>
                     <FaExclamationTriangle className="w-3 h-3" />
-                    <span className="hidden sm:inline">{report.urgency || 'media'}</span>
-                    <span className="sm:hidden">{report.urgency ? report.urgency.charAt(0).toUpperCase() : 'M'}</span>
+                    <span className="hidden sm:inline">
+                      {isGlobalReport ? 'Moderación' : (report.urgency || 'media')}
+                    </span>
+                    <span className="sm:hidden">
+                      {isGlobalReport ? 'M' : (report.urgency ? report.urgency.charAt(0).toUpperCase() : 'M')}
+                    </span>
                   </span>
                   
                   <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${statusInfo.color}`}>
@@ -169,48 +246,41 @@ function ReportItem({ report, activeTab }) {
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-gray-600">
                 <span className="font-medium">{contentType.label}</span>
                 <span className="hidden sm:inline">•</span>
-                <span>Por: {report.reporterName || 'Moderador'}</span>
+                <span>Por: {reportInfo.reporter}</span>
                 <span className="hidden sm:inline">•</span>
-                <span className="text-xs sm:text-sm">{formatDate(report.createdAt || report.reportedAt)}</span>
+                <span className="text-xs sm:text-sm">{formatDate(reportInfo.date)}</span>
               </div>
 
               {/* Información adicional */}
               <div className="mt-3 space-y-1">
-                {report.reason && (
+                {reportInfo.reason && (
                   <p className="text-sm text-gray-700">
-                    <strong className="text-gray-900">Motivo:</strong> {report.reason}
+                    <strong className="text-gray-900">Motivo:</strong> {reportInfo.reason}
                   </p>
                 )}
 
-                {report.description && (
+                {reportInfo.description && (
                   <p className="text-sm text-gray-700 line-clamp-2">
-                    <strong className="text-gray-900">Descripción:</strong> {report.description}
+                    <strong className="text-gray-900">Descripción:</strong> {reportInfo.description}
                   </p>
                 )}
 
-                {report.targetAuthorName && (
+                {/* Información adicional para global reports */}
+                {isGlobalReport && report.userId && (
                   <p className="text-sm text-gray-700">
-                    <strong className="text-gray-900">Autor:</strong> {report.targetAuthorName}
+                    <strong className="text-gray-900">Usuario afectado:</strong> {report.userId}
                   </p>
                 )}
               </div>
 
-              {/* Botón para ver contenido */}
-              {canShowPreview && (
-                <div className="mt-3">
-                  <button
-                    onClick={() => setShowContentPreview(true)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition duration-200"
-                  >
-                    <FaEye className="w-4 h-4" />
-                    Ver contenido reportado
-                  </button>
-                </div>
-              )}
+              {/* Botón de acción según tipo de contenido */}
+              <div className="mt-3">
+                {getActionButton()}
+              </div>
             </div>
           </div>
 
-          {/* Botón de acciones */}
+          {/* Botón de acciones (solo para moderación básica) */}
           <div className="flex-shrink-0">
             <button
               onClick={() => setShowActions(!showActions)}
@@ -221,7 +291,7 @@ function ReportItem({ report, activeTab }) {
           </div>
         </div>
 
-        {/* Acciones de moderación */}
+        {/* Acciones de moderación básicas */}
         {showActions && (
           <ModerationActions 
             report={report}
@@ -230,13 +300,13 @@ function ReportItem({ report, activeTab }) {
         )}
       </div>
 
-      {/* Modal de preview del contenido */}
-      {showContentPreview && (
+      {/* Modal de preview solo para posts y comentarios */}
+      {showContentPreview && ['post', 'comment'].includes(contentType.type) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
               <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
-                Vista previa del contenido
+                Vista previa - {contentType.label}
               </h3>
               <button
                 onClick={() => setShowContentPreview(false)}
@@ -250,6 +320,7 @@ function ReportItem({ report, activeTab }) {
               <ContentPreview 
                 report={report}
                 contentType={contentType.type}
+                isGlobalReport={isGlobalReport}
               />
             </div>
             

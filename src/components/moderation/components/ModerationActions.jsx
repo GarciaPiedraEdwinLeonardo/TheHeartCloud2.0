@@ -29,15 +29,17 @@ function ModerationActions({ report, onClose }) {
     error 
   } = useModerationActions();
 
-  // Determinar si es un reporte global (contenido ya eliminado)
-  const isGlobalReport = report.actionType && !report.moderatorAction;
-  const isDeletedContent = report.moderatorAction; // Contenido ya eliminado en auditoría
-
-  // Función para ver detalles - Ahora abre el contenido real
-  const handleViewDetails = () => {
-    console.log('🔍 Ver detalles del contenido:', report);
-    // Esto se manejará en ReportItem mostrando el contenido real
+  // Determinar tipo de contenido
+  const getContentType = () => {
+    if (report.actionType) {
+      return { type: 'global', label: 'Reporte Global' };
+    }
+    return { type: report.type, label: `Reporte de ${report.type}` };
   };
+
+  const contentType = getContentType();
+  const isGlobalReport = contentType.type === 'global';
+  const isUserReport = report.type === 'user' || report.type === 'profile';
 
   // Función para manejar acciones
   const handleAction = async (action, customData = null) => {
@@ -57,7 +59,16 @@ function ModerationActions({ report, onClose }) {
           break;
           
         case 'suspend_user':
-          const userId = report.targetAuthorId || report.userId || report.targetId;
+          // Obtener userId de diferentes fuentes según el tipo de reporte
+          let userId;
+          if (isUserReport) {
+            userId = report.targetId; // Para reportes de perfil, targetId es el usuario
+          } else if (isGlobalReport) {
+            userId = report.userId; // Para global reports
+          } else {
+            userId = report.targetAuthorId; // Para otros reportes
+          }
+          
           if (userId) {
             result = await suspendUser(userId, reason, modalData.duration);
           } else {
@@ -68,15 +79,15 @@ function ModerationActions({ report, onClose }) {
           
         case 'delete_content':
           // NO permitir eliminar contenido en reportes globales (ya está eliminado)
-          if (isGlobalReport || isDeletedContent) {
-            alert('Este contenido ya ha sido eliminado');
+          if (isGlobalReport) {
+            alert('Este contenido ya ha sido procesado por un moderador');
             return;
           }
           
-          if (report.type === 'post' || report.actionType?.includes('post')) {
-            result = await deleteContent('post', report.targetId || report.postId, reason);
-          } else if (report.type === 'comment' || report.actionType?.includes('comment')) {
-            result = await deleteContent('comment', report.targetId || report.commentId, reason);
+          if (report.type === 'post') {
+            result = await deleteContent('post', report.targetId, reason);
+          } else if (report.type === 'comment') {
+            result = await deleteContent('comment', report.targetId, reason);
           } else {
             alert('Tipo de contenido no soportado para eliminación');
             return;
@@ -84,7 +95,7 @@ function ModerationActions({ report, onClose }) {
           break;
 
         case 'delete_community':
-          if (report.type === 'forum' || report.targetId) {
+          if (report.type === 'forum') {
             result = await deleteCommunity(report.targetId, reason);
           } else {
             alert('No se pudo identificar la comunidad a eliminar');
@@ -93,7 +104,7 @@ function ModerationActions({ report, onClose }) {
           break;
           
         case 'ban_community':
-          const banUserId = report.targetAuthorId || report.userId || report.targetId;
+          const banUserId = report.targetAuthorId || report.userId;
           const forumId = report.forumId;
           if (forumId && banUserId) {
             result = await banFromCommunity(forumId, banUserId, reason);
@@ -157,8 +168,8 @@ function ModerationActions({ report, onClose }) {
       );
     }
 
-    // Acciones de eliminación SOLO para contenido activo (NO globales, NO auditoría)
-    if (isContentReport && !isGlobalReport && !isDeletedContent) {
+    // Acciones de eliminación SOLO para contenido activo (NO globales)
+    if (isContentReport && !isGlobalReport) {
       baseActions.push({
         id: 'delete_content',
         label: `Eliminar ${report.type === 'post' ? 'publicación' : 'comentario'}`,
@@ -182,8 +193,9 @@ function ModerationActions({ report, onClose }) {
     }
 
     // Suspender usuario - ESPECIALMENTE para reportes de perfil/usuario
-    const userId = report.targetAuthorId || report.userId || (isUserReport ? report.targetId : null);
-    if (userId) {
+    const userId = report.targetAuthorId || report.userId || 
+                  (isUserReport ? report.targetId : null);
+    if (userId && !isGlobalReport) {
       baseActions.push({
         id: 'suspend_user',
         label: 'Suspender usuario',

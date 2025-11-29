@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUserProfile } from './hooks/useUserProfile';
-import { auth } from './../../config/firebase';
+import { auth, db } from './../../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import ProfileHeader from './components/ProfileHeader';
 import TabNavigation from './components/TabNavigation';
 import TabContent from './components/TabContent';
@@ -9,17 +10,42 @@ import StatsModal from './components/StatsModal';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorMessage from './components/ErrorMessage';
 import ReportModal from '../forums/modals/ReportModal';
+import SuspendUserModal from './components/SuspendedUserModal';
+import { useUserSuspension } from '../suspend/hooks/useUserSuspension';
 
 function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
   const [activeTab, setActiveTab] = useState('publicaciones');
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
   
   // Usar el hook con el userId proporcionado (si es null, usa el usuario actual)
   const { userData, loading, error, refreshProfile } = useUserProfile(userId);
+  const { suspendUser, loading: suspendLoading, error: suspendError } = useUserSuspension();
 
   // Determinar si es el perfil propio
   const isOwnProfile = !userId || userId === auth.currentUser?.uid;
+
+  // Cargar el rol del usuario actual (admin/moderador)
+  useEffect(() => {
+    const loadCurrentUserRole = async () => {
+      if (auth.currentUser) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setCurrentUserRole(userData.role);
+            console.log('🔑 Rol del usuario actual:', userData.role);
+          }
+        } catch (error) {
+          console.error('Error cargando rol del usuario actual:', error);
+        }
+      }
+    };
+
+    loadCurrentUserRole();
+  }, []);
 
   const handleTopicClick = (topic) => {
     if (onShowForum && topic.id) {
@@ -52,6 +78,46 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
       onShowMain();
     }
   };
+
+  const handleSuspendUser = () => {
+    setShowSuspendModal(true);
+  };
+
+  const handleSuspendConfirmed = async (suspendData) => {
+  console.log('🔨 Confirmando suspensión con datos:', suspendData);
+  
+  if (!userId && !userData?.id) {
+    alert('Error: No se pudo identificar al usuario a suspender');
+    return;
+  }
+
+  const targetUserId = userId || userData.id;
+  
+  const result = await suspendUser(
+    targetUserId, 
+    suspendData.reason, 
+    suspendData.duration, 
+    auth.currentUser.email
+  );
+  
+  if (result.success) {
+    console.log('✅ Suspensión exitosa, recargando perfil...');
+    // Mostrar mensaje de éxito
+    alert(`Usuario ${userData.nombreCompleto} suspendido exitosamente por ${suspendData.duration} días`);
+    
+    // Cerrar modal
+    setShowSuspendModal(false);
+    
+    // Recargar datos del perfil
+    refreshProfile();
+    
+    console.log('✅ Perfil recargado después de suspensión');
+  } else {
+    console.error('❌ Error en suspensión:', result.error);
+    alert('Error al suspender usuario: ' + result.error);
+  }
+};
+
 
   // Si no hay usuario autenticado Y es perfil propio
   if (!auth.currentUser && isOwnProfile) {
@@ -129,6 +195,8 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
                 onShowStats={() => setShowStatsModal(true)}
                 isOwnProfile={isOwnProfile}
                 onReportProfile={handleReportClick}
+                onSuspendUser={handleSuspendUser}
+                userRole={currentUserRole}
               />
 
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
@@ -167,6 +235,17 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
         reportType="profile"
         targetId={userId || userData.id}
         targetName={userData.nombreCompleto || 'Usuario'}
+      />
+
+      {/* Modal de Suspender Usuario */}
+      <SuspendUserModal
+        isOpen={showSuspendModal}
+        onClose={() => setShowSuspendModal(false)}
+        onSuspendConfirmed={handleSuspendConfirmed}
+        userName={userData.nombreCompleto}
+        userId={userId || userData.id}
+        currentUserEmail={auth.currentUser?.email}
+        loading={suspendLoading}
       />
     </>
   );

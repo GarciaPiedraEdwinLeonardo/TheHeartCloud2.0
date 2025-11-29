@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import Header from './sections/Header';
@@ -13,6 +13,7 @@ import VerifyAccount from './screens/VerifyAccount';
 import VerificationRequests from './admin/VerificationRequests';
 import PostDetailView from './forums/posts/PostDetailView';
 import ModerationDashboard from './moderation/ModerationDashboard';
+import SuspendedScreen from './modals/SuspendedScreen';
 
 function Home() {
   const [isSidebarModalOpen, setIsSidebarModalOpen] = useState(false);
@@ -23,7 +24,8 @@ function Home() {
   const [currentPost, setCurrentPost] = useState(null);
   const [user, setUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
-  const [selectedUserId, setSelectedUserId] = useState(null); // Nuevo estado para el perfil seleccionado
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [showSuspendedScreen, setShowSuspendedScreen] = useState(false); 
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -42,6 +44,22 @@ function Home() {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (userData && userData.suspension?.isSuspended) {
+      setShowSuspendedScreen(true);
+    } else {
+      setShowSuspendedScreen(false);
+    }
+  }, [userData]);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
 
   // Función para cambiar de vista guardando la anterior
   const navigateToView = (newView) => {
@@ -117,6 +135,15 @@ function Home() {
       handleShowMain();
     }
   };
+
+  if (showSuspendedScreen && userData) {
+    return (
+      <SuspendedScreen 
+        userData={userData} 
+        onLogout={handleLogout}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

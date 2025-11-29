@@ -1,7 +1,7 @@
-import { FaUserCircle, FaChartLine, FaCheckCircle, FaClock, FaTimesCircle, FaCertificate, FaFlag } from "react-icons/fa";
+import { FaUserCircle, FaChartLine, FaCheckCircle, FaClock, FaTimesCircle, FaCertificate, FaFlag, FaBan } from "react-icons/fa";
 import ProfilePhotoUpload from "./ProfilePhotoUpload";
 
-function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = true, onReportProfile }) {
+function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = true, onReportProfile, onSuspendUser, userRole }) {
   const formatDate = (date) => {
     if (!date) return 'Fecha no disponible';
     
@@ -93,10 +93,13 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
     );
   };
 
+  // Verificar si el usuario actual puede suspender (admin o moderator)
+  const canSuspendUser = !isOwnProfile && (userRole === 'admin' || userRole === 'moderator');
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
       <div className="flex items-start gap-4 sm:gap-6">
-        {/* Foto de Perfil - Ahora con componente de upload */}
+        {/* Foto de Perfil */}
         <div className="flex-shrink-0">
           <ProfilePhotoUpload 
             currentPhoto={userData.fotoPerfil}
@@ -114,8 +117,20 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
             {getVerificationBadge()}
             {getRoleBadge()}
 
-            {/* Botón de Reportar (solo para perfiles de otros usuarios) */}
-            {!isOwnProfile && (
+            {/* Botón de Suspender (solo para admin/moderadores en perfiles ajenos) */}
+            {canSuspendUser && (
+              <button
+                onClick={onSuspendUser}
+                className="inline-flex items-center gap-1 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full border border-red-200 hover:bg-red-200 transition duration-200"
+                title="Suspender usuario"
+              >
+                <FaBan className="w-3 h-3" />
+                Suspender
+              </button>
+            )}
+
+            {/* Botón de Reportar (solo para perfiles de otros usuarios sin permisos de moderación) */}
+            {!isOwnProfile && !canSuspendUser && (
               <button
                 onClick={onReportProfile}
                 className="inline-flex items-center gap-1 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full border border-orange-200 hover:bg-orange-200 transition duration-200"

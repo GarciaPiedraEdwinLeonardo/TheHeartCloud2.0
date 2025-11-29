@@ -245,6 +245,14 @@ function ModerationDashboard() {
               reports={reports}
               activeTab={activeTab}
               filters={filters}
+              onNavigateToProfile={(userData) => {
+                // Navegar al perfil del usuario reportado
+                handleShowUserProfile(userData);
+              }}
+              onNavigateToForum={(forumData) => {
+                // Navegar a la comunidad reportada
+                handleShowForum(forumData);
+              }}
             />
           </div>
         </div>
