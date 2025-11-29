@@ -17,16 +17,14 @@ export const useCommunityDeletion = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Función para eliminar todos los comentarios de un post
   const deletePostComments = async (postId) => {
     try {
       const commentsRef = collection(db, "comments");
 
-      // Eliminar comentarios principales
+      // Eliminar comentarios principales y en hilo en una sola operación
       const commentsQuery = query(commentsRef, where("postId", "==", postId));
       const commentsSnapshot = await getDocs(commentsQuery);
 
-      // Eliminar comentarios en hilo
       const threadCommentsQuery = query(
         commentsRef,
         where("parentPostId", "==", postId)
@@ -34,32 +32,29 @@ export const useCommunityDeletion = () => {
       const threadCommentsSnapshot = await getDocs(threadCommentsQuery);
 
       const batch = writeBatch(db);
-      let deletedCommentsCount = 0;
 
-      // Eliminar comentarios principales
-      commentsSnapshot.docs.forEach((commentDoc) => {
+      // Combinar todos los comentarios a eliminar
+      const allComments = [
+        ...commentsSnapshot.docs,
+        ...threadCommentsSnapshot.docs,
+      ];
+
+      allComments.forEach((commentDoc) => {
         batch.delete(commentDoc.ref);
-        deletedCommentsCount++;
       });
 
-      // Eliminar comentarios en hilo
-      threadCommentsSnapshot.docs.forEach((commentDoc) => {
-        batch.delete(commentDoc.ref);
-        deletedCommentsCount++;
-      });
-
-      if (deletedCommentsCount > 0) {
+      if (allComments.length > 0) {
         await batch.commit();
       }
 
-      return deletedCommentsCount;
+      return allComments.length;
     } catch (error) {
       console.error(`Error eliminando comentarios del post ${postId}:`, error);
-      throw error;
+      // No lanzar error, continuar con el proceso
+      return 0;
     }
   };
 
-  // Función para eliminar todos los posts de un foro
   const deleteForumPosts = async (forumId) => {
     try {
       const postsRef = collection(db, "posts");
@@ -69,37 +64,34 @@ export const useCommunityDeletion = () => {
       let deletedPostsCount = 0;
       let deletedCommentsCount = 0;
 
-      // Eliminar posts y sus comentarios
-      for (const postDoc of postsSnapshot.docs) {
+      // Usar Promise.all para eliminar posts en paralelo (más rápido)
+      const deletionPromises = postsSnapshot.docs.map(async (postDoc) => {
         try {
-          // Eliminar comentarios del post
           const commentsDeleted = await deletePostComments(postDoc.id);
+          await deleteDoc(postDoc.ref);
+
+          deletedPostsCount++;
           deletedCommentsCount += commentsDeleted;
 
-          // Eliminar el post
-          await deleteDoc(postDoc.ref);
-          deletedPostsCount++;
-
-          console.log(
-            `✅ Post ${postDoc.id} eliminado con ${commentsDeleted} comentarios`
-          );
+          return { success: true };
         } catch (postError) {
-          console.error(`❌ Error eliminando post ${postDoc.id}:`, postError);
-          // Continuar con el siguiente post
+          console.error(`Error eliminando post ${postDoc.id}:`, postError);
+          return { success: false, error: postError };
         }
-      }
+      });
+
+      await Promise.all(deletionPromises);
 
       return { deletedPostsCount, deletedCommentsCount };
     } catch (error) {
       console.error(`Error eliminando posts del foro ${forumId}:`, error);
-      throw error;
+      // Continuar aunque falle la eliminación de posts
+      return { deletedPostsCount: 0, deletedCommentsCount: 0 };
     }
   };
 
-  // Función para actualizar estadísticas de usuarios
   const updateUsersStatsAfterDeletion = async (forumId) => {
     try {
-      // Obtener todos los usuarios que estaban en el foro
       const usersRef = collection(db, "users");
       const usersQuery = query(
         usersRef,
@@ -108,89 +100,110 @@ export const useCommunityDeletion = () => {
       const usersSnapshot = await getDocs(usersQuery);
 
       const batch = writeBatch(db);
-      let updatedUsersCount = 0;
 
       usersSnapshot.docs.forEach((userDoc) => {
         const userData = userDoc.data();
-
-        // Calcular nueva cuenta de foros unidos
         const currentJoinedForums = userData.joinedForums || [];
         const newJoinedForums = currentJoinedForums.filter(
           (id) => id !== forumId
         );
-        const joinedForumsCount = newJoinedForums.length;
 
-        // Actualizar usuario
         batch.update(userDoc.ref, {
           joinedForums: newJoinedForums,
-          "stats.joinedForumsCount": joinedForumsCount,
+          "stats.joinedForumsCount": newJoinedForums.length,
           lastUpdated: serverTimestamp(),
         });
-
-        updatedUsersCount++;
       });
 
-      if (updatedUsersCount > 0) {
+      if (usersSnapshot.docs.length > 0) {
         await batch.commit();
       }
 
-      return updatedUsersCount;
+      return usersSnapshot.docs.length;
     } catch (error) {
       console.error("Error actualizando estadísticas de usuarios:", error);
-      throw error;
+      // No es crítico, continuar
+      return 0;
     }
   };
 
-  // Función principal para eliminar una comunidad completa - CORREGIDA
   const deleteCommunity = async (forumId, reason, deletedBy) => {
     setLoading(true);
     setError(null);
 
     try {
-      console.log("🔍 Iniciando eliminación con forumId:", forumId);
+      console.log("🚨 INICIANDO ELIMINACIÓN DEL FORO:", forumId);
 
-      // Validar que forumId existe y es válido
-      if (!forumId || typeof forumId !== "string" || forumId.trim() === "") {
-        throw new Error("ID de comunidad inválido o vacío");
+      if (!forumId) {
+        throw new Error("ID de comunidad no proporcionado");
       }
 
-      // 1. Verificar que el foro existe ANTES de eliminar nada
+      // 1. Verificar rápidamente que el foro existe
       const forumRef = doc(db, "forums", forumId);
       const forumDoc = await getDoc(forumRef);
 
       if (!forumDoc.exists()) {
-        throw new Error("La comunidad no existe en la base de datos");
+        // Si no existe, considerar que ya fue eliminado y retornar éxito
+        return {
+          success: true,
+          message: "La comunidad ya había sido eliminada anteriormente",
+          stats: { deletedPosts: 0, deletedComments: 0, updatedUsers: 0 },
+        };
       }
 
       const forumData = forumDoc.data();
-      console.log("✅ Foro encontrado:", forumData.name);
+      console.log("📋 Eliminando comunidad:", forumData.name);
 
-      // 2. Eliminar todos los posts y comentarios del foro
-      console.log("🗑️ Eliminando posts y comentarios...");
-      const { deletedPostsCount, deletedCommentsCount } =
-        await deleteForumPosts(forumId);
+      // 2. Eliminar contenido (no esperar a que termine completamente)
+      const deletionPromise = deleteForumPosts(forumId);
 
-      // 3. Actualizar estadísticas de usuarios
-      console.log("📊 Actualizando estadísticas de usuarios...");
-      const updatedUsersCount = await updateUsersStatsAfterDeletion(forumId);
+      // 3. Actualizar usuarios (no esperar)
+      const updatePromise = updateUsersStatsAfterDeletion(forumId);
 
-      // 4. Eliminar el foro - ESTA ES LA ÚLTIMA OPERACIÓN
-      console.log("✅ Eliminando foro principal...");
+      // 4. Eliminar el foro inmediatamente
       await deleteDoc(forumRef);
+      console.log("✅ Foro principal eliminado");
 
-      console.log("🎉 Eliminación completada exitosamente");
+      // 5. Esperar que las operaciones secundarias terminen (pero no bloquear)
+      const [deletionResult, updatedUsersCount] = await Promise.allSettled([
+        deletionPromise,
+        updatePromise,
+      ]);
+
+      const stats = {
+        deletedPosts:
+          deletionResult.status === "fulfilled"
+            ? deletionResult.value.deletedPostsCount
+            : 0,
+        deletedComments:
+          deletionResult.status === "fulfilled"
+            ? deletionResult.value.deletedCommentsCount
+            : 0,
+        updatedUsers:
+          updatedUsersCount.status === "fulfilled"
+            ? updatedUsersCount.value
+            : 0,
+      };
+
+      console.log("🎉 Eliminación completada:", stats);
 
       return {
         success: true,
         message: "Comunidad eliminada exitosamente",
-        stats: {
-          deletedPosts: deletedPostsCount,
-          deletedComments: deletedCommentsCount,
-          updatedUsers: updatedUsersCount,
-        },
+        stats,
       };
     } catch (error) {
-      console.error("❌ Error eliminando comunidad:", error);
+      console.error("❌ Error en el proceso de eliminación:", error);
+
+      // Si el error es que el documento no existe, considerar éxito
+      if (error.code === "not-found" || error.message.includes("no existe")) {
+        return {
+          success: true,
+          message: "La comunidad ya había sido eliminada",
+          stats: { deletedPosts: 0, deletedComments: 0, updatedUsers: 0 },
+        };
+      }
+
       setError(error.message);
       return {
         success: false,

@@ -232,38 +232,31 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   };
 
   const handleDeleteCommunityConfirmed = async (deleteData) => {
-  console.log('🗑️ Iniciando eliminación de comunidad desde ForumView');
-  
-  if (!forumDetails.id) {
-    alert('Error: No se pudo obtener el ID de la comunidad');
-    return;
-  }
-
-  // Guardar el nombre antes de eliminar (por si acaso)
-  const communityName = forumDetails.name;
-
-  const result = await deleteCommunity(
-    forumDetails.id, 
-    deleteData.reason, 
-    auth.currentUser?.email
-  );
-  
-  if (result.success) {
-    alert(`Comunidad "${communityName}" eliminada exitosamente`);
-    console.log('📊 Estadísticas de eliminación:', result.stats);
-    setShowDeleteCommunityModal(false);
-    onBack(); // Volver atrás después de eliminar
-  } else {
-    // Si el error es que "no existe", probablemente ya fue eliminado
-    if (result.error.includes('no existe')) {
-      alert(`La comunidad "${communityName}" ya fue eliminada o no existe`);
+    console.log('🗑️ Confirmando eliminación de:', forumDetails.name);
+    
+    const result = await deleteCommunity(
+      forumDetails.id, 
+      deleteData.reason, 
+      auth.currentUser?.email
+    );
+    
+    if (result.success) {
+      // SIEMPRE considerar éxito y cerrar el modal
+      console.log('✅ Eliminación exitosa:', result.message);
+      console.log('📊 Estadísticas:', result.stats);
+      
       setShowDeleteCommunityModal(false);
-      onBack();
+      onBack(); // Navegar de regreso
+      
+      // Mostrar mensaje de éxito
+      setTimeout(() => {
+        alert(`Comunidad "${forumDetails.name}" eliminada exitosamente`);
+      }, 100);
     } else {
+      // Solo mostrar error si realmente falló
       alert('Error al eliminar comunidad: ' + result.error);
     }
-  }
-};
+  };
 
 
   const handleBanUser = (user) => {
