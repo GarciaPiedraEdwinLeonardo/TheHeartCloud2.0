@@ -29,11 +29,14 @@ function ModerationActions({ report, onClose }) {
     error 
   } = useModerationActions();
 
-  // Función para ver detalles
+  // Determinar si es un reporte global (contenido ya eliminado)
+  const isGlobalReport = report.actionType && !report.moderatorAction;
+  const isDeletedContent = report.moderatorAction; // Contenido ya eliminado en auditoría
+
+  // Función para ver detalles - Ahora abre el contenido real
   const handleViewDetails = () => {
-    console.log('🔍 Ver detalles del reporte:', report);
-    // Aquí podrías abrir un modal con más información
-    alert(`Detalles del reporte:\n\nTipo: ${report.type || report.actionType}\nID: ${report.id}\nTarget: ${report.targetName}\nAutor: ${report.targetAuthorName || 'N/A'}\nMotivo: ${report.reason || 'N/A'}`);
+    console.log('🔍 Ver detalles del contenido:', report);
+    // Esto se manejará en ReportItem mostrando el contenido real
   };
 
   // Función para manejar acciones
@@ -54,7 +57,7 @@ function ModerationActions({ report, onClose }) {
           break;
           
         case 'suspend_user':
-          const userId = report.targetAuthorId || report.userId;
+          const userId = report.targetAuthorId || report.userId || report.targetId;
           if (userId) {
             result = await suspendUser(userId, reason, modalData.duration);
           } else {
@@ -64,6 +67,12 @@ function ModerationActions({ report, onClose }) {
           break;
           
         case 'delete_content':
+          // NO permitir eliminar contenido en reportes globales (ya está eliminado)
+          if (isGlobalReport || isDeletedContent) {
+            alert('Este contenido ya ha sido eliminado');
+            return;
+          }
+          
           if (report.type === 'post' || report.actionType?.includes('post')) {
             result = await deleteContent('post', report.targetId || report.postId, reason);
           } else if (report.type === 'comment' || report.actionType?.includes('comment')) {
@@ -84,7 +93,7 @@ function ModerationActions({ report, onClose }) {
           break;
           
         case 'ban_community':
-          const banUserId = report.targetAuthorId || report.userId;
+          const banUserId = report.targetAuthorId || report.userId || report.targetId;
           const forumId = report.forumId;
           if (forumId && banUserId) {
             result = await banFromCommunity(forumId, banUserId, reason);
@@ -117,24 +126,17 @@ function ModerationActions({ report, onClose }) {
     }
   };
 
-  // Obtener acciones disponibles según el tipo de reporte
+  // Obtener acciones disponibles según el tipo de reporte - CORREGIDO
   const getAvailableActions = () => {
-    const baseActions = [
-      {
-        id: 'view_details',
-        label: 'Ver detalles',
-        icon: FaEye,
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-50 hover:bg-blue-100',
-        onClick: handleViewDetails
-      }
-    ];
+    const baseActions = [];
 
     const isPending = report.status === 'pending' || report.status === 'pending_review';
-    const isGlobalReport = report.actionType; // Tiene actionType = es de global_moderation_reports
+    const isUserReport = report.type === 'user' || report.type === 'profile';
+    const isContentReport = report.type === 'post' || report.type === 'comment';
+    const isForumReport = report.type === 'forum';
 
-    // Acciones para reportes pendientes
-    if (isPending) {
+    // Acciones para reportes pendientes (NO globales)
+    if (isPending && !isGlobalReport) {
       baseActions.push(
         {
           id: 'resolve',
@@ -155,15 +157,11 @@ function ModerationActions({ report, onClose }) {
       );
     }
 
-    // Acciones de eliminación según tipo de contenido
-    const contentType = report.type || 
-                      (report.actionType?.includes('post') ? 'post' : 
-                       report.actionType?.includes('comment') ? 'comment' : null);
-
-    if (contentType === 'post' || contentType === 'comment') {
+    // Acciones de eliminación SOLO para contenido activo (NO globales, NO auditoría)
+    if (isContentReport && !isGlobalReport && !isDeletedContent) {
       baseActions.push({
         id: 'delete_content',
-        label: `Eliminar ${contentType === 'post' ? 'publicación' : 'comentario'}`,
+        label: `Eliminar ${report.type === 'post' ? 'publicación' : 'comentario'}`,
         icon: FaTrash,
         color: 'text-red-600',
         bgColor: 'bg-red-50 hover:bg-red-100',
@@ -171,8 +169,8 @@ function ModerationActions({ report, onClose }) {
       });
     }
 
-    // Eliminar comunidad
-    if (report.type === 'forum') {
+    // Eliminar comunidad SOLO si no es global
+    if (isForumReport && !isGlobalReport) {
       baseActions.push({
         id: 'delete_community',
         label: 'Eliminar comunidad',
@@ -183,31 +181,29 @@ function ModerationActions({ report, onClose }) {
       });
     }
 
-    // Acciones para usuarios (disponible en ambos tipos de reportes)
-    const userId = report.targetAuthorId || report.userId;
+    // Suspender usuario - ESPECIALMENTE para reportes de perfil/usuario
+    const userId = report.targetAuthorId || report.userId || (isUserReport ? report.targetId : null);
     if (userId) {
-      baseActions.push(
-        {
-          id: 'suspend_user',
-          label: 'Suspender usuario',
-          icon: FaUserSlash,
-          color: 'text-orange-600',
-          bgColor: 'bg-orange-50 hover:bg-orange-100',
-          onClick: () => setShowSuspendModal(true)
-        }
-      );
+      baseActions.push({
+        id: 'suspend_user',
+        label: 'Suspender usuario',
+        icon: FaUserSlash,
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50 hover:bg-orange-100',
+        onClick: () => setShowSuspendModal(true)
+      });
+    }
 
-      // Banear de comunidad si hay contexto
-      if (report.forumId) {
-        baseActions.push({
-          id: 'ban_community',
-          label: 'Banear de comunidad',
-          icon: FaBan,
-          color: 'text-red-600',
-          bgColor: 'bg-red-50 hover:bg-red-100',
-          onClick: () => setShowDeleteModal(true)
-        });
-      }
+    // Banear de comunidad si hay contexto y no es global
+    if (report.forumId && userId && !isGlobalReport) {
+      baseActions.push({
+        id: 'ban_community',
+        label: 'Banear de comunidad',
+        icon: FaBan,
+        color: 'text-red-600',
+        bgColor: 'bg-red-50 hover:bg-red-100',
+        onClick: () => setShowDeleteModal(true)
+      });
     }
 
     return baseActions;
@@ -226,30 +222,36 @@ function ModerationActions({ report, onClose }) {
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {actions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <button
-                key={action.id}
-                onClick={action.onClick}
-                disabled={loading && selectedAction === action.id}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 transition duration-200 ${action.bgColor} ${
-                  loading && selectedAction === action.id ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {loading && selectedAction === action.id ? (
-                  <FaSpinner className="w-4 h-4 animate-spin text-gray-400" />
-                ) : (
-                  <Icon className={`w-4 h-4 ${action.color}`} />
-                )}
-                <span className={`text-sm font-medium ${action.color}`}>
-                  {action.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {actions.length === 0 ? (
+          <div className="text-center py-4 text-sm text-gray-500">
+            No hay acciones disponibles para este reporte
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {actions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.id}
+                  onClick={action.onClick}
+                  disabled={loading && selectedAction === action.id}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 transition duration-200 ${action.bgColor} ${
+                    loading && selectedAction === action.id ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {loading && selectedAction === action.id ? (
+                    <FaSpinner className="w-4 h-4 animate-spin text-gray-400" />
+                  ) : (
+                    <Icon className={`w-4 h-4 ${action.color}`} />
+                  )}
+                  <span className={`text-sm font-medium ${action.color}`}>
+                    {action.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Modal para resolución/desestimación */}
