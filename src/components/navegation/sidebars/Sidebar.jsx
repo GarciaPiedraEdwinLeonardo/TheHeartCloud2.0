@@ -5,7 +5,7 @@ import { useForums } from './../../forums/hooks/useForums';
 import { useUserForums } from './../../forums/hooks/useUserForums';
 import CreateForumModal from './../../forums/modals/CreateForumModal';
 
-function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick }) {
+function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, showReports }) {
   const [isForumsOpen, setIsForumsOpen] = useState(true);
   const [isMyForumsOpen, setIsMyForumsOpen] = useState(false);
   const [showCreateForumModal, setShowCreateForumModal] = useState(false);
@@ -190,7 +190,7 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick })
           {/* Revisar Reportes - Para moderador y admin */}
           {(userRole === 'moderator' || userRole === 'admin') && (
             <div className="mb-4">
-              <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 hover:text-orange-600 transition duration-200 w-full text-left">
+              <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 hover:text-orange-600 transition duration-200 w-full text-left" onClick={showReports}>
                 <span className="font-medium">Revisar Reportes</span>
               </button>
             </div>

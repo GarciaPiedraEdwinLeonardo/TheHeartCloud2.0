@@ -12,6 +12,7 @@ import ForumView from './forums/screens/ForumView';
 import VerifyAccount from './screens/VerifyAccount';
 import VerificationRequests from './admin/VerificationRequests';
 import PostDetailView from './forums/posts/PostDetailView';
+import ModerationDashboard from './moderation/ModerationDashboard';
 
 function Home() {
   const [isSidebarModalOpen, setIsSidebarModalOpen] = useState(false);
@@ -73,6 +74,10 @@ function Home() {
     navigateToView('post');
   };
 
+  const handleShowReports = () => {
+    navigateToView('reports');
+  }
+
   const handleBackFromForum = () => { 
     // Volver a la vista anterior, no siempre al main
     setCurrentView(previousView);
@@ -130,6 +135,7 @@ function Home() {
           onThemeClick={handleShowForum} 
           userData={userData}
           onVerificationClick={handleVerificationRequests}
+          showReports={handleShowReports}
         />
         
         {/* Modal del sidebar para móvil */}
