@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { doc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { doc, updateDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db } from "../../../config/firebase";
 import { usePostModeration } from "../../forums/hooks/usePostModeration";
 import { useCommentModeration } from "../../forums/posts/comments/hooks/useCommentModeration";
@@ -68,17 +68,28 @@ export const useModerationActions = () => {
 
     try {
       const userRef = doc(db, "users", userId);
-      const endDate =
-        duration === "permanent" ? null : calculateEndDate(duration);
+      const endDate = calculateEndDate(duration);
 
       await updateDoc(userRef, {
-        isSuspended: true,
         suspension: {
+          isSuspended: true,
           reason,
           startDate: new Date(),
           endDate,
-          suspendedBy: "current-user-id",
+          suspendedBy: "moderator-system",
         },
+        updatedAt: serverTimestamp(),
+      });
+
+      // Registrar la acción en el historial de moderación
+      const moderationLogRef = doc(collection(db, "moderation_logs"));
+      await setDoc(moderationLogRef, {
+        action: "user_suspension",
+        targetUserId: userId,
+        reason,
+        duration,
+        moderatorId: "current-user-id",
+        createdAt: serverTimestamp(),
       });
 
       return { success: true };
@@ -126,9 +137,26 @@ export const useModerationActions = () => {
 
     try {
       const communityRef = doc(db, "forums", communityId);
-      await deleteDoc(communityRef);
 
-      // Aquí podrías agregar notificaciones o registros de auditoría
+      // Primero marcar como eliminada en lugar de borrar completamente
+      await updateDoc(communityRef, {
+        isDeleted: true,
+        deletedAt: serverTimestamp(),
+        deletionReason: reason,
+        deletedBy: "moderator-system",
+        status: "deleted",
+      });
+
+      // Registrar en logs de moderación
+      const moderationLogRef = doc(collection(db, "moderation_logs"));
+      await setDoc(moderationLogRef, {
+        action: "community_deletion",
+        targetForumId: communityId,
+        reason,
+        moderatorId: "current-user-id",
+        createdAt: serverTimestamp(),
+      });
+
       return { success: true };
     } catch (error) {
       setError(error.message);
@@ -154,7 +182,7 @@ export const useModerationActions = () => {
     }
   };
 
-  // Función auxiliar
+  // Función auxiliar para calcular fecha de fin
   const calculateEndDate = (duration) => {
     const endDate = new Date();
     switch (duration) {
@@ -167,6 +195,8 @@ export const useModerationActions = () => {
       case "30 days":
         endDate.setDate(endDate.getDate() + 30);
         break;
+      case "permanent":
+        return null; // Suspensión permanente
       default:
         endDate.setDate(endDate.getDate() + 7);
     }
