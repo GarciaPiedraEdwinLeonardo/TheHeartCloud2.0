@@ -6,7 +6,7 @@ import ReportsPanel from './components/ReportsPanel';
 import ReportFilters from './components/ReportFilters';
 import LoadingSpinner from './components/LoadingSpinner';
 
-function ModerationDashboard() {
+function ModerationDashboard({ onShowUserProfile, onShowForum, onShowMain }) {
   const { reports, loading, error, activeTab, setActiveTab, stats, refreshData } = useModerationDashboard();
   const [filters, setFilters] = useState({
     type: 'all',
@@ -80,14 +80,23 @@ function ModerationDashboard() {
               </button>
             </div>
             
-            <button
-              onClick={refreshData}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 w-full sm:w-auto justify-center"
-            >
-              <IoIosRefresh className="w-4 h-4" />
-              {loading ? 'Actualizando...' : 'Actualizar'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={onShowMain}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200"
+              >
+                <FaTimes className="w-4 h-4" />
+                Volver al Inicio
+              </button>
+              <button
+                onClick={refreshData}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50"
+              >
+                <IoIosRefresh className="w-4 h-4" />
+                {loading ? 'Actualizando...' : 'Actualizar'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -245,14 +254,8 @@ function ModerationDashboard() {
               reports={reports}
               activeTab={activeTab}
               filters={filters}
-              onNavigateToProfile={(userData) => {
-                // Navegar al perfil del usuario reportado
-                handleShowUserProfile(userData);
-              }}
-              onNavigateToForum={(forumData) => {
-                // Navegar a la comunidad reportada
-                handleShowForum(forumData);
-              }}
+              onNavigateToProfile={onShowUserProfile}
+              onNavigateToForum={onShowForum}
             />
           </div>
         </div>

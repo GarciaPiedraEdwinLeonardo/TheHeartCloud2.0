@@ -1,20 +1,11 @@
 import { useState } from 'react';
 import { 
-  FaCheck, 
-  FaTimes, 
-  FaBan, 
-  FaTrash, 
-  FaUserSlash, 
-  FaEye,
-  FaUsers,
-  FaSpinner
+  FaCheck, FaTimes, FaBan, FaTrash, FaUserSlash, FaSpinner 
 } from 'react-icons/fa';
 import { useModerationActions } from './../hooks/useModerationActions';
 
 function ModerationActions({ report, onClose }) {
-  const [showResolutionModal, setShowResolutionModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState({ reason: '', duration: '7 days' });
   const [selectedAction, setSelectedAction] = useState('');
   
@@ -29,103 +20,119 @@ function ModerationActions({ report, onClose }) {
     error 
   } = useModerationActions();
 
-  // Determinar tipo de contenido
-  const getContentType = () => {
-    if (report.actionType) {
-      return { type: 'global', label: 'Reporte Global' };
+  // Determinar tipo de reporte
+  const isGlobalReport = report.source === 'global';
+  const isAuditReport = report.source === 'audit';
+  const isUserReport = !isGlobalReport && !isAuditReport;
+
+  // Obtener acciones disponibles - CORREGIDO: sin eliminar comunidad
+  const getAvailableActions = () => {
+    const actions = [];
+
+    // Si es reporte de auditoría, no hay acciones
+    if (isAuditReport) {
+      return actions;
     }
-    return { type: report.type, label: `Reporte de ${report.type}` };
+
+    // Para reportes pendientes de usuarios
+    if (isUserReport && report.status === 'pending') {
+      actions.push(
+        {
+          id: 'resolve',
+          label: 'Marcar como resuelto',
+          icon: FaCheck,
+          color: 'text-green-600',
+          bgColor: 'bg-green-50 hover:bg-green-100',
+        },
+        {
+          id: 'dismiss',
+          label: 'Desestimar reporte',
+          icon: FaTimes,
+          color: 'text-gray-600',
+          bgColor: 'bg-gray-50 hover:bg-gray-100',
+        }
+      );
+    }
+
+    // Para contenido que se puede eliminar (solo posts y comentarios)
+    if (isUserReport && (report.type === 'post' || report.type === 'comment')) {
+      actions.push({
+        id: 'delete_content',
+        label: `Eliminar ${report.type === 'post' ? 'publicación' : 'comentario'}`,
+        icon: FaTrash,
+        color: 'text-red-600',
+        bgColor: 'bg-red-50 hover:bg-red-100',
+      });
+    }
+
+    // QUITADO: Eliminar comunidad - no queremos esta opción
+    // if (isUserReport && report.type === 'forum') {
+    //   actions.push({
+    //     id: 'delete_community',
+    //     label: 'Eliminar comunidad',
+    //     icon: FaTrash,
+    //     color: 'text-red-600',
+    //     bgColor: 'bg-red-50 hover:bg-red-100',
+    //   });
+    // }
+
+    // Suspender usuario (para reportes de usuario o cuando hay autor)
+    if (isUserReport && (report.type === 'user' || report.type === 'profile' || report.targetAuthorId)) {
+      actions.push({
+        id: 'suspend_user',
+        label: 'Suspender usuario',
+        icon: FaUserSlash,
+        color: 'text-orange-600',
+        bgColor: 'bg-orange-50 hover:bg-orange-100',
+      });
+    }
+
+    return actions;
   };
 
-  const contentType = getContentType();
-  const isGlobalReport = contentType.type === 'global';
-  const isUserReport = report.type === 'user' || report.type === 'profile';
-
-  // Función para manejar acciones
-  const handleAction = async (action, customData = null) => {
+  const handleAction = async (action) => {
     setSelectedAction(action);
-    
+    setShowModal(true);
+  };
+
+  const confirmAction = async () => {
+    if (!modalData.reason.trim()) {
+      alert('Debes proporcionar una razón para esta acción');
+      return;
+    }
+
     try {
       let result;
-      const reason = customData?.reason || modalData.reason;
-      
-      switch (action) {
-        case 'resolve':
-          result = await resolveReport(report.id, reason);
-          break;
-          
-        case 'dismiss':
-          result = await dismissReport(report.id, reason || 'Reporte desestimado sin acción');
-          break;
-          
-        case 'suspend_user':
-          // Obtener userId de diferentes fuentes según el tipo de reporte
-          let userId;
-          if (isUserReport) {
-            userId = report.targetId; // Para reportes de perfil, targetId es el usuario
-          } else if (isGlobalReport) {
-            userId = report.userId; // Para global reports
-          } else {
-            userId = report.targetAuthorId; // Para otros reportes
-          }
-          
-          if (userId) {
-            result = await suspendUser(userId, reason, modalData.duration);
-          } else {
-            alert('No se pudo identificar el usuario a suspender');
-            return;
-          }
-          break;
-          
-        case 'delete_content':
-          // NO permitir eliminar contenido en reportes globales (ya está eliminado)
-          if (isGlobalReport) {
-            alert('Este contenido ya ha sido procesado por un moderador');
-            return;
-          }
-          
-          if (report.type === 'post') {
-            result = await deleteContent('post', report.targetId, reason);
-          } else if (report.type === 'comment') {
-            result = await deleteContent('comment', report.targetId, reason);
-          } else {
-            alert('Tipo de contenido no soportado para eliminación');
-            return;
-          }
-          break;
 
-        case 'delete_community':
-          if (report.type === 'forum') {
-            result = await deleteCommunity(report.targetId, reason);
+      switch (selectedAction) {
+        case 'resolve':
+          result = await resolveReport(report.id, modalData.reason);
+          break;
+        case 'dismiss':
+          result = await dismissReport(report.id, modalData.reason);
+          break;
+        case 'delete_content':
+          result = await deleteContent(report.type, report.targetId, modalData.reason, report.forumId);
+          break;
+        // QUITADO: case 'delete_community'
+        case 'suspend_user':
+          const userId = report.targetAuthorId || report.targetId;
+          if (userId) {
+            result = await suspendUser(userId, modalData.reason, modalData.duration);
           } else {
-            alert('No se pudo identificar la comunidad a eliminar');
+            alert('No se pudo identificar el usuario');
             return;
           }
           break;
-          
-        case 'ban_community':
-          const banUserId = report.targetAuthorId || report.userId;
-          const forumId = report.forumId;
-          if (forumId && banUserId) {
-            result = await banFromCommunity(forumId, banUserId, reason);
-          } else {
-            alert('Falta información para banear de la comunidad');
-            return;
-          }
-          break;
-          
         default:
           break;
       }
-      
+
       if (result?.success) {
         alert('✅ Acción ejecutada correctamente');
         onClose();
-        setShowResolutionModal(false);
-        setShowDeleteModal(false);
-        setShowSuspendModal(false);
-        // Recargar la página o datos
-        window.location.reload();
+        setShowModal(false);
+        // No recargar la página, mantener el estado actual
       } else {
         alert(`❌ Error: ${result?.error || 'Acción fallida'}`);
       }
@@ -137,91 +144,18 @@ function ModerationActions({ report, onClose }) {
     }
   };
 
-  // Obtener acciones disponibles según el tipo de reporte - CORREGIDO
-  const getAvailableActions = () => {
-    const baseActions = [];
-
-    const isPending = report.status === 'pending' || report.status === 'pending_review';
-    const isUserReport = report.type === 'user' || report.type === 'profile';
-    const isContentReport = report.type === 'post' || report.type === 'comment';
-    const isForumReport = report.type === 'forum';
-
-    // Acciones para reportes pendientes (NO globales)
-    if (isPending && !isGlobalReport) {
-      baseActions.push(
-        {
-          id: 'resolve',
-          label: 'Marcar como resuelto',
-          icon: FaCheck,
-          color: 'text-green-600',
-          bgColor: 'bg-green-50 hover:bg-green-100',
-          onClick: () => setShowResolutionModal(true)
-        },
-        {
-          id: 'dismiss',
-          label: 'Desestimar reporte',
-          icon: FaTimes,
-          color: 'text-gray-600',
-          bgColor: 'bg-gray-50 hover:bg-gray-100',
-          onClick: () => setShowResolutionModal(true)
-        }
-      );
-    }
-
-    // Acciones de eliminación SOLO para contenido activo (NO globales)
-    if (isContentReport && !isGlobalReport) {
-      baseActions.push({
-        id: 'delete_content',
-        label: `Eliminar ${report.type === 'post' ? 'publicación' : 'comentario'}`,
-        icon: FaTrash,
-        color: 'text-red-600',
-        bgColor: 'bg-red-50 hover:bg-red-100',
-        onClick: () => setShowDeleteModal(true)
-      });
-    }
-
-    // Eliminar comunidad SOLO si no es global
-    if (isForumReport && !isGlobalReport) {
-      baseActions.push({
-        id: 'delete_community',
-        label: 'Eliminar comunidad',
-        icon: FaUsers,
-        color: 'text-red-600',
-        bgColor: 'bg-red-50 hover:bg-red-100',
-        onClick: () => setShowDeleteModal(true)
-      });
-    }
-
-    // Suspender usuario - ESPECIALMENTE para reportes de perfil/usuario
-    const userId = report.targetAuthorId || report.userId || 
-                  (isUserReport ? report.targetId : null);
-    if (userId && !isGlobalReport) {
-      baseActions.push({
-        id: 'suspend_user',
-        label: 'Suspender usuario',
-        icon: FaUserSlash,
-        color: 'text-orange-600',
-        bgColor: 'bg-orange-50 hover:bg-orange-100',
-        onClick: () => setShowSuspendModal(true)
-      });
-    }
-
-    // Banear de comunidad si hay contexto y no es global
-    if (report.forumId && userId && !isGlobalReport) {
-      baseActions.push({
-        id: 'ban_community',
-        label: 'Banear de comunidad',
-        icon: FaBan,
-        color: 'text-red-600',
-        bgColor: 'bg-red-50 hover:bg-red-100',
-        onClick: () => setShowDeleteModal(true)
-      });
-    }
-
-    return baseActions;
-  };
-
   const actions = getAvailableActions();
+
+  const getModalTitle = () => {
+    switch (selectedAction) {
+      case 'resolve': return 'Resolver Reporte';
+      case 'dismiss': return 'Desestimar Reporte';
+      case 'delete_content': return `Eliminar ${report.type === 'post' ? 'Publicación' : 'Comentario'}`;
+      // QUITADO: case 'delete_community'
+      case 'suspend_user': return 'Suspender Usuario';
+      default: return 'Confirmar Acción';
+    }
+  };
 
   return (
     <>
@@ -245,17 +179,13 @@ function ModerationActions({ report, onClose }) {
               return (
                 <button
                   key={action.id}
-                  onClick={action.onClick}
-                  disabled={loading && selectedAction === action.id}
+                  onClick={() => handleAction(action.id)}
+                  disabled={loading}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 transition duration-200 ${action.bgColor} ${
-                    loading && selectedAction === action.id ? 'opacity-50 cursor-not-allowed' : ''
+                    loading ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
-                  {loading && selectedAction === action.id ? (
-                    <FaSpinner className="w-4 h-4 animate-spin text-gray-400" />
-                  ) : (
-                    <Icon className={`w-4 h-4 ${action.color}`} />
-                  )}
+                  <Icon className={`w-4 h-4 ${action.color}`} />
                   <span className={`text-sm font-medium ${action.color}`}>
                     {action.label}
                   </span>
@@ -266,34 +196,29 @@ function ModerationActions({ report, onClose }) {
         )}
       </div>
 
-      {/* Modal para resolución/desestimación */}
-      {(showResolutionModal || showDeleteModal || showSuspendModal) && (
+      {/* Modal de confirmación */}
+      {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {showResolutionModal && (selectedAction === 'resolve' ? 'Resolver reporte' : 'Desestimar reporte')}
-              {showDeleteModal && 'Eliminar contenido'}
-              {showSuspendModal && 'Suspender usuario'}
+              {getModalTitle()}
             </h3>
             
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                {showSuspendModal ? 'Razón de la suspensión' : 'Justificación'}
+                Razón de la acción
               </label>
               <textarea
                 value={modalData.reason}
                 onChange={(e) => setModalData(prev => ({ ...prev, reason: e.target.value }))}
                 rows={4}
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder={
-                  showResolutionModal ? "Describe por qué estás resolviendo este reporte..." :
-                  showDeleteModal ? "Describe por qué estás eliminando este contenido..." :
-                  "Describe por qué estás suspendiendo a este usuario..."
-                }
+                placeholder="Describe la razón de esta acción..."
+                required
               />
             </div>
 
-            {showSuspendModal && (
+            {selectedAction === 'suspend_user' && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Duración de la suspensión
@@ -314,9 +239,7 @@ function ModerationActions({ report, onClose }) {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => {
-                  setShowResolutionModal(false);
-                  setShowDeleteModal(false);
-                  setShowSuspendModal(false);
+                  setShowModal(false);
                   setModalData({ reason: '', duration: '7 days' });
                 }}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200"
@@ -324,15 +247,7 @@ function ModerationActions({ report, onClose }) {
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  const action = showResolutionModal ? 
-                    (selectedAction === 'resolve' ? 'resolve' : 'dismiss') :
-                    showDeleteModal ? 
-                    (report.type === 'forum' ? 'delete_community' : 'delete_content') :
-                    'suspend_user';
-                  
-                  handleAction(action);
-                }}
+                onClick={confirmAction}
                 disabled={!modalData.reason.trim() || loading}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >

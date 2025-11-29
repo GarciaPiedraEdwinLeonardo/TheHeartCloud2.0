@@ -93,16 +93,6 @@ function Home() {
 
   const handleShowReports = () => {
     navigateToView('reports');
-  }
-
-  const handleBackFromForum = () => { 
-    // Volver a la vista anterior, no siempre al main
-    setCurrentView(previousView);
-  };
-
-  const handleBackFromPost = () => {
-    // Volver a la vista anterior (podría ser profile, forum, search, etc.)
-    setCurrentView(previousView);
   };
 
   const handleVerifyAccount = () => {
@@ -127,13 +117,36 @@ function Home() {
   // Función para volver desde un perfil de usuario
   const handleBackFromProfile = () => {
     if (selectedUserId && selectedUserId !== user?.uid) {
-      // Si estábamos viendo el perfil de otro usuario, volver a la búsqueda
-      setCurrentView('search');
+      // Si estábamos viendo el perfil de otro usuario, volver a la vista anterior
+      setCurrentView(previousView);
       setSelectedUserId(null);
     } else {
       // Si era nuestro propio perfil, volver al main
       handleShowMain();
     }
+  };
+
+  // Función para volver desde el dashboard de moderación
+  const handleBackFromReports = () => {
+    // Volver a la vista anterior
+    setCurrentView(previousView);
+  };
+
+  // Función para volver desde foro
+  const handleBackFromForum = () => { 
+    // Volver a la vista anterior, no siempre al main
+    setCurrentView(previousView);
+  };
+
+  // Función para volver desde post
+  const handleBackFromPost = () => {
+    // Volver a la vista anterior (podría ser profile, forum, search, etc.)
+    setCurrentView(previousView);
+  };
+
+  // Verificar si el usuario tiene permisos de moderación
+  const canAccessModeration = () => {
+    return userData && ['moderator', 'admin'].includes(userData.role);
   };
 
   if (showSuspendedScreen && userData) {
@@ -161,7 +174,8 @@ function Home() {
           onThemeClick={handleShowForum} 
           userData={userData}
           onVerificationClick={handleVerificationRequests}
-          showReports={handleShowReports}
+          onReportsClick={canAccessModeration() ? handleShowReports : null}
+          showReportsButton={canAccessModeration()}
         />
         
         {/* Modal del sidebar para móvil */}
@@ -175,6 +189,11 @@ function Home() {
           onThemeClick={handleShowForum} 
           userData={userData}
           onVerificationClick={handleVerificationRequests}
+          onReportsClick={canAccessModeration() ? () => {
+            handleShowReports();
+            setIsSidebarModalOpen(false);
+          } : null}
+          showReportsButton={canAccessModeration()}
         />
         
         {/* Contenido Principal - Cambia según la vista */}
@@ -196,7 +215,7 @@ function Home() {
                 searchQuery={searchData.query} 
                 searchType={searchData.type} 
                 onThemeClick={handleShowForum} 
-                onShowUserProfile={handleShowUserProfile} // Cambiar a onShowUserProfile
+                onShowUserProfile={handleShowUserProfile}
               />
             )}
             
@@ -226,7 +245,11 @@ function Home() {
             )}
 
             {currentView === 'reports' && (
-              <ModerationDashboard/>
+              <ModerationDashboard
+                onShowUserProfile={handleShowUserProfile}
+                onShowForum={handleShowForum}
+                onShowMain={handleBackFromReports}
+              />
             )}
           </div>
         </div>

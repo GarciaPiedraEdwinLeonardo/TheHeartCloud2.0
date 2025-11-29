@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { FaAngleDown, FaAngleUp, FaCrown, FaUserShield, FaUser, FaUsers } from "react-icons/fa";
+import { FaAngleDown, FaAngleUp, FaCrown, FaUserShield, FaUser, FaUsers, FaFlag } from "react-icons/fa";
 import { IoIosAddCircleOutline } from "react-icons/io";
 import { useForums } from './../../forums/hooks/useForums';
 import { useUserForums } from './../../forums/hooks/useUserForums';
 import CreateForumModal from './../../forums/modals/CreateForumModal';
 
-function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, showReports }) {
+function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, onReportsClick, showReportsButton }) {
   const [isForumsOpen, setIsForumsOpen] = useState(true);
   const [isMyForumsOpen, setIsMyForumsOpen] = useState(false);
   const [showCreateForumModal, setShowCreateForumModal] = useState(false);
@@ -187,11 +187,15 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, s
             </div>
           )}
 
-          {/* Revisar Reportes - Para moderador y admin */}
-          {(userRole === 'moderator' || userRole === 'admin') && (
+          {/* Panel de Moderación - Para moderador y admin */}
+          {showReportsButton && (
             <div className="mb-4">
-              <button className="flex items-center gap-3 p-3 rounded-lg hover:bg-orange-50 text-gray-700 hover:text-orange-600 transition duration-200 w-full text-left" onClick={showReports}>
-                <span className="font-medium">Revisar Reportes</span>
+              <button 
+                onClick={onReportsClick}
+                className="flex items-center gap-3 p-3 rounded-lg hover:bg-red-50 text-gray-700 hover:text-red-600 transition duration-200 w-full text-left"
+              >
+                <FaFlag className="w-5 h-5 text-red-500" />
+                <span className="font-medium">Panel de Moderación</span>
               </button>
             </div>
           )}

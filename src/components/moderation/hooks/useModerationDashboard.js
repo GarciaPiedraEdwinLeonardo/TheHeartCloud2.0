@@ -1,20 +1,12 @@
 import { useState, useEffect } from "react";
-import {
-  collection,
-  query,
-  orderBy,
-  getDocs,
-  where,
-  onSnapshot,
-} from "firebase/firestore";
+import { collection, query, orderBy, getDocs, where } from "firebase/firestore";
 import { db } from "../../../config/firebase";
 import { useReports } from "../../reports/hooks/useReports";
 
 export const useModerationDashboard = () => {
   const [activeTab, setActiveTab] = useState("pending");
   const [globalReports, setGlobalReports] = useState([]);
-  const [deletedPosts, setDeletedPosts] = useState([]);
-  const [deletedComments, setDeletedComments] = useState([]);
+  const [deletedContent, setDeletedContent] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -24,217 +16,134 @@ export const useModerationDashboard = () => {
     reports: userReports,
     loading: reportsLoading,
     refresh: refreshUserReports,
-  } = useReports({
-    status:
-      activeTab === "pending"
-        ? "pending"
-        : activeTab === "resolved"
-        ? "resolved"
-        : null,
-  });
+  } = useReports();
 
   // Cargar reportes globales
   const loadGlobalReports = async () => {
     try {
-      console.log("📥 Cargando reportes globales...");
-
       const q = query(
         collection(db, "global_moderation_reports"),
         orderBy("reportedAt", "desc")
       );
-
       const snapshot = await getDocs(q);
       const reportsData = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-        // Asegurar campos compatibles
-        type: getContentTypeFromAction(doc.data().actionType),
-        targetName: getTargetNameFromAction(doc.data().actionType, doc.data()),
-        createdAt: doc.data().reportedAt,
+        source: "global",
       }));
-
-      console.log(`✅ ${reportsData.length} reportes globales cargados`);
       setGlobalReports(reportsData);
     } catch (error) {
-      console.error("❌ Error loading global reports:", error);
+      console.error("Error loading global reports:", error);
       throw error;
     }
   };
 
-  // Helper para determinar tipo de contenido desde actionType
-  const getContentTypeFromAction = (actionType) => {
-    if (actionType.includes("post")) return "post";
-    if (actionType.includes("comment")) return "comment";
-    if (actionType.includes("user") || actionType.includes("community"))
-      return "user";
-    return "moderator_action";
-  };
-
-  // Helper para obtener nombre del target
-  const getTargetNameFromAction = (actionType, data) => {
-    switch (actionType) {
-      case "post_deleted_by_moderator":
-        return `Post eliminado: ${data.postId}`;
-      case "post_rejected":
-        return `Post rechazado: ${data.postId}`;
-      case "comment_rejected":
-        return `Comentario rechazado: ${data.commentId}`;
-      case "community_ban":
-        return `Usuario baneado: ${data.userId}`;
-      default:
-        return `Acción: ${actionType}`;
-    }
-  };
-
-  // Cargar contenido eliminado - CORREGIDO
+  // Cargar contenido eliminado
   const loadDeletedContent = async () => {
     try {
-      console.log("📥 Cargando contenido eliminado...");
-
-      // Cargar posts eliminados
+      // Posts eliminados
       const deletedPostsQuery = query(
         collection(db, "deleted_posts"),
         orderBy("deletedAt", "desc"),
         where("moderatorAction", "==", true)
       );
-
       const deletedPostsSnapshot = await getDocs(deletedPostsQuery);
       const postsData = deletedPostsSnapshot.docs.map((doc) => ({
         id: doc.id,
         type: "post",
-        moderatorAction: true,
+        source: "audit",
         ...doc.data(),
       }));
-      setDeletedPosts(postsData);
 
-      // Cargar comentarios eliminados
+      // Comentarios eliminados
       const deletedCommentsQuery = query(
         collection(db, "deleted_comments"),
         orderBy("deletedAt", "desc"),
         where("moderatorAction", "==", true)
       );
-
       const deletedCommentsSnapshot = await getDocs(deletedCommentsQuery);
       const commentsData = deletedCommentsSnapshot.docs.map((doc) => ({
         id: doc.id,
         type: "comment",
-        moderatorAction: true,
+        source: "audit",
         ...doc.data(),
       }));
-      setDeletedComments(commentsData);
 
-      console.log(
-        `✅ ${postsData.length} posts y ${commentsData.length} comentarios eliminados cargados`
-      );
+      setDeletedContent([...postsData, ...commentsData]);
     } catch (error) {
-      console.error("❌ Error loading deleted content:", error);
+      console.error("Error loading deleted content:", error);
       throw error;
     }
   };
 
-  // Cargar todos los datos - CORREGIDO
-  const loadAllData = async () => {
+  // Cargar datos según la pestaña activa
+  const loadDataForTab = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      console.log("🔄 Iniciando carga de datos del dashboard...");
+      const loadPromises = [];
 
-      const loadPromises = [loadGlobalReports()];
+      // Siempre cargar reportes globales
+      loadPromises.push(loadGlobalReports());
 
+      // Cargar contenido eliminado solo para auditoría
       if (activeTab === "audit") {
         loadPromises.push(loadDeletedContent());
       }
 
       await Promise.all(loadPromises);
-      console.log("✅ Todos los datos cargados exitosamente");
     } catch (error) {
-      console.error("❌ Error cargando datos del dashboard:", error);
+      console.error("Error loading dashboard data:", error);
       setError(error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Cargar datos iniciales y cuando cambie la pestaña
   useEffect(() => {
-    loadAllData();
+    loadDataForTab();
   }, [activeTab, refreshTrigger]);
 
-  // Cargar contenido eliminado cuando se active la pestaña de auditoría
-  useEffect(() => {
-    if (activeTab === "audit") {
-      loadDeletedContent();
-    }
-  }, [activeTab]);
-
-  // Combinar reportes según pestaña activa - CORREGIDO
+  // Obtener reportes combinados según pestaña
   const getCombinedReports = () => {
-    console.log(`🔄 Combinando reportes para pestaña: ${activeTab}`);
-
     switch (activeTab) {
       case "pending":
-        const pendingUserReports = userReports.filter(
-          (r) => r.status === "pending"
-        );
-        const pendingGlobalReports = globalReports.filter(
-          (r) => r.status === "pending_review"
-        );
-        console.log(
-          `📊 Pendientes: ${pendingUserReports.length} usuarios + ${pendingGlobalReports.length} globales`
-        );
-        return [...pendingUserReports, ...pendingGlobalReports];
+        // Solo reportes de usuarios pendientes
+        return userReports.filter((report) => report.status === "pending");
 
       case "resolved":
-        const resolvedUserReports = userReports.filter(
-          (r) => r.status === "resolved"
-        );
-        const resolvedGlobalReports = globalReports.filter(
-          (r) => r.status === "resolved"
-        );
-        console.log(
-          `📊 Resueltos: ${resolvedUserReports.length} usuarios + ${resolvedGlobalReports.length} globales`
-        );
-        return [...resolvedUserReports, ...resolvedGlobalReports];
+        // Solo reportes de usuarios resueltos
+        return userReports.filter((report) => report.status === "resolved");
 
       case "global":
-        console.log(`📊 Globales: ${globalReports.length} reportes`);
+        // Solo reportes globales
         return globalReports;
 
       case "user_reports":
-        console.log(`📊 Usuarios: ${userReports.length} reportes`);
+        // Todos los reportes de usuarios
         return userReports;
 
       case "audit":
-        const auditData = [...deletedPosts, ...deletedComments];
-        console.log(`📊 Auditoría: ${auditData.length} elementos`);
-        return auditData;
+        // Contenido eliminado
+        return deletedContent;
 
       default:
         return [];
     }
   };
 
-  // Calcular estadísticas - CORREGIDO
+  // Estadísticas simplificadas
   const stats = {
-    pending:
-      userReports.filter((r) => r.status === "pending").length +
-      globalReports.filter((r) => r.status === "pending_review").length,
-    resolved:
-      userReports.filter((r) => r.status === "resolved").length +
-      globalReports.filter((r) => r.status === "resolved").length,
+    pending: userReports.filter((r) => r.status === "pending").length,
+    resolved: userReports.filter((r) => r.status === "resolved").length,
     global: globalReports.length,
     user_reports: userReports.length,
-    audit: deletedPosts.length + deletedComments.length,
-    total:
-      userReports.length +
-      globalReports.length +
-      deletedPosts.length +
-      deletedComments.length,
+    audit: deletedContent.length,
+    total: userReports.length + globalReports.length + deletedContent.length,
   };
 
   const refreshAll = () => {
-    console.log("🔄 Refrescando todos los datos...");
     setRefreshTrigger((prev) => prev + 1);
     refreshUserReports();
   };

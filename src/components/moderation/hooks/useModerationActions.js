@@ -1,6 +1,13 @@
 import { useState } from "react";
-import { doc, updateDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "../../../config/firebase";
+import {
+  doc,
+  updateDoc,
+  collection,
+  serverTimestamp,
+  setDoc,
+  getDoc,
+} from "firebase/firestore";
+import { db, auth } from "../../../config/firebase";
 import { usePostModeration } from "../../forums/hooks/usePostModeration";
 import { useCommentModeration } from "../../forums/posts/comments/hooks/useCommentModeration";
 import { useCommunityBans } from "../../forums/hooks/useCommunityBans";
@@ -13,6 +20,11 @@ export const useModerationActions = () => {
   const { deleteComment } = useCommentModeration();
   const { banUser } = useCommunityBans();
 
+  // Obtener el usuario actual de forma segura
+  const getCurrentUserId = () => {
+    return auth.currentUser?.uid || "system";
+  };
+
   // Resolver reporte
   const resolveReport = async (reportId, resolution) => {
     setLoading(true);
@@ -24,7 +36,7 @@ export const useModerationActions = () => {
         status: "resolved",
         resolution,
         resolvedAt: serverTimestamp(),
-        resolvedBy: "current-user-id",
+        resolvedBy: getCurrentUserId(),
         updatedAt: serverTimestamp(),
       });
 
@@ -48,7 +60,7 @@ export const useModerationActions = () => {
         status: "dismissed",
         resolution: reason,
         resolvedAt: serverTimestamp(),
-        resolvedBy: "current-user-id",
+        resolvedBy: getCurrentUserId(),
         updatedAt: serverTimestamp(),
       });
 
@@ -76,7 +88,7 @@ export const useModerationActions = () => {
           reason,
           startDate: new Date(),
           endDate,
-          suspendedBy: "moderator-system",
+          suspendedBy: getCurrentUserId(),
         },
         updatedAt: serverTimestamp(),
       });
@@ -88,7 +100,7 @@ export const useModerationActions = () => {
         targetUserId: userId,
         reason,
         duration,
-        moderatorId: "current-user-id",
+        moderatorId: getCurrentUserId(),
         createdAt: serverTimestamp(),
       });
 
@@ -102,7 +114,12 @@ export const useModerationActions = () => {
   };
 
   // Eliminar contenido
-  const deleteContent = async (contentType, contentId, reason) => {
+  const deleteContent = async (
+    contentType,
+    contentId,
+    reason,
+    forumId = null
+  ) => {
     setLoading(true);
     setError(null);
 
@@ -110,15 +127,44 @@ export const useModerationActions = () => {
       let result;
 
       if (contentType === "post") {
-        result = await deletePost(contentId, reason, "global-forum-id", true);
+        // Usar el forumId del reporte o intentar obtenerlo del post
+        let targetForumId = forumId;
+        if (!targetForumId) {
+          // Intentar obtener el forumId del post
+          const postDoc = await getDoc(doc(db, "posts", contentId));
+          if (postDoc.exists()) {
+            targetForumId = postDoc.data().forumId;
+          }
+        }
+        result = await deletePost(
+          contentId,
+          reason,
+          targetForumId || "global-forum",
+          true
+        );
       } else if (contentType === "comment") {
+        let targetForumId = forumId;
+        if (!targetForumId) {
+          // Intentar obtener el forumId del comentario a través del post
+          const commentDoc = await getDoc(doc(db, "comments", contentId));
+          if (commentDoc.exists()) {
+            const postDoc = await getDoc(
+              doc(db, "posts", commentDoc.data().postId)
+            );
+            if (postDoc.exists()) {
+              targetForumId = postDoc.data().forumId;
+            }
+          }
+        }
         result = await deleteComment(
           contentId,
           reason,
-          "global-forum-id",
+          targetForumId || "global-forum",
           true,
           true
         );
+      } else {
+        return { success: false, error: "Tipo de contenido no soportado" };
       }
 
       return result;
@@ -138,12 +184,11 @@ export const useModerationActions = () => {
     try {
       const communityRef = doc(db, "forums", communityId);
 
-      // Primero marcar como eliminada en lugar de borrar completamente
       await updateDoc(communityRef, {
         isDeleted: true,
         deletedAt: serverTimestamp(),
         deletionReason: reason,
-        deletedBy: "moderator-system",
+        deletedBy: getCurrentUserId(),
         status: "deleted",
       });
 
@@ -153,7 +198,7 @@ export const useModerationActions = () => {
         action: "community_deletion",
         targetForumId: communityId,
         reason,
-        moderatorId: "current-user-id",
+        moderatorId: getCurrentUserId(),
         createdAt: serverTimestamp(),
       });
 

@@ -101,7 +101,7 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
       return { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800', icon: FaClock };
     }
     if (status === 'dismissed') {
-      return { label: 'Desestiman', color: 'bg-gray-100 text-gray-800', icon: FaTimes };
+      return { label: 'Desestimado', color: 'bg-gray-100 text-gray-800', icon: FaTimes };
     }
     return { label: 'Revisando', color: 'bg-blue-100 text-blue-800', icon: FaExclamationTriangle };
   };
@@ -150,20 +150,28 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
 
   const reportInfo = getReportInfo();
 
-  // Navegación directa para usuarios y foros
+  // Navegación directa para usuarios y foros - CORREGIDO
   const handleNavigateToContent = () => {
     if (contentType.type === 'user' && onNavigateToProfile) {
-      // Para usuarios, navegar al perfil
-      onNavigateToProfile({
+      // Para usuarios, crear objeto userData con la información disponible
+      const userData = {
         id: report.targetId,
-        name: report.targetName
-      });
+        name: {
+          name: report.targetName || 'Usuario',
+          apellidopat: '',
+          apellidomat: ''
+        },
+        email: report.targetEmail || ''
+      };
+      onNavigateToProfile(userData);
     } else if (contentType.type === 'forum' && onNavigateToForum) {
-      // Para foros, navegar a la comunidad
-      onNavigateToForum({
+      // Para foros, crear objeto forumData con la información disponible
+      const forumData = {
         id: report.targetId,
-        name: report.targetName
-      });
+        name: report.targetName || 'Comunidad',
+        description: report.targetDescription || ''
+      };
+      onNavigateToForum(forumData);
     } else if (['post', 'comment'].includes(contentType.type)) {
       // Para posts y comentarios, abrir preview
       setShowContentPreview(true);
@@ -178,7 +186,7 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
           className="flex items-center gap-2 px-3 py-2 text-sm text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-lg transition duration-200"
         >
           <FaExternalLinkAlt className="w-4 h-4" />
-          Ir al perfil
+          Ver perfil del usuario
         </button>
       );
     } else if (contentType.type === 'forum') {
@@ -188,7 +196,7 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
           className="flex items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 rounded-lg transition duration-200"
         >
           <FaExternalLinkAlt className="w-4 h-4" />
-          Ir a la comunidad
+          Ver comunidad
         </button>
       );
     } else if (['post', 'comment'].includes(contentType.type)) {
@@ -294,7 +302,7 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
         {/* Acciones de moderación básicas */}
         {showActions && (
           <ModerationActions 
-            report={report}
+            report={report} 
             onClose={() => setShowActions(false)}
           />
         )}
@@ -321,6 +329,10 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
                 report={report}
                 contentType={contentType.type}
                 isGlobalReport={isGlobalReport}
+                onContentDeleted={() => {
+                  setShowContentPreview(false);
+                  window.location.reload(); // Recargar para actualizar la lista
+                }}
               />
             </div>
             
