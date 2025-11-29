@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaFilter, FaCalendar, FaSearch } from 'react-icons/fa';
+import { FaFilter, FaCalendar, FaSearch, FaTimes } from 'react-icons/fa';
 
 function ReportFilters({ filters, onFiltersChange, activeTab }) {
   const [showFilters, setShowFilters] = useState(false);
@@ -65,15 +65,16 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
   };
 
   return (
-    <div className="bg-gray-50 rounded-lg p-4">
-      {/* Header de filtros */}
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+      {/* Header de filtros - Mejorado para móvil */}
+      <div className="flex items-center justify-between mb-3 sm:mb-4">
         <div className="flex items-center gap-2">
           <FaFilter className="w-4 h-4 text-gray-600" />
-          <span className="text-sm font-medium text-gray-700">Filtros</span>
+          <span className="text-sm font-medium text-gray-700 hidden sm:inline">Filtros</span>
+          <span className="text-sm font-medium text-gray-700 sm:hidden">Filtrar</span>
           {getActiveFiltersCount() > 0 && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              {getActiveFiltersCount()} activo(s)
+              {getActiveFiltersCount()}
             </span>
           )}
         </div>
@@ -82,25 +83,50 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
           {getActiveFiltersCount() > 0 && (
             <button
               onClick={clearFilters}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="text-sm text-blue-600 hover:text-blue-800 font-medium hidden sm:block"
             >
               Limpiar filtros
             </button>
           )}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="text-sm text-gray-600 hover:text-gray-800 font-medium"
+            className="text-sm text-gray-600 hover:text-gray-800 font-medium flex items-center gap-1"
           >
-            {showFilters ? 'Ocultar' : 'Mostrar'} filtros
+            {showFilters ? (
+              <>
+                <FaTimes className="w-3 h-3 sm:hidden" />
+                <span className="hidden sm:inline">Ocultar</span>
+              </>
+            ) : (
+              <>
+                <FaFilter className="w-3 h-3 sm:hidden" />
+                <span className="hidden sm:inline">Mostrar</span>
+              </>
+            )}
+            <span className="hidden sm:inline"> filtros</span>
           </button>
+        </div>
+      </div>
+
+      {/* Búsqueda siempre visible */}
+      <div className="mb-3 sm:hidden">
+        <div className="relative">
+          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={filters.search || ''}
+            onChange={(e) => handleFilterChange('search', e.target.value)}
+            placeholder="Buscar reportes..."
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+          />
         </div>
       </div>
 
       {/* Filtros expandibles */}
       {showFilters && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Búsqueda */}
-          <div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* Búsqueda (solo desktop) */}
+          <div className="hidden sm:block">
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Buscar
             </label>
@@ -111,7 +137,7 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
                 value={filters.search || ''}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
                 placeholder="Buscar en reportes..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
           </div>
@@ -125,7 +151,7 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
               <select
                 value={filters.type}
                 onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               >
                 {reportTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -145,7 +171,7 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
               <select
                 value={filters.actionType}
                 onChange={(e) => handleFilterChange('actionType', e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               >
                 {actionTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -160,12 +186,12 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
           {activeTab !== 'audit' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nivel de urgencia
+                Urgencia
               </label>
               <select
                 value={filters.urgency}
                 onChange={(e) => handleFilterChange('urgency', e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               >
                 {urgencyLevels.map((level) => (
                   <option key={level.value} value={level.value}>
@@ -181,13 +207,13 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               <div className="flex items-center gap-2">
                 <FaCalendar className="w-3 h-3" />
-                <span>Rango de fechas</span>
+                <span>Fecha</span>
               </div>
             </label>
             <select
               value={filters.dateRange}
               onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               {dateRanges.map((range) => (
                 <option key={range.value} value={range.value}>
@@ -196,6 +222,18 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
               ))}
             </select>
           </div>
+        </div>
+      )}
+
+      {/* Botón limpiar filtros para móvil */}
+      {getActiveFiltersCount() > 0 && (
+        <div className="sm:hidden mt-3">
+          <button
+            onClick={clearFilters}
+            className="w-full text-center py-2 text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-200 rounded-lg hover:bg-blue-50"
+          >
+            Limpiar todos los filtros
+          </button>
         </div>
       )}
     </div>
