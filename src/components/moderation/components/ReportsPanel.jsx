@@ -43,14 +43,14 @@ function ReportsPanel({ reports, activeTab, filters }) {
 
   if (filteredReports.length === 0) {
     return (
-      <div className="text-center py-12">
-        <FaInfoCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+      <div className="text-center py-8 sm:py-12">
+        <FaInfoCircle className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           {activeTab === 'pending' ? 'No hay reportes pendientes' : 
           activeTab === 'resolved' ? 'No hay reportes resueltos' : 
           'No hay reportes'}
         </h3>
-        <p className="text-gray-500">
+        <p className="text-gray-500 text-sm sm:text-base">
           {activeTab === 'pending' 
             ? 'Todos los reportes han sido revisados.' 
             : 'No se encontraron reportes con los filtros aplicados.'}
@@ -60,7 +60,7 @@ function ReportsPanel({ reports, activeTab, filters }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {filteredReports.map((report) => (
         <ReportItem 
           key={report.id} 
