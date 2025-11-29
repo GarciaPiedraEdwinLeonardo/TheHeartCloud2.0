@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, updateDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 import { db } from "../../../config/firebase";
-import { usePostModeration } from "./../../forums/hooks/usePostModeration";
-import { useCommentModeration } from "./../../forums/posts/comments/hooks/useCommentModeration";
-import { useCommunityBans } from "./../../forums/hooks/useCommunityBans";
+import { usePostModeration } from "../../forums/hooks/usePostModeration";
+import { useCommentModeration } from "../../forums/posts/comments/hooks/useCommentModeration";
+import { useCommunityBans } from "../../forums/hooks/useCommunityBans";
 
 export const useModerationActions = () => {
   const [loading, setLoading] = useState(false);
@@ -13,6 +13,7 @@ export const useModerationActions = () => {
   const { deleteComment } = useCommentModeration();
   const { banUser } = useCommunityBans();
 
+  // Resolver reporte
   const resolveReport = async (reportId, resolution) => {
     setLoading(true);
     setError(null);
@@ -23,7 +24,7 @@ export const useModerationActions = () => {
         status: "resolved",
         resolution,
         resolvedAt: serverTimestamp(),
-        resolvedBy: "current-user-id", // Reemplazar con ID del moderador actual
+        resolvedBy: "current-user-id",
         updatedAt: serverTimestamp(),
       });
 
@@ -36,23 +37,21 @@ export const useModerationActions = () => {
     }
   };
 
-  const suspendUser = async (userId, reason, duration) => {
+  // Desestimar reporte
+  const dismissReport = async (reportId, reason) => {
     setLoading(true);
     setError(null);
 
     try {
-      const userRef = doc(db, "users", userId);
-      const suspensionData = {
-        isSuspended: true,
-        suspension: {
-          reason,
-          startDate: new Date(),
-          endDate: duration === "permanent" ? null : calculateEndDate(duration),
-          suspendedBy: "current-user-id", // Reemplazar con ID del moderador
-        },
-      };
+      const reportRef = doc(db, "reports", reportId);
+      await updateDoc(reportRef, {
+        status: "dismissed",
+        resolution: reason,
+        resolvedAt: serverTimestamp(),
+        resolvedBy: "current-user-id",
+        updatedAt: serverTimestamp(),
+      });
 
-      await updateDoc(userRef, suspensionData);
       return { success: true };
     } catch (error) {
       setError(error.message);
@@ -62,6 +61,36 @@ export const useModerationActions = () => {
     }
   };
 
+  // Suspender usuario
+  const suspendUser = async (userId, reason, duration) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const userRef = doc(db, "users", userId);
+      const endDate =
+        duration === "permanent" ? null : calculateEndDate(duration);
+
+      await updateDoc(userRef, {
+        isSuspended: true,
+        suspension: {
+          reason,
+          startDate: new Date(),
+          endDate,
+          suspendedBy: "current-user-id",
+        },
+      });
+
+      return { success: true };
+    } catch (error) {
+      setError(error.message);
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Eliminar contenido
   const deleteContent = async (contentType, contentId, reason) => {
     setLoading(true);
     setError(null);
@@ -76,6 +105,7 @@ export const useModerationActions = () => {
           contentId,
           reason,
           "global-forum-id",
+          true,
           true
         );
       }
@@ -89,6 +119,26 @@ export const useModerationActions = () => {
     }
   };
 
+  // Eliminar comunidad
+  const deleteCommunity = async (communityId, reason) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const communityRef = doc(db, "forums", communityId);
+      await deleteDoc(communityRef);
+
+      // Aquí podrías agregar notificaciones o registros de auditoría
+      return { success: true };
+    } catch (error) {
+      setError(error.message);
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Banear de comunidad
   const banFromCommunity = async (forumId, userId, reason) => {
     setLoading(true);
     setError(null);
@@ -104,7 +154,7 @@ export const useModerationActions = () => {
     }
   };
 
-  // Función auxiliar para calcular fecha de fin de suspensión
+  // Función auxiliar
   const calculateEndDate = (duration) => {
     const endDate = new Date();
     switch (duration) {
@@ -125,8 +175,10 @@ export const useModerationActions = () => {
 
   return {
     resolveReport,
+    dismissReport,
     suspendUser,
     deleteContent,
+    deleteCommunity,
     banFromCommunity,
     loading,
     error,
