@@ -23,7 +23,6 @@ function Home() {
   const [currentPost, setCurrentPost] = useState(null);
   const [user, setUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
-  const [verificationRequest, setVerificationRequest] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null); // Nuevo estado para el perfil seleccionado
 
   useEffect(() => {
@@ -197,6 +196,10 @@ function Home() {
             
             {currentView === 'verificationRequests' && (
               <VerificationRequests/>
+            )}
+
+            {currentView === 'reports' && (
+              <ModerationDashboard/>
             )}
           </div>
         </div>

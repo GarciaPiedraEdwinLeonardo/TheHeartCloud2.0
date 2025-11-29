@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { FaExclamationTriangle, FaCheckCircle, FaGlobe, FaUsers, FaHistory, FaFilter } from 'react-icons/fa';
-import { useModerationDashboard } from '../hooks/useModerationDashboard';
-import ReportsPanel from '../components/ReportsPanel';
-import ReportFilters from '../components/ReportFilters';
-import LoadingSpinner from '../../components/LoadingSpinner';
+import { FaExclamationTriangle, FaCheckCircle, FaGlobe, FaUsers, FaHistory } from 'react-icons/fa';
+import { IoIosRefresh } from "react-icons/io";
+import { useModerationDashboard } from './hooks/useModerationDashboard';
+import ReportsPanel from './components/ReportsPanel';
+import ReportFilters from './components/ReportFilters';
+import LoadingSpinner from './components/LoadingSpinner';
 
 function ModerationDashboard() {
-  const { reports, loading, error, activeTab, setActiveTab, stats } = useModerationDashboard();
+  const { reports, loading, error, activeTab, setActiveTab, stats, refreshData } = useModerationDashboard();
   const [filters, setFilters] = useState({
     type: 'all',
     urgency: 'all',
@@ -16,9 +17,9 @@ function ModerationDashboard() {
   const tabs = [
     { id: 'pending', name: 'Pendientes', icon: FaExclamationTriangle, count: stats.pending, color: 'text-red-600' },
     { id: 'resolved', name: 'Resueltos', icon: FaCheckCircle, count: stats.resolved, color: 'text-green-600' },
-    { id: 'global', name: 'Reportes Globales', icon: FaGlobe, count: globalReports.length, color: 'text-blue-600' },
-    { id: 'user_reports', name: 'Reportes de Usuarios', icon: FaUsers, count: userReports.length, color: 'text-purple-600' },
-    { id: 'audit', name: 'Auditoría', icon: FaHistory, count: deletedContent.length, color: 'text-gray-600' }
+    { id: 'global', name: 'Reportes Globales', icon: FaGlobe, count: stats.global, color: 'text-blue-600' },
+    { id: 'user_reports', name: 'Reportes de Usuarios', icon: FaUsers, count: stats.user_reports, color: 'text-purple-600' },
+    { id: 'audit', name: 'Auditoría', icon: FaHistory, count: stats.audit, color: 'text-gray-600' }
   ];
 
   if (loading) {
@@ -52,11 +53,24 @@ function ModerationDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Panel de Moderación</h1>
-          <p className="text-gray-600 mt-2">
-            Gestiona reportes de usuarios y acciones de moderadores
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Panel de Moderación</h1>
+              <p className="text-gray-600 mt-2">
+                Gestiona reportes de usuarios y acciones de moderadores
+              </p>
+            </div>
+            <button
+              onClick={refreshData}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50"
+            >
+              <IoIosRefresh className="w-4 h-4" />
+              {loading ? 'Actualizando...' : 'Actualizar'}
+            </button>
+          </div>
         </div>
+
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -94,7 +108,7 @@ function ModerationDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Reportes Globales</p>
-                <p className="text-2xl font-bold text-purple-600">{globalReports.length}</p>
+                <p className="text-2xl font-bold text-purple-600">{stats.global}</p>
               </div>
               <FaGlobe className="w-8 h-8 text-purple-600" />
             </div>

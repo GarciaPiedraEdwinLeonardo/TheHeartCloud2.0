@@ -1,20 +1,16 @@
 import { useState, useEffect } from "react";
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
-} from "firebase/firestore";
+import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
 import { db } from "../../../config/firebase";
 
 export const useReports = (filters = {}) => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  useEffect(() => {
+  const loadReports = async () => {
     setLoading(true);
+    setError(null);
 
     try {
       let q = collection(db, "reports");
@@ -31,28 +27,34 @@ export const useReports = (filters = {}) => {
       constraints.push(orderBy("createdAt", "desc"));
       q = query(q, ...constraints);
 
-      const unsubscribe = onSnapshot(
-        q,
-        (snapshot) => {
-          const reportsData = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-          setReports(reportsData);
-          setLoading(false);
-        },
-        (error) => {
-          setError(error.message);
-          setLoading(false);
-        }
-      );
+      const snapshot = await getDocs(q);
+      const reportsData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
 
-      return unsubscribe;
+      setReports(reportsData);
     } catch (error) {
+      console.error("Error loading reports:", error);
       setError(error.message);
+    } finally {
       setLoading(false);
     }
-  }, [filters.status, filters.type]);
+  };
 
-  return { reports, loading, error };
+  useEffect(() => {
+    loadReports();
+  }, [filters.status, filters.type, refreshTrigger]);
+
+  const refresh = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  return {
+    reports,
+    loading,
+    error,
+    refresh,
+    reload: loadReports,
+  };
 };
