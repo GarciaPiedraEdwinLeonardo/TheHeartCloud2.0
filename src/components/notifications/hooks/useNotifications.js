@@ -1,160 +1,150 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   collection,
   query,
   where,
-  onSnapshot,
   orderBy,
-  doc,
+  limit,
+  onSnapshot,
   updateDoc,
+  doc,
+  writeBatch,
+  getDocs,
+  startAfter,
 } from "firebase/firestore";
-import { auth, db } from "../../../config/firebase";
-import { notificationService } from "../services/notificationService";
+import { db, auth } from "./../../../config/firebase";
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [lastVisible, setLastVisible] = useState(null);
 
+  const user = auth.currentUser;
+
+  // Cargar notificaciones iniciales
   useEffect(() => {
-    const user = auth.currentUser;
     if (!user) {
+      setNotifications([]);
+      setUnreadCount(0);
       setLoading(false);
       return;
     }
 
-    const initializeWithCleanup = async () => {
-      try {
-        console.log("🔄 Iniciando sistema de notificaciones...");
-        await notificationService.smartCleanup(user.uid);
-      } catch (cleanupError) {
-        console.warn("⚠️ Limpieza inicial falló:", cleanupError);
-      } finally {
-        setupNotificationsListener(user.uid);
-      }
-    };
+    const notificationsRef = collection(db, "notifications");
+    const q = query(
+      notificationsRef,
+      where("userId", "==", user.uid),
+      orderBy("createdAt", "desc"),
+      limit(20)
+    );
 
-    const setupNotificationsListener = (userId) => {
-      try {
-        const q = query(
-          collection(db, "notifications"),
-          where("userId", "==", userId)
-        );
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const notificationsData = [];
+        let unread = 0;
 
-        const unsubscribe = onSnapshot(
-          q,
-          (snapshot) => {
-            const notificationsData = [];
-            let unread = 0;
+        snapshot.forEach((doc) => {
+          const notification = {
+            id: doc.id,
+            ...doc.data(),
+          };
+          notificationsData.push(notification);
 
-            snapshot.forEach((doc) => {
-              const notification = {
-                id: doc.id,
-                ...doc.data(),
-              };
-
-              if (isValidNotification(notification)) {
-                notificationsData.push(notification);
-                if (!notification.isRead) unread++;
-              }
-            });
-
-            notificationsData.sort((a, b) => {
-              const dateA = a.createdAt?.seconds || 0;
-              const dateB = b.createdAt?.seconds || 0;
-              return dateB - dateA;
-            });
-
-            const limitedNotifications = notificationsData.slice(0, 80);
-
-            setNotifications(limitedNotifications);
-            setUnreadCount(unread);
-            setLoading(false);
-            setError(null);
-          },
-          (snapshotError) => {
-            console.error("❌ Error en listener:", snapshotError);
-            setError("Error al cargar notificaciones");
-            setLoading(false);
+          if (!notification.isRead) {
+            unread++;
           }
-        );
+        });
 
-        return unsubscribe;
-      } catch (queryError) {
-        console.error("❌ Error configurando query:", queryError);
-        setError("Error en configuración");
+        setNotifications(notificationsData);
+        setUnreadCount(unread);
         setLoading(false);
-        return () => {};
+
+        // Configurar paginación
+        if (snapshot.docs.length > 0) {
+          setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+        }
+        setHasMore(snapshot.docs.length === 20);
+      },
+      (error) => {
+        console.error("Error cargando notificaciones:", error);
+        setLoading(false);
       }
-    };
+    );
 
-    const isValidNotification = (notification) => {
-      // Verificar tipos válidos
-      const validTypes = [
-        "verification_approved",
-        "verification_rejected",
-        "user_suspended",
-      ];
-      if (!validTypes.includes(notification.type)) {
-        return false;
-      }
+    return () => unsubscribe();
+  }, [user]);
 
-      // Verificar que no esté expirada
-      const expiresAt = notification.expiresAt?.toDate();
-      if (expiresAt && expiresAt < new Date()) {
-        return false;
-      }
+  // Cargar más notificaciones
+  const loadMore = useCallback(async () => {
+    if (!user || !lastVisible || !hasMore) return;
 
-      return true;
-    };
-
-    initializeWithCleanup();
-  }, []);
-
-  const markAsRead = async (notificationId) => {
+    setLoading(true);
     try {
-      await updateDoc(doc(db, "notifications", notificationId), {
-        isRead: true,
-        readAt: new Date(),
-      });
-
-      setNotifications((prev) =>
-        prev.map((notif) =>
-          notif.id === notificationId ? { ...notif, isRead: true } : notif
-        )
+      const notificationsRef = collection(db, "notifications");
+      const q = query(
+        notificationsRef,
+        where("userId", "==", user.uid),
+        orderBy("createdAt", "desc"),
+        startAfter(lastVisible),
+        limit(20)
       );
 
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      const snapshot = await getDocs(q);
+      const newNotifications = [];
+
+      snapshot.forEach((doc) => {
+        newNotifications.push({
+          id: doc.id,
+          ...doc.data(),
+        });
+      });
+
+      setNotifications((prev) => [...prev, ...newNotifications]);
+
+      if (snapshot.docs.length > 0) {
+        setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+      }
+      setHasMore(snapshot.docs.length === 20);
     } catch (error) {
-      console.error("❌ Error marcando como leída:", error);
-      throw error;
+      console.error("Error cargando más notificaciones:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, lastVisible, hasMore]);
+
+  // Marcar como leída
+  const markAsRead = async (notificationId) => {
+    if (!user) return;
+
+    try {
+      const notificationRef = doc(db, "notifications", notificationId);
+      await updateDoc(notificationRef, {
+        isRead: true,
+      });
+    } catch (error) {
+      console.error("Error marcando notificación como leída:", error);
     }
   };
 
+  // Marcar todas como leídas
   const markAllAsRead = async () => {
+    if (!user || unreadCount === 0) return;
+
     try {
+      const batch = writeBatch(db);
       const unreadNotifications = notifications.filter((n) => !n.isRead);
 
-      if (unreadNotifications.length === 0) return;
+      unreadNotifications.forEach((notification) => {
+        const notificationRef = doc(db, "notifications", notification.id);
+        batch.update(notificationRef, { isRead: true });
+      });
 
-      const updatePromises = unreadNotifications.map((notification) =>
-        updateDoc(doc(db, "notifications", notification.id), {
-          isRead: true,
-          readAt: new Date(),
-        })
-      );
-
-      await Promise.all(updatePromises);
-
-      setNotifications((prev) =>
-        prev.map((notif) => ({ ...notif, isRead: true }))
-      );
-
-      setUnreadCount(0);
+      await batch.commit();
     } catch (error) {
-      console.error("❌ Error marcando todas como leídas:", error);
-      throw error;
+      console.error("Error marcando todas como leídas:", error);
     }
   };
 
@@ -162,8 +152,9 @@ export const useNotifications = () => {
     notifications,
     unreadCount,
     loading,
-    error,
+    hasMore,
     markAsRead,
     markAllAsRead,
+    loadMore,
   };
 };

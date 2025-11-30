@@ -7,6 +7,7 @@ import ModeratorAssigned from './NotificationTypes/ModeratorAssigned';
 import CommunityBan from './NotificationTypes/CommunityBan';
 import MembershipApproved from './NotificationTypes/MembershipApproved';
 import OwnershipTransferred from './NotificationTypes/OwnershipTransferred';
+import CommentDeleted from './NotificationTypes/CommentDeleted';
 
 function NotificationItem({ notification, onMarkAsRead }) {
   const renderNotification = () => {
@@ -29,6 +30,8 @@ function NotificationItem({ notification, onMarkAsRead }) {
         return <MembershipApproved notification={notification} onMarkAsRead={onMarkAsRead} />;
       case 'ownership_transferred':
         return <OwnershipTransferred notification={notification} onMarkAsRead={onMarkAsRead} />;
+      case 'comment_deleted':
+        return <CommentDeleted notification={notification} onMarkAsRead={onMarkAsRead} />;
       default:
         return (
           <div className="p-4 bg-white rounded-lg border border-gray-200">

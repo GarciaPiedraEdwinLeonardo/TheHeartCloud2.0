@@ -4,11 +4,10 @@ import {
   getDocs,
   query,
   where,
-  orderBy,
-  limit,
   writeBatch,
 } from "firebase/firestore";
-import { auth, db } from "./../../../config/firebase";
+import { db } from "./../../../config/firebase";
+import { doc } from "firebase/firestore";
 
 const getExpirationDate = () => {
   const date = new Date();
@@ -323,6 +322,24 @@ export const notificationService = {
       console.log(`✅ Notificación de transferencia enviada a: ${userId}`);
     } catch (error) {
       console.error("Error en notificación de transferencia:", error);
+    }
+  },
+
+  sendCommentDeletedByModerator: async (userId, forumId, reason) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        userId,
+        type: "comment_deleted",
+        title: "Comentario Eliminado",
+        message: `Tu comentario fue eliminado por un moderador. Motivo: ${reason}`,
+        isRead: false,
+        isActionable: false,
+        actionData: { forumId, reason },
+        createdAt: new Date(),
+        expiresAt: getExpirationDate(),
+      });
+    } catch (error) {
+      console.error("Error en notificación de comentario eliminado:", error);
     }
   },
 };

@@ -1,4 +1,3 @@
-// useVerificationRequests.js - Sin necesidad de índice
 import { useState, useEffect } from "react";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "../../../config/firebase";
