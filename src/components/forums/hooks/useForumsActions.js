@@ -102,7 +102,6 @@ export const useForumActions = () => {
 
       if (Object.keys(updates).length > 0) {
         await updateDoc(userRef, updates);
-        console.log(`✅ Estadísticas actualizadas: ${action}`, updates);
       }
     } catch (error) {
       console.error("❌ Error actualizando estadísticas:", error);

@@ -42,9 +42,10 @@ function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
             await deleteUser(user);
         } catch(error){
             if (error.code === 'auth/requires-recent-login') {
-                alert('Para eliminar tu cuenta, necesitas haber iniciado sesión recientemente. Por favor, cierra sesión y vuelve a iniciar sesión, luego intenta eliminar tu cuenta nuevamente.');
+                toast.error('Error de conexión. Verifica tu internet e intenta nuevamente.');
             } else {
-                alert('Error al eliminar la cuenta: ' + error.message);
+                toast.error('Error al eliminar la cuenta' );
+                console.error('Error al eliminar la cuenta ' + error)
             }
             setDeleteLoading(false);
         }

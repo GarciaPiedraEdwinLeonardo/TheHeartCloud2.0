@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { 
-  FaCheck, FaTimes, FaBan, FaTrash, FaUserSlash, FaSpinner 
+  FaCheck, FaTimes, FaBan, FaTrash, FaUserSlash, FaSpinner, FaInfoCircle 
 } from 'react-icons/fa';
 import { useModerationActions } from './../hooks/useModerationActions';
+import { toast } from 'react-hot-toast';
 
 function ModerationActions({ report, onClose }) {
   const [showModal, setShowModal] = useState(false);
@@ -14,8 +15,6 @@ function ModerationActions({ report, onClose }) {
     dismissReport,
     suspendUser, 
     deleteContent,
-    deleteCommunity,
-    banFromCommunity,
     loading,
     error 
   } = useModerationActions();
@@ -25,12 +24,12 @@ function ModerationActions({ report, onClose }) {
   const isAuditReport = report.source === 'audit';
   const isUserReport = !isGlobalReport && !isAuditReport;
 
-  // Obtener acciones disponibles - CORREGIDO: sin eliminar comunidad
+  // Obtener acciones disponibles - CORREGIDO: Sin acciones para global reports
   const getAvailableActions = () => {
     const actions = [];
 
-    // Si es reporte de auditoría, no hay acciones
-    if (isAuditReport) {
+    // Si es reporte global o de auditoría, no hay acciones
+    if (isGlobalReport || isAuditReport) {
       return actions;
     }
 
@@ -65,17 +64,6 @@ function ModerationActions({ report, onClose }) {
       });
     }
 
-    // QUITADO: Eliminar comunidad - no queremos esta opción
-    // if (isUserReport && report.type === 'forum') {
-    //   actions.push({
-    //     id: 'delete_community',
-    //     label: 'Eliminar comunidad',
-    //     icon: FaTrash,
-    //     color: 'text-red-600',
-    //     bgColor: 'bg-red-50 hover:bg-red-100',
-    //   });
-    // }
-
     // Suspender usuario (para reportes de usuario o cuando hay autor)
     if (isUserReport && (report.type === 'user' || report.type === 'profile' || report.targetAuthorId)) {
       actions.push({
@@ -97,7 +85,7 @@ function ModerationActions({ report, onClose }) {
 
   const confirmAction = async () => {
     if (!modalData.reason.trim()) {
-      alert('Debes proporcionar una razón para esta acción');
+      toast.error("Debes proporcionar una razón para esta acción");
       return;
     }
 
@@ -114,13 +102,12 @@ function ModerationActions({ report, onClose }) {
         case 'delete_content':
           result = await deleteContent(report.type, report.targetId, modalData.reason, report.forumId);
           break;
-        // QUITADO: case 'delete_community'
         case 'suspend_user':
           const userId = report.targetAuthorId || report.targetId;
           if (userId) {
             result = await suspendUser(userId, modalData.reason, modalData.duration);
           } else {
-            alert('No se pudo identificar el usuario');
+            toast.error('No se pudo identificar el usuario');
             return;
           }
           break;
@@ -129,16 +116,16 @@ function ModerationActions({ report, onClose }) {
       }
 
       if (result?.success) {
-        alert('✅ Acción ejecutada correctamente');
+        toast.success('Acción ejecutada correctamente');
         onClose();
         setShowModal(false);
-        // No recargar la página, mantener el estado actual
       } else {
-        alert(`❌ Error: ${result?.error || 'Acción fallida'}`);
+        toast.error("Error, acción fallida");
+        console.error("Error acción fallida " + error);        
       }
     } catch (error) {
       console.error('Error ejecutando acción:', error);
-      alert('❌ Error ejecutando la acción');
+      toast.error('Error ejecutando la acción');
     } finally {
       setSelectedAction('');
     }
@@ -151,11 +138,43 @@ function ModerationActions({ report, onClose }) {
       case 'resolve': return 'Resolver Reporte';
       case 'dismiss': return 'Desestimar Reporte';
       case 'delete_content': return `Eliminar ${report.type === 'post' ? 'Publicación' : 'Comentario'}`;
-      // QUITADO: case 'delete_community'
       case 'suspend_user': return 'Suspender Usuario';
       default: return 'Confirmar Acción';
     }
   };
+
+  // Si es reporte global, mostrar información en lugar de acciones
+  if (isGlobalReport) {
+    return (
+      <div className="border-t border-gray-200 pt-4 mt-4">
+        <h4 className="text-sm font-medium text-gray-700 mb-3">Información del Reporte Global</h4>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <FaInfoCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-blue-800 mb-1">
+                Reporte de Acción de Moderación
+              </p>
+              <p className="text-sm text-blue-700">
+                Este es un reporte global de una acción de moderación ya ejecutada. 
+                No requiere acciones adicionales.
+              </p>
+              {report.actionType && (
+                <p className="text-xs text-blue-600 mt-2">
+                  <strong>Tipo de acción:</strong> {report.actionType}
+                </p>
+              )}
+              {report.reason && (
+                <p className="text-xs text-blue-600">
+                  <strong>Motivo:</strong> {report.reason}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -3,6 +3,7 @@ import { FaSpinner, FaCheck, FaTimes, FaEye, FaUser } from 'react-icons/fa';
 import { usePostModeration } from '../hooks/usePostModeration';
 import { auth, db } from '../../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
 
 function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValidated }) {
   const [pendingPosts, setPendingPosts] = useState([]);
@@ -57,14 +58,15 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
         onPostsValidated();
       }
     } else {
-      alert(`Error al validar: ${result.error}`);
+      toast.error("Error al validar intenta de nuevo mas tarde");
+      console.error(`Error al validar: ${result.error}`);
     }
     setActionLoading(prev => ({ ...prev, [postId]: null }));
   };
 
   const handleReject = async (postId) => {
     if (!rejectReason.trim()) {
-      alert('Por favor proporciona un motivo para el rechazo');
+      toast.error('Por favor proporciona un motivo para el rechazo');
       return;
     }
 
@@ -80,7 +82,8 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
         onPostsValidated();
       }
     } else {
-      alert(`Error al rechazar: ${result.error}`);
+      toast.error('Error al rechazar intente de nuevo mas tarde');
+      console.error(`Error al rechazar: ${result.error}`);
     }
     setActionLoading(prev => ({ ...prev, [postId]: null }));
   };

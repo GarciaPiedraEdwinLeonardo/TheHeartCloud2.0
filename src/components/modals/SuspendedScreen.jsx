@@ -1,4 +1,3 @@
-// src/components/suspension/SuspendedScreen.jsx
 import { useEffect, useState } from 'react';
 import { FaBan, FaClock, FaCalendarAlt, FaExclamationTriangle } from 'react-icons/fa';
 

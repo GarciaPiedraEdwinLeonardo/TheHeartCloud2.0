@@ -1,4 +1,3 @@
-// components/SearchPostsList.jsx
 import { FaComments } from 'react-icons/fa';
 import PostCard from './../../../forums/posts/components/PostCard';
 

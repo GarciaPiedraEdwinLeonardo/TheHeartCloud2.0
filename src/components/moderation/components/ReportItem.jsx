@@ -93,6 +93,10 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
 
   const getStatusInfo = () => {
     const status = report.status;
+
+    if (isGlobalReport) {
+    return { label: 'Completado', color: 'bg-green-100 text-green-800', icon: FaCheckCircle };
+  }
     
     if (status === 'resolved') {
       return { label: 'Resuelto', color: 'bg-green-100 text-green-800', icon: FaCheckCircle };
@@ -150,7 +154,7 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
 
   const reportInfo = getReportInfo();
 
-  // Navegación directa para usuarios y foros - CORREGIDO
+  // Navegación directa para usuarios y foros
   const handleNavigateToContent = () => {
     if (contentType.type === 'user' && onNavigateToProfile) {
       // Para usuarios, crear objeto userData con la información disponible

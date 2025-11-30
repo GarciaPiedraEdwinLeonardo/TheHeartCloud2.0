@@ -11,7 +11,7 @@ function VerifyAccount({ onBack }) {
         nombre: '',
         especialidad: '',
         cedula: '',
-        paisCedula: '',
+        paisCedula: 'México', // Valor por defecto
         universidad: '',
         anioTitulacion: '',
         documentoCedula: null
@@ -50,29 +50,29 @@ function VerifyAccount({ onBack }) {
     }, []);
 
     const handleChange = (e) => {
-    if (!canSubmit) return;
-    
-    const { name, value, files } = e.target;
-    
-    // Validar en tiempo real
-    const error = validateField(name, value);
-    setFieldErrors(prev => ({
-        ...prev,
-        [name]: error
-    }));
-    
-    if (name === 'documentoCedula') {
-        setFormData(prev => ({
+        if (!canSubmit) return;
+        
+        const { name, value, files } = e.target;
+        
+        // Validar en tiempo real
+        const error = validateField(name, value);
+        setFieldErrors(prev => ({
             ...prev,
-            documentoCedula: files[0]
+            [name]: error
         }));
-    } else {
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
-    }
-};
+        
+        if (name === 'documentoCedula') {
+            setFormData(prev => ({
+                ...prev,
+                documentoCedula: files[0]
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        }
+    };
 
     const uploadToCloudinary = async (file) => {
         try {
@@ -85,9 +85,9 @@ function VerifyAccount({ onBack }) {
                 throw new Error('Tipo de archivo no permitido. Use JPEG o PNG');
             }
 
-            const maxSize = 2 * 1024 * 1024;
+            const maxSize = 4 * 1024 * 1024; // 4MB
             if (file.size > maxSize) {
-                throw new Error('La imagen no puede pesar más de 2MB');
+                throw new Error('La imagen no puede pesar más de 4MB');
             }
 
             const data = new FormData();
@@ -112,8 +112,6 @@ function VerifyAccount({ onBack }) {
             if (!json.secure_url) {
                 throw new Error('Cloudinary no devolvió una URL segura');
             }
-
-            console.log('Archivo subido exitosamente:', json.secure_url);
             return json.secure_url;
 
         } catch (error) {
@@ -122,7 +120,7 @@ function VerifyAccount({ onBack }) {
             if (error.message.includes('Failed to fetch')) {
                 throw new Error('Error de conexión. Verifica tu internet e intenta nuevamente.');
             } else if (error.message.includes('413')) {
-                throw new Error('El archivo es demasiado grande. Máximo 2MB');
+                throw new Error('El archivo es demasiado grande. Máximo 4MB');
             } else if (error.message.includes('400')) {
                 throw new Error('Error en la configuración de Cloudinary. Contacta al administrador.');
             }
@@ -132,46 +130,74 @@ function VerifyAccount({ onBack }) {
     };
 
     const validateField = (name, value) => {
-    switch (name) {
-        case 'apellidoPaterno':
-        case 'apellidoMaterno':
-        case 'nombre':
-            // Solo letras, espacios y acentos, 2-30 caracteres
-            if (!/^[A-Za-zÁáÉéÍíÓóÚúÑñ\s]{2,30}$/.test(value)) {
-                return 'Solo letras, 2-30 caracteres';
-            }
-            break;
-            
-        case 'especialidad':
-        case 'universidad':
-        case 'paisCedula':
-            // Letras, números, espacios y algunos caracteres básicos, 3-50 caracteres
-            if (!/^[A-Za-z0-9ÁáÉéÍíÓóÚúÑñ\s\-\.,]{3,50}$/.test(value)) {
-                return 'Solo letras, números y espacios, 3-50 caracteres';
-            }
-            break;
-            
-        case 'cedula':
-            // Solo números y letras, 5-20 caracteres
-            if (!/^[A-Za-z0-9]{5,20}$/.test(value)) {
-                return 'Solo números y letras, 5-20 caracteres';
-            }
-            break;
-            
-        case 'anioTitulacion':
-            // Año entre 1950 y año actual
-            const year = parseInt(value);
-            const currentYear = new Date().getFullYear();
-            if (year < 1950 || year > currentYear) {
-                return `Año debe estar entre 1950 y ${currentYear}`;
-            }
-            break;
-            
-        default:
-            return null;
-    }
-    return null;
-};
+        switch (name) {
+            case 'apellidoPaterno':
+            case 'apellidoMaterno':
+                // Solo letras, espacios y acentos, 2-30 caracteres
+                if (!value) return 'Este campo es requerido';
+                if (!/^[A-Za-zÁáÉéÍíÓóÚúÑñ\s]{2,30}$/.test(value)) {
+                    return 'Solo letras y espacios, 2-30 caracteres';
+                }
+                if (value.length < 2) return 'Mínimo 2 caracteres';
+                if (value.length > 30) return 'Máximo 30 caracteres';
+                break;
+                
+            case 'nombre':
+                // Solo letras, espacios y acentos, 2-50 caracteres (nombres pueden ser más largos)
+                if (!value) return 'Este campo es requerido';
+                if (!/^[A-Za-zÁáÉéÍíÓóÚúÑñ\s]{2,50}$/.test(value)) {
+                    return 'Solo letras y espacios, 2-50 caracteres';
+                }
+                if (value.length < 2) return 'Mínimo 2 caracteres';
+                if (value.length > 50) return 'Máximo 50 caracteres';
+                break;
+                
+            case 'especialidad':
+                // Letras, números, espacios y algunos caracteres básicos, 3-50 caracteres
+                if (!value) return 'Este campo es requerido';
+                if (!/^[A-Za-z0-9ÁáÉéÍíÓóÚúÑñ\s\-\.,()]{3,50}$/.test(value)) {
+                    return 'Solo letras, números y espacios, 3-50 caracteres';
+                }
+                if (value.length < 3) return 'Mínimo 3 caracteres';
+                if (value.length > 50) return 'Máximo 50 caracteres';
+                break;
+                
+            case 'cedula':
+                // Solo números y letras, 5-20 caracteres
+                if (!value) return 'Este campo es requerido';
+                if (!/^[A-Za-z0-9]{5,20}$/.test(value)) {
+                    return 'Solo números y letras, 5-20 caracteres';
+                }
+                if (value.length < 5) return 'Mínimo 5 caracteres';
+                if (value.length > 20) return 'Máximo 20 caracteres';
+                break;
+                
+            case 'universidad':
+                // Letras, números, espacios y algunos caracteres básicos, 3-80 caracteres
+                if (!value) return 'Este campo es requerido';
+                if (!/^[A-Za-z0-9ÁáÉéÍíÓóÚúÑñ\s\-\.,()&]{3,80}$/.test(value)) {
+                    return 'Solo letras, números y espacios, 3-80 caracteres';
+                }
+                if (value.length < 3) return 'Mínimo 3 caracteres';
+                if (value.length > 80) return 'Máximo 80 caracteres';
+                break;
+                
+            case 'anioTitulacion':
+                // Año entre 1950 y año actual
+                if (!value) return 'Este campo es requerido';
+                const year = parseInt(value);
+                const currentYear = new Date().getFullYear();
+                if (isNaN(year)) return 'Debe ser un año válido';
+                if (year < 1950 || year > currentYear) {
+                    return `Año debe estar entre 1950 y ${currentYear}`;
+                }
+                break;
+                
+            default:
+                return null;
+        }
+        return null;
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -190,16 +216,16 @@ function VerifyAccount({ onBack }) {
             // Validar todos los campos antes de enviar
             const errors = {};
             Object.keys(formData).forEach(key => {
-                if (key !== 'documentoCedula') {
+                if (key !== 'documentoCedula' && key !== 'paisCedula') { // Excluir país que es fijo
                     const error = validateField(key, formData[key]);
                     if (error) errors[key] = error;
                 }       
             });
 
-        if (Object.keys(errors).length > 0) {
-            setFieldErrors(errors);
-            throw new Error('Por favor corrige los errores en el formulario');
-        }
+            if (Object.keys(errors).length > 0) {
+                setFieldErrors(errors);
+                throw new Error('Por favor corrige los errores en el formulario');
+            }
 
             const user = auth.currentUser;
             if (!user) {
@@ -360,16 +386,18 @@ function VerifyAccount({ onBack }) {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Apellido Paterno *
+                                            Apellido Paterno *
                                         </label>
-
                                         <input
                                             type="text"
                                             name="apellidoPaterno"
                                             value={formData.apellidoPaterno}
                                             onChange={handleChange}
                                             required
-                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2  focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${fieldErrors.apellidoPaterno ? 'border-red-500' : 'border-gray-300'}`}
+                                            maxLength={30}
+                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                                fieldErrors.apellidoPaterno ? 'border-red-500' : 'border-gray-300'
+                                            }`}
                                             placeholder="Paterno"
                                         />
                                         {fieldErrors.apellidoPaterno && (
@@ -386,7 +414,10 @@ function VerifyAccount({ onBack }) {
                                             value={formData.apellidoMaterno}
                                             onChange={handleChange}
                                             required
-                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2  focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${fieldErrors.apellidoMaterno ? 'border-red-500' : 'border-gray-300'}`}
+                                            maxLength={30}
+                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                                fieldErrors.apellidoMaterno ? 'border-red-500' : 'border-gray-300'
+                                            }`}
                                             placeholder="Materno"
                                         />
                                         {fieldErrors.apellidoMaterno && (
@@ -403,7 +434,10 @@ function VerifyAccount({ onBack }) {
                                             value={formData.nombre}
                                             onChange={handleChange}
                                             required
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${fieldErrors.nombre ? 'border-red-500' : 'border-gray-300'}`}
+                                            maxLength={50}
+                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                                fieldErrors.nombre ? 'border-red-500' : 'border-gray-300'
+                                            }`}
                                             placeholder="Nombre completo"
                                         />
                                         {fieldErrors.nombre && (
@@ -430,7 +464,10 @@ function VerifyAccount({ onBack }) {
                                             value={formData.especialidad}
                                             onChange={handleChange}
                                             required
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${fieldErrors.especialidad ? 'border-red-500' : 'border-gray-300'}`}
+                                            maxLength={50}
+                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                                fieldErrors.especialidad ? 'border-red-500' : 'border-gray-300'
+                                            }`}
                                             placeholder="Ej: Cardiología, Pediatría, etc."
                                         />
                                         {fieldErrors.especialidad && (
@@ -447,7 +484,10 @@ function VerifyAccount({ onBack }) {
                                             value={formData.cedula}
                                             onChange={handleChange}
                                             required
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${fieldErrors.cedula ? 'border-red-500' : 'border-gray-300'}`}
+                                            maxLength={20}
+                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                                fieldErrors.cedula ? 'border-red-500' : 'border-gray-300'
+                                            }`}
                                             placeholder="Número de cédula profesional"
                                         />
                                         {fieldErrors.cedula && (
@@ -458,18 +498,24 @@ function VerifyAccount({ onBack }) {
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
                                             País de la Cédula *
                                         </label>
-                                        <input
-                                            type="text"
-                                            name="paisCedula"
-                                            value={formData.paisCedula}
-                                            onChange={handleChange}
-                                            required
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${fieldErrors.paisCedula ? 'border-red-500' : 'border-gray-300'}`}
-                                            placeholder="País donde fue expedida"
-                                        />
-                                        {fieldErrors.paisCedula && (
-                                            <p className="text-red-500 text-xs mt-1">{fieldErrors.paisCedula}</p>
-                                        )}
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                name="paisCedula"
+                                                value={formData.paisCedula}
+                                                readOnly
+                                                disabled
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                                            />
+                                            <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+                                                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                                    Solo México
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Actualmente solo aceptamos cédulas mexicanas
+                                        </p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -481,7 +527,10 @@ function VerifyAccount({ onBack }) {
                                             value={formData.universidad}
                                             onChange={handleChange}
                                             required
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${fieldErrors.universidad ? 'border-red-500' : 'border-gray-300'}`}
+                                            maxLength={80}
+                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                                fieldErrors.universidad ? 'border-red-500' : 'border-gray-300'
+                                            }`}
                                             placeholder="Universidad de titulación"
                                         />
                                         {fieldErrors.universidad && (
@@ -501,7 +550,9 @@ function VerifyAccount({ onBack }) {
                                             required
                                             min="1950"
                                             max={currentYear}
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${fieldErrors.anioTitulacion ? 'border-red-500' : 'border-gray-300'}`}
+                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                                fieldErrors.anioTitulacion ? 'border-red-500' : 'border-gray-300'
+                                            }`}
                                             placeholder="Ej: 2020"
                                         />
                                         {fieldErrors.anioTitulacion && (
@@ -526,7 +577,7 @@ function VerifyAccount({ onBack }) {
                                         id="documentoCedula"
                                         name="documentoCedula"
                                         onChange={handleChange}
-                                        accept="image/*"
+                                        accept="image/jpeg,image/png,image/jpg"
                                         required
                                         className="hidden"
                                     />
@@ -538,11 +589,11 @@ function VerifyAccount({ onBack }) {
                                         <p className="text-sm font-medium text-gray-700">
                                             {formData.documentoCedula 
                                                 ? `Archivo seleccionado: ${formData.documentoCedula.name}`
-                                                : 'Sube tu cédula profesional'
+                                                : 'Sube una captura/foto de tu cédula profesional'
                                             }
                                         </p>
                                         <p className="text-xs text-gray-500 mt-1">
-                                            PNG, JPG(Máx. 2MB)
+                                            PNG, JPG (Máx. 4MB) - Solo imágenes, no PDF
                                         </p>
                                     </label>
                                 </div>
@@ -596,6 +647,8 @@ function VerifyAccount({ onBack }) {
                         <li>• Tu información será revisada por nuestro equipo</li>
                         <li>• Recibirás una notificación cuando tu cuenta sea verificada</li>
                         <li>• Solo puedes enviar una solicitud de verificación a la vez</li>
+                        <li>• Actualmente solo aceptamos cédulas profesionales mexicanas</li>
+                        <li>• Sube una foto o captura de tu cédula (no se aceptan PDF)</li>
                     </ul>
                 </div>
             </div>

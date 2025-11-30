@@ -12,6 +12,7 @@ import ErrorMessage from './components/ErrorMessage';
 import ReportModal from '../forums/modals/ReportModal';
 import SuspendUserModal from './components/SuspendedUserModal';
 import { useUserSuspension } from '../suspend/hooks/useUserSuspension';
+import { toast } from 'react-hot-toast';
 
 function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
   const [activeTab, setActiveTab] = useState('publicaciones');
@@ -36,16 +37,23 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setCurrentUserRole(userData.role);
-            console.log('🔑 Rol del usuario actual:', userData.role);
           }
         } catch (error) {
           console.error('Error cargando rol del usuario actual:', error);
+          toast.error('Error al cargar información del usuario');
         }
       }
     };
 
     loadCurrentUserRole();
   }, []);
+
+  // Mostrar errores de suspensión con toast
+  useEffect(() => {
+    if (suspendError) {
+      toast.error(`Error al suspender usuario: ${suspendError}`);
+    }
+  }, [suspendError]);
 
   const handleTopicClick = (topic) => {
     if (onShowForum && topic.id) {
@@ -62,11 +70,9 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
   }
 
   const handleCommentClick = (post) => {
-    console.log('🖱️ Click en comentar post:', post);
     if (onShowPost) {
       onShowPost(post);
     } else {
-      console.log('Navegando al post:', post.id);
       if (post.forumId && onShowForum) {
         onShowForum({ id: post.forumId });
       }
@@ -84,40 +90,42 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
   };
 
   const handleSuspendConfirmed = async (suspendData) => {
-  console.log('🔨 Confirmando suspensión con datos:', suspendData);
-  
-  if (!userId && !userData?.id) {
-    alert('Error: No se pudo identificar al usuario a suspender');
-    return;
-  }
+    
+    if (!userId && !userData?.id) {
+      toast.error('Error: No se pudo identificar al usuario a suspender');
+      return;
+    }
 
-  const targetUserId = userId || userData.id;
-  
-  const result = await suspendUser(
-    targetUserId, 
-    suspendData.reason, 
-    suspendData.duration, 
-    auth.currentUser.email
-  );
-  
-  if (result.success) {
-    console.log('✅ Suspensión exitosa, recargando perfil...');
-    // Mostrar mensaje de éxito
-    alert(`Usuario ${userData.nombreCompleto} suspendido exitosamente por ${suspendData.duration} días`);
+    const targetUserId = userId || userData.id;
     
-    // Cerrar modal
-    setShowSuspendModal(false);
+    // Mostrar toast de carga
+    const loadingToast = toast.loading('Suspendiendo usuario...');
     
-    // Recargar datos del perfil
-    refreshProfile();
+    const result = await suspendUser(
+      targetUserId, 
+      suspendData.reason, 
+      suspendData.duration, 
+      auth.currentUser.email
+    );
     
-    console.log('✅ Perfil recargado después de suspensión');
-  } else {
-    console.error('❌ Error en suspensión:', result.error);
-    alert('Error al suspender usuario: ' + result.error);
-  }
-};
-
+    // Cerrar toast de carga
+    toast.dismiss(loadingToast);
+    
+    if (result.success) {
+      // Mostrar mensaje de éxito
+      toast.success(`Usuario ${userData.nombreCompleto} suspendido exitosamente por ${suspendData.duration} días`);
+      
+      // Cerrar modal
+      setShowSuspendModal(false);
+      
+      // Recargar datos del perfil
+      refreshProfile();
+      
+    } else {
+      console.error('❌ Error en suspensión:', result.error);
+      toast.error('Error al suspender usuario: ' + result.error);
+    }
+  };
 
   // Si no hay usuario autenticado Y es perfil propio
   if (!auth.currentUser && isOwnProfile) {

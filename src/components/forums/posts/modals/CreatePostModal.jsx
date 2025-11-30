@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { FaTimes, FaSpinner, FaImage, FaPaperclip, FaUserShield } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaImage, FaUserShield } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
 import { usePostUpload } from './../hooks/usePostUpload';
+import { toast } from 'react-hot-toast';
 
 function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostApproval, canPostWithoutApproval }) {
   const [formData, setFormData] = useState({
@@ -78,9 +79,9 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
         
         // Mostrar mensaje diferente si requiere aprobación
         if (requiresPostApproval && !canPostWithoutApproval) {
-          alert('✅ Tu publicación ha sido enviada y está pendiente de aprobación por un moderador.');
+          toast.success('Tu publicación ha sido enviada y está pendiente de aprobación por un moderador.');
         } else {
-          alert('✅ Publicación creada exitosamente.');
+          toast.success('Publicación creada exitosamente.');
         }
       } else {
         setError(result.error);

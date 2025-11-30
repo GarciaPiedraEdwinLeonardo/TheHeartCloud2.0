@@ -1,4 +1,3 @@
-// components/SearchForumsList.jsx
 import { FaUsers, FaEdit, FaCalendar } from 'react-icons/fa';
 
 function SearchForumsList({ forums, searchQuery, onForumClick }) {

@@ -4,8 +4,9 @@ import { doc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './../../../config/firebase'; 
 import NotificationCenter from '../../notifications/NotificationCenter';
 import VerificarCuenta from "../../buttons/VerificarCuenta";
-import { FaUser, FaSignOutAlt, FaChevronDown, FaTrash, FaUserCircle } from 'react-icons/fa';
+import { FaUser, FaSignOutAlt, FaChevronDown, FaTrash } from 'react-icons/fa';
 import DeleteAcount from '../../modals/DeleteAcount';
+import { toast } from 'react-hot-toast';
 
 function DesktopUserMenu({ onProfileClick, onVerifyAccount }) {
     const [user, setUser] = useState(null);
@@ -54,9 +55,10 @@ function DesktopUserMenu({ onProfileClick, onVerifyAccount }) {
             await deleteUser(user);
         } catch(error){
             if (error.code === 'auth/requires-recent-login') {
-                alert('Para eliminar tu cuenta, necesitas haber iniciado sesión recientemente. Por favor, cierra sesión y vuelve a iniciar sesión, luego intenta eliminar tu cuenta nuevamente.');
+                toast.error('Para eliminar tu cuenta, necesitas haber iniciado sesión recientemente. Por favor, cierra sesión y vuelve a iniciar sesión, luego intenta eliminar tu cuenta nuevamente.');
             } else {
-                alert('Error al eliminar la cuenta: ' + error.message);
+                toast.error('Error al eliminar la cuenta: ');
+                console.error('Error al eliminar la cuenta ' + error)
             }
             setDeleteLoading(false);
         }

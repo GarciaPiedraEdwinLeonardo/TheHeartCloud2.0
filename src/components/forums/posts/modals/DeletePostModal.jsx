@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FaTimes, FaSpinner, FaExclamationTriangle, FaTrash, FaUserShield } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
 import { auth, db } from './../../../../config/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
 
 function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorAction = false }) {
   const [reason, setReason] = useState('');
@@ -49,9 +49,9 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorActi
         
         // Mostrar mensaje diferente según el tipo de eliminación
         if (isModeratorAction) {
-          alert('✅ Publicación eliminada y guardada para auditoría de moderación.');
+          toast.success('Publicación eliminada');
         } else {
-          alert('✅ Publicación eliminada permanentemente.');
+          toast.success('Publicación eliminada permanentemente.');
         }
       } else {
         setError(result.error);

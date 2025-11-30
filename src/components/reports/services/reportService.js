@@ -23,8 +23,6 @@ export const reportService = {
         updatedAt: serverTimestamp(),
       };
 
-      console.log("📝 Guardando reporte:", reportWithMetadata); // Para debug
-
       const docRef = await addDoc(
         collection(db, "reports"),
         reportWithMetadata

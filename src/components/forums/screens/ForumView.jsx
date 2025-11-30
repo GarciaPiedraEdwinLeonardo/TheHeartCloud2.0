@@ -23,6 +23,7 @@ import ForumSidebar from './../components/ForumSidebar';
 import PostList from './../posts/components/PostList';
 import DeleteCommunityModal from '../modals/DeleteCommunityModal';
 import { useCommunityDeletion } from './../hooks/useCommunityDeletion'
+import { toast } from 'react-hot-toast';
 
 function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   // Estados principales
@@ -99,7 +100,6 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
       try {
         const banned = await isUserBannedFromForum(forumDetails.id, user.uid);
         setIsUserBanned(banned);
-        console.log("🔍 Estado de baneo:", banned);
       } catch (error) {
         console.error("Error verificando baneo:", error);
         setIsUserBanned(false);
@@ -154,13 +154,13 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
 
   const handleJoinLeave = async () => {
     if (!user) {
-      alert('Debes iniciar sesión para unirte a comunidades');
+      toast.error('Debes iniciar sesión para unirte a comunidades');
       return;
     }
 
     // Verificar si está baneado antes de intentar unirse
     if (isUserBanned) {
-      alert('No puedes unirte a esta comunidad porque has sido baneado');
+      toast.error('No puedes unirte a esta comunidad porque has sido baneado');
       return;
     }
 
@@ -173,13 +173,14 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
           setUserMembership({ isMember: false, role: null });
           await reloadForumData();
         } else {
-          alert(result.error);
+          toast.error("Algo salio mal intenta de nuevo mas tarde");
+          console.error(result.error);
         }
       } else {
         const result = await joinForum(forumData.id);
         if (result.success) {
           if (result.requiresApproval) {
-            alert('✅ ' + result.message);
+            toast.succes(result.message);
             setHasPendingRequest(true);
             await reloadForumData();
           } else {
@@ -187,11 +188,11 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
             await reloadForumData();
           }
         } else {
-          alert(result.error);
+          toast.error(result.error);
         }
       }
     } catch (error) {
-      alert('Error al procesar la acción');
+      toast.error('Error al procesar la acción');
     } finally {
       setActionLoading(false);
     }
@@ -202,23 +203,17 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
       return;
     }
 
-    console.log("🔄 Iniciando proceso de transferencia...");
-
     const result = await leaveForumAsOwner(forumDetails.id);
 
     if (result.success) {
-      console.log("✅ Transferencia exitosa:");
-      console.log(" - Nuevo dueño:", result.newOwnerId);
-      console.log(" - Dueño anterior:", result.previousOwnerId);
-
-      alert('Has abandonado la comunidad. La propiedad ha sido transferida.');
+      toast.success('Has abandonado la comunidad. La propiedad ha sido transferida.');
 
        // Recargar los datos del foro para ver los cambios
       await loadForumDetails();
       onBack();
     } else {
       console.error("Error en transferencia:", result.error);
-      alert(result.error);
+      toast.success(result.error);
     }
   };
 
@@ -232,7 +227,6 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   };
 
   const handleDeleteCommunityConfirmed = async (deleteData) => {
-    console.log('🗑️ Confirmando eliminación de:', forumDetails.name);
     
     const result = await deleteCommunity(
       forumDetails.id, 
@@ -241,20 +235,18 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
     );
     
     if (result.success) {
-      // SIEMPRE considerar éxito y cerrar el modal
-      console.log('✅ Eliminación exitosa:', result.message);
-      console.log('📊 Estadísticas:', result.stats);
       
       setShowDeleteCommunityModal(false);
       onBack(); // Navegar de regreso
       
       // Mostrar mensaje de éxito
       setTimeout(() => {
-        alert(`Comunidad "${forumDetails.name}" eliminada exitosamente`);
+        toast.succes(`Comunidad "${forumDetails.name}" eliminada exitosamente`);
       }, 100);
     } else {
       // Solo mostrar error si realmente falló
-      alert('Error al eliminar comunidad: ' + result.error);
+      toast.error("Error al eliminar comunidad")
+      console.error('Error al eliminar comunidad: ' + result.error);
     }
   };
 
@@ -265,7 +257,6 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   };
 
   const handleShowUserProfile = (userData) => {
-    console.log('👤 Mostrar perfil de usuario desde ForumView:', userData);
     if (onShowUserProfile) {
       onShowUserProfile(userData);
     }

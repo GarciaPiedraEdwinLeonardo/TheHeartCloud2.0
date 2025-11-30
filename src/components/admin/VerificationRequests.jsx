@@ -30,7 +30,7 @@ function VerificationRequests() {
 
     const handleUpdate = (userId, action) => {
         if (currentAdmin) {
-            console.log(`Usuario ${userId} ${action} por: ${currentAdmin.email}`);
+            
         }
         // Aquí podrías agregar notificaciones toast
     };

@@ -3,6 +3,7 @@ import { doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from './../../config/firebase';
 import { FaCheck, FaTimes, FaSpinner } from 'react-icons/fa';
 import { notificationService } from '../notifications/services/notificationService';
+import { toast } from 'react-hot-toast';
 
 function VerificationActions({ request, onUpdate, currentAdmin }) {
     const [loading, setLoading] = useState('');
@@ -51,7 +52,6 @@ function VerificationActions({ request, onUpdate, currentAdmin }) {
             );
 
             onUpdate(request.id, 'accepted');
-            console.log(`Usuario ${request.id} verificado por: ${currentAdmin?.email}`);
             
         } catch (error) {
             console.error('Error al aceptar solicitud:', error);
@@ -62,7 +62,7 @@ function VerificationActions({ request, onUpdate, currentAdmin }) {
 
     const handleReject = async () => {
         if (!rejectReason.trim()) {
-            alert('Por favor proporciona una razón para el rechazo');
+            toast.error('Por favor proporciona una razón para el rechazo');
             return;
         }
 
@@ -93,7 +93,6 @@ function VerificationActions({ request, onUpdate, currentAdmin }) {
                 currentAdmin?.email // correo del admin que rechazó
             );
             onUpdate(request.id, 'rejected');
-            console.log(`Solicitud ${request.id} rechazada por: ${currentAdmin?.email}`);
             
             setShowRejectModal(false);
             setRejectReason('');

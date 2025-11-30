@@ -3,6 +3,7 @@ import { FaSpinner, FaExclamationTriangle, FaTrash, FaCheck, FaTimes } from 'rea
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../config/firebase';
 import { useModerationActions } from '../hooks/useModerationActions';
+import { toast } from 'react-hot-toast';
 
 function ContentPreview({ report, contentType, isGlobalReport, onContentDeleted }) {
   const [contentData, setContentData] = useState(null);
@@ -61,7 +62,7 @@ function ContentPreview({ report, contentType, isGlobalReport, onContentDeleted 
 
   const handleDeleteContent = async () => {
     if (!deleteReason.trim()) {
-      alert('Debes proporcionar un motivo para la eliminación');
+      toast.error('Debes proporcionar un motivo para la eliminación');
       return;
     }
 
@@ -69,28 +70,19 @@ function ContentPreview({ report, contentType, isGlobalReport, onContentDeleted 
       const result = await deleteContent(contentType, report.targetId, deleteReason, report.forumId);
       
       if (result.success) {
-        alert('✅ Contenido eliminado correctamente');
+        toast.success('Contenido Eliminado Correcatamente')
         setShowDeleteModal(false);
         if (onContentDeleted) {
           onContentDeleted();
         }
       } else {
-        alert(`❌ Error: ${result.error}`);
+        toast.error("Error")
+        console.error(` Error: ${result.error}`);
       }
     } catch (err) {
       console.error('Error eliminando contenido:', err);
-      alert('❌ Error eliminando el contenido');
+      toast.error("Error eliminand el contenido");
     }
-  };
-
-  const handleDismissReport = async () => {
-    // Aquí implementarías la lógica para desestimar el reporte
-    alert('Funcionalidad de desestimar reporte - por implementar');
-  };
-
-  const handleResolveReport = async () => {
-    // Aquí implementarías la lógica para resolver el reporte
-    alert('Funcionalidad de resolver reporte - por implementar');
   };
 
   if (loading) {
@@ -159,20 +151,6 @@ function ContentPreview({ report, contentType, isGlobalReport, onContentDeleted 
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={handleResolveReport}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium text-sm"
-            >
-              <FaCheck className="w-4 h-4" />
-              Resolver Reporte
-            </button>
-            <button
-              onClick={handleDismissReport}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200 font-medium text-sm"
-            >
-              <FaTimes className="w-4 h-4" />
-              Desestimar
-            </button>
             <button
               onClick={() => setShowDeleteModal(true)}
               className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium text-sm"

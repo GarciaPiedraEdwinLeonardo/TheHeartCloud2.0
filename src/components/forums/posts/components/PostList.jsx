@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaSpinner, FaExclamationTriangle, FaPlus } from 'react-icons/fa';
+import { FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
 import PostCard from './PostCard';
 import CreatePostModal from './../modals/CreatePostModal';
 

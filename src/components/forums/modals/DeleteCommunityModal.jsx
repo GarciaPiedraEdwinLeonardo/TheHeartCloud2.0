@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { FaTimes, FaSpinner, FaExclamationTriangle, FaTrash, FaUsers } from 'react-icons/fa';
 import { useCommunityDeletion } from './../hooks/useCommunityDeletion';
 import { auth } from '../../../config/firebase';
+import { toast } from 'react-hot-toast';
 
 function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityName, forumId }) {
   const [reason, setReason] = useState('');
@@ -11,12 +12,12 @@ function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityNam
     e.preventDefault();
     
     if (!reason.trim()) {
-      alert('Debes proporcionar un motivo para la eliminación');
+      toast.error('Debes proporcionar un motivo para la eliminación');
       return;
     }
 
     if (reason.length < 10) {
-      alert('El motivo debe tener al menos 10 caracteres');
+      toast.error('El motivo debe tener al menos 10 caracteres');
       return;
     }
 
@@ -30,12 +31,12 @@ function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityNam
         });
         onClose();
       } else {
-        // El error ya está manejado por el hook, pero podemos mostrar un alert adicional
-        alert(`Error: ${result.error}`);
+        toast.error(`Error`);
+        console.error("Error " + result.error);
       }
     } catch (err) {
       console.error('Error inesperado:', err);
-      alert('Ocurrió un error inesperado al eliminar la comunidad');
+      toast.error('Ocurrió un error inesperado al eliminar la comunidad');
     }
   };
 

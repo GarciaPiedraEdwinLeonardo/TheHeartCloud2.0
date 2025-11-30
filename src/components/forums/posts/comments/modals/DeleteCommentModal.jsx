@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FaTimes, FaSpinner, FaExclamationTriangle, FaTrash, FaUserShield } from 'react-icons/fa';
 import { useCommentActions } from './../hooks/useCommentActions';
+import { toast } from 'react-hot-toast';
 
 function DeleteCommentModal({ isOpen, onClose, comment, onCommentDeleted, isModeratorAction = false }) {
   const [loading, setLoading] = useState(false);
@@ -25,9 +26,9 @@ function DeleteCommentModal({ isOpen, onClose, comment, onCommentDeleted, isMode
         
         // Mostrar mensaje diferente según el tipo de eliminación
         if (isModeratorAction) {
-          alert('✅ Comentario eliminado por moderación.');
+          toast.success('Comentario eliminado por moderación.');
         } else {
-          alert('✅ Comentario eliminado.');
+          toast.success('Comentario eliminado.');
         }
       } else {
         setError(result.error);

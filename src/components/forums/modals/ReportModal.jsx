@@ -3,6 +3,7 @@ import { FaTimes, FaSpinner, FaExclamationTriangle, FaUser } from 'react-icons/f
 import { auth, db } from '../../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useReportActions } from './../../reports/hooks/useReportActions';
+import { toast } from 'react-hot-toast';
 
 function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
   const [formData, setFormData] = useState({
@@ -59,7 +60,6 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         targetDoc = await getDoc(doc(db, collectionName, targetId));
         
         if (targetDoc.exists()) {
-          console.log(`📋 Datos del target (${reportType}):`, targetDoc.data());
           setTargetData(targetDoc.data());
         } else {
           console.warn(`⚠️ No se encontró el target ${targetId} en ${collectionName}`);
@@ -330,12 +330,11 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       ...(postTitle && { postTitle })
     };
 
-    console.log('📝 Enviando reporte:', reportData); // Para debug
 
     const result = await createReport(reportData);
     
     if (result.success) {
-      alert('¡Reporte enviado exitosamente! Los moderadores revisarán tu reporte pronto.');
+      toast.success('¡Reporte enviado exitosamente! Los moderadores revisarán tu reporte pronto.');
       onClose();
       setFormData({
         reason: '',

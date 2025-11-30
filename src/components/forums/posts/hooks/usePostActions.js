@@ -155,9 +155,6 @@ export const usePostActions = () => {
       });
 
       await batch.commit();
-      console.log(
-        `✅ Eliminados ${commentsSnapshot.size} comentarios del post ${postId}`
-      );
 
       return { success: true, deletedComments: commentsSnapshot.size };
     } catch (error) {
@@ -197,7 +194,6 @@ export const usePostActions = () => {
       }
 
       await batch.commit();
-      console.log(`✅ Actualizadas estadísticas de ${authorsMap.size} autores`);
 
       return { success: true, updatedAuthors: authorsMap.size };
     } catch (error) {
@@ -221,16 +217,12 @@ export const usePostActions = () => {
         (!isAuthor && (isModeratorOrAdmin || isForumModerator));
 
       // PRIMERO: Eliminar comentarios del post
-      console.log("🗑️ Eliminando comentarios del post...");
       const commentsResult = await deletePostComments(postId);
       const deletedCommentsCount = commentsResult.deletedComments || 0;
 
       // SEGUNDO: Actualizar estadísticas de autores de comentarios
       let updatedAuthorsCount = 0;
       if (deletedCommentsCount > 0) {
-        console.log(
-          `✅ ${deletedCommentsCount} comentarios eliminados, actualizando estadísticas...`
-        );
         const statsResult = await updateUsersCommentStats(postId);
         updatedAuthorsCount = statsResult.updatedAuthors || 0;
       }
@@ -282,7 +274,6 @@ export const usePostActions = () => {
       }
 
       await batch.commit();
-      console.log("✅ Post eliminado correctamente");
 
       // Reportar a moderación global si es necesario
       if (isModeratorDeletion) {

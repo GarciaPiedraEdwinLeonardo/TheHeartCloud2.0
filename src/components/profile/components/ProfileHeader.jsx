@@ -28,8 +28,6 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
                               userData.professionalInfo?.verificationStatus ||
                               (userData.role === 'doctor' ? 'verified' : 'unverified');
     
-    console.log('🔍 Estado de verificación:', verificationStatus, userData);
-
     switch (verificationStatus) {
       case 'verified':
         return (

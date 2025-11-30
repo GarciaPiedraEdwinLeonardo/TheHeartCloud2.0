@@ -232,14 +232,12 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                     emailVerified: true,
                     emailVerificationSentAt: new Date()
                 });
-                console.log('Nuevo usuario de Google creado en Firestore');
             } else {
                 // Actualizar lastLogin para usuarios existentes
                 await updateDoc(doc(db, 'users', user.uid), {
                     lastLogin: new Date(),
                     emailVerified: true
                 });
-                console.log('Usuario existente de Google actualizado');
             }
             
         } catch (error) {

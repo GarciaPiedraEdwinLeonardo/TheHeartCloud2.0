@@ -77,14 +77,6 @@ export const useForumSettings = () => {
         );
       }
 
-      console.log("🔍 TRANSFIRIENDO PROPIEDAD:");
-      console.log(" - Dueño actual:", auth.currentUser.uid);
-      console.log(
-        " - Moderadores disponibles:",
-        otherModerators.map((m) => m[0])
-      );
-      console.log(" - Nuevo dueño seleccionado:", oldestModerator);
-
       const batch = writeBatch(db);
 
       // 1. TRANSFERIR OWNERSHIP
@@ -96,12 +88,10 @@ export const useForumSettings = () => {
       });
 
       await batch.commit();
-      console.log(" Batch commit exitoso");
 
       // 2. Verificar que se actualizó
       const updatedForumDoc = await getDoc(forumRef);
       const updatedForumData = updatedForumDoc.data();
-      console.log("🔍 Datos del foro después:", updatedForumData);
 
       // 3. Notificar al nuevo dueño
       await notificationService.sendOwnershipTransferred(

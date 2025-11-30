@@ -105,7 +105,6 @@ function Home() {
 
   // Función mejorada para mostrar perfil de usuario desde búsqueda
   const handleShowUserProfile = (userData) => {
-    console.log('👤 Mostrar perfil de usuario:', userData);
     if (userData && userData.id) {
       setSelectedUserId(userData.id); // Guardar el ID del usuario seleccionado
       navigateToView('profile');

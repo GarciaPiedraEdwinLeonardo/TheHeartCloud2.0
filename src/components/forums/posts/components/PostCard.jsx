@@ -140,22 +140,6 @@ function PostCard({
     }
   };
 
-  // DEBUG: Verificar permisos
-  useEffect(() => {
-    if (user) {
-      console.log("🔍 DEBUG PostCard Permissions:", {
-        userUid: user.uid,
-        postAuthorId: post.authorId,
-        userMembership: userMembership,
-        userDataRole: userData?.role,
-        isAuthor: user.uid === post.authorId,
-        isModerator: ['owner', 'moderator'].includes(userMembership?.role),
-        isGlobalModerator: ['moderator', 'admin'].includes(userData?.role),
-        canModerate: (['owner', 'moderator'].includes(userMembership?.role) || ['moderator', 'admin'].includes(userData?.role))
-      });
-    }
-  }, [user, post.authorId, userMembership, userData]);
-
   // Verificar permisos para modificar - CORREGIDO
   const isAuthor = user && user.uid === post.authorId;
   const isForumModerator = user && ['owner', 'moderator'].includes(userMembership?.role);

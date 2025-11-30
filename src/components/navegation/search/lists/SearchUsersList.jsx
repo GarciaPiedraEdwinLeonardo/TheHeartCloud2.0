@@ -1,4 +1,3 @@
-// components/SearchUsersList.jsx
 import { FaUser, FaAward, FaComment, FaArrowRight } from 'react-icons/fa';
 
 function SearchUsersList({ users, searchQuery, onUserClick }) {

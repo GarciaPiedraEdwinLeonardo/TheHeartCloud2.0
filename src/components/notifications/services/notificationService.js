@@ -18,8 +18,6 @@ const getExpirationDate = () => {
 export const notificationService = {
   smartCleanup: async (userId) => {
     try {
-      console.log(`🔧 Limpieza inteligente para: ${userId}`);
-
       // 1. Primero obtener TODAS las notificaciones del usuario
       const allNotifications =
         await notificationService.getAllUserNotifications(userId);
@@ -61,9 +59,6 @@ export const notificationService = {
         );
       }
 
-      console.log(
-        `🗑️ Resultado limpieza: ${expiredDeleted} expiradas, ${oldDeleted} antiguas`
-      );
       return {
         success: true,
         expiredDeleted,
@@ -135,8 +130,6 @@ export const notificationService = {
         createdAt: new Date(),
         expiresAt: getExpirationDate(),
       });
-
-      console.log(`✅ Verificación aprobada enviada por: ${adminEmail}`);
     } catch (error) {
       console.error("Error en notificación de aprobación:", error);
     }
@@ -160,8 +153,6 @@ export const notificationService = {
         createdAt: new Date(),
         expiresAt: getExpirationDate(),
       });
-
-      console.log(`✅ Verificación rechazada enviada por: ${adminEmail}`);
     } catch (error) {
       console.error("Error en notificación de rechazo:", error);
     }
@@ -199,8 +190,6 @@ export const notificationService = {
         createdAt: new Date(),
         expiresAt: getExpirationDate(),
       });
-
-      console.log(`Sanción enviada por: ${moderatorEmail}`);
     } catch (error) {
       console.error("Error en notificación de sanción:", error);
     }
@@ -219,7 +208,6 @@ export const notificationService = {
         createdAt: new Date(),
         expiresAt: getExpirationDate(),
       });
-      console.log(`Notificación de post aprobado enviada a: ${userId}`);
     } catch (error) {
       console.error("Error en notificación de post aprobado:", error);
     }
@@ -243,7 +231,6 @@ export const notificationService = {
         createdAt: new Date(),
         expiresAt: getExpirationDate(),
       });
-      console.log(`Notificación de post rechazado enviada a: ${userId}`);
     } catch (error) {
       console.error("Error en notificación de post rechazado:", error);
     }
@@ -262,7 +249,6 @@ export const notificationService = {
         createdAt: new Date(),
         expiresAt: getExpirationDate(),
       });
-      console.log(`Notificación de moderador asignado enviada a: ${userId}`);
     } catch (error) {
       console.error("Error en notificación de moderador:", error);
     }
@@ -281,7 +267,6 @@ export const notificationService = {
         createdAt: new Date(),
         expiresAt: getExpirationDate(),
       });
-      console.log(`Notificación de ban de comunidad enviada a: ${userId}`);
     } catch (error) {
       console.error("Error en notificación de ban:", error);
     }
@@ -300,7 +285,6 @@ export const notificationService = {
         createdAt: new Date(),
         expiresAt: getExpirationDate(),
       });
-      console.log(`Notificación de membresía aprobada enviada a: ${userId}`);
     } catch (error) {
       console.error("Error en notificación de membresía:", error);
     }
@@ -319,7 +303,6 @@ export const notificationService = {
         createdAt: new Date(),
         expiresAt: getExpirationDate(),
       });
-      console.log(`✅ Notificación de transferencia enviada a: ${userId}`);
     } catch (error) {
       console.error("Error en notificación de transferencia:", error);
     }

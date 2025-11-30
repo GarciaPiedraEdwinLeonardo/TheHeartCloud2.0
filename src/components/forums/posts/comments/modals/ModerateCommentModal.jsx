@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FaTimes, FaSpinner, FaExclamationTriangle, FaTrash, FaUserShield } from 'react-icons/fa';
 import { useCommentModeration } from './../hooks/useCommentModeration';
+import { toast } from 'react-hot-toast';
 
 function ModerateCommentModal({ isOpen, onClose, comment, forumData, onCommentModerated }) {
   const [loading, setLoading] = useState(false);
@@ -38,9 +39,9 @@ function ModerateCommentModal({ isOpen, onClose, comment, forumData, onCommentMo
         
         // Mostrar mensaje con información
         if (result.deletedCount > 1) {
-          alert(`✅ Comentario eliminado junto con ${result.deletedCount - 1} respuesta(s) por moderación.`);
+          toast.success(`Comentario eliminado junto con ${result.deletedCount - 1} respuesta(s) por moderación.`);
         } else {
-          alert('✅ Comentario eliminado por moderación.');
+          toast.success('Comentario eliminado por moderación.');
         }
       } else {
         setError(result.error);

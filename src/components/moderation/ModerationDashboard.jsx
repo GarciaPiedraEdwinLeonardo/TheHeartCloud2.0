@@ -20,8 +20,7 @@ function ModerationDashboard({ onShowUserProfile, onShowForum, onShowMain }) {
     { id: 'pending', name: 'Pendientes', icon: FaExclamationTriangle, count: stats.pending, color: 'text-red-600' },
     { id: 'resolved', name: 'Resueltos', icon: FaCheckCircle, count: stats.resolved, color: 'text-green-600' },
     { id: 'global', name: 'Globales', icon: FaGlobe, count: stats.global, color: 'text-blue-600' },
-    { id: 'user_reports', name: 'Usuarios', icon: FaUsers, count: stats.user_reports, color: 'text-purple-600' },
-    { id: 'audit', name: 'Auditoría', icon: FaHistory, count: stats.audit, color: 'text-gray-600' }
+    { id: 'user_reports', name: 'Auditoría', icon: FaHistory, count: stats.user_reports, color: 'text-purple-600' },
   ];
 
   // Encontrar la pestaña activa para usar en la versión móvil

@@ -1,4 +1,4 @@
-import { FaComments, FaUserShield, FaChartLine, FaStethoscope, FaUsers, FaFileMedical } from 'react-icons/fa';
+import { FaComments, FaUserShield, FaChartLine, FaFileMedical } from 'react-icons/fa';
 
 function Aside() {
     return (

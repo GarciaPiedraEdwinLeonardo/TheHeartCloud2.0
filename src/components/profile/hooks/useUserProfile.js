@@ -35,8 +35,6 @@ export const useUserProfile = (userId = null) => {
       setLoading(true);
       setError(null);
 
-      console.log("🔍 Cargando perfil para usuario:", targetUserId);
-
       // 1. Cargar datos básicos del usuario
       const userDoc = await getDoc(doc(db, "users", targetUserId));
 
@@ -45,7 +43,6 @@ export const useUserProfile = (userId = null) => {
       }
 
       const userDataFromFirebase = userDoc.data();
-      console.log("📊 Datos del usuario:", userDataFromFirebase);
 
       // 2. Cargar publicaciones del usuario
       const postsQuery = query(
@@ -55,12 +52,10 @@ export const useUserProfile = (userId = null) => {
       );
 
       const postsSnapshot = await getDocs(postsQuery);
-      console.log("📝 Publicaciones encontradas:", postsSnapshot.docs.length);
 
       const postsData = [];
       for (const postDoc of postsSnapshot.docs) {
         const postData = postDoc.data();
-        console.log("📄 Publicación:", postData);
 
         // Obtener nombre del foro
         let forumName = "General";
@@ -97,12 +92,10 @@ export const useUserProfile = (userId = null) => {
       );
 
       const commentsSnapshot = await getDocs(commentsQuery);
-      console.log("💬 Comentarios encontrados:", commentsSnapshot.docs.length);
 
       const commentsData = [];
       for (const commentDoc of commentsSnapshot.docs) {
         const commentData = commentDoc.data();
-        console.log("💭 Comentario:", commentData);
 
         // Obtener información del post
         let postTitle = "Publicación no disponible";
@@ -168,7 +161,6 @@ export const useUserProfile = (userId = null) => {
       // 4. Cargar foros del usuario
       const userForumsData = [];
       const joinedForums = userDataFromFirebase.joinedForums || [];
-      console.log("🏠 Foros unidos:", joinedForums);
 
       // Cargar información de cada foro
       for (const forumId of joinedForums) {
@@ -214,7 +206,6 @@ export const useUserProfile = (userId = null) => {
         commentsData,
         userForumsData
       );
-      console.log("📈 Estadísticas calculadas:", estadisticas);
 
       // 6. Formatear datos para el frontend con manejo de suspensión
       const formattedUserData = {
@@ -261,9 +252,6 @@ export const useUserProfile = (userId = null) => {
         // Datos originales de Firebase para compatibilidad
         _rawData: userDataFromFirebase,
       };
-
-      console.log("✅ Datos formateados:", formattedUserData);
-      console.log("🚦 Estado de suspensión:", formattedUserData.suspension);
 
       setUserData(formattedUserData);
       setUserPosts(postsData);

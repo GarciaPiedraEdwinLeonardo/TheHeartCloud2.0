@@ -159,7 +159,6 @@ function Register({ onSwitchToLogin }) {
                 // Eliminar el usuario no verificado existente
                 await deleteDoc(doc(db, 'users', userDoc.id));
                 
-                console.log('Usuario no verificado existente eliminado de Firestore');
             }
         } catch (error) {
             throw error;

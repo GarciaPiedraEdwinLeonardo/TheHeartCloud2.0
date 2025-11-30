@@ -12,11 +12,6 @@ export function useUserSuspension() {
     setError(null);
 
     try {
-      console.log("🔨 Iniciando suspensión para usuario:", userId);
-      console.log("📝 Razón:", reason);
-      console.log("⏱️ Duración:", duration);
-      console.log("👤 Suspendido por:", suspendedBy);
-
       let endDate = null;
 
       // Calcular fecha de fin basado en la duración (si no es permanente)
@@ -24,9 +19,8 @@ export function useUserSuspension() {
         const days = parseInt(duration);
         endDate = new Date();
         endDate.setDate(endDate.getDate() + days);
-        console.log("📅 Fecha de fin calculada:", endDate);
       } else {
-        console.log("⏰ Suspensión permanente");
+        endDate = null;
       }
 
       // Preparar datos de suspensión según tu estructura de Firestore
@@ -36,15 +30,13 @@ export function useUserSuspension() {
         "suspension.startDate": serverTimestamp(),
         "suspension.endDate": endDate,
         "suspension.suspendedBy": suspendedBy,
+        "suspension.duration": duration,
         lastUpdated: serverTimestamp(),
       };
-
-      console.log("💾 Actualizando documento con:", suspensionData);
 
       // Actualizar el documento del usuario
       await updateDoc(doc(db, "users", userId), suspensionData);
 
-      console.log("✅ Usuario suspendido exitosamente");
       return { success: true };
     } catch (err) {
       console.error("❌ Error suspendiendo usuario:", err);
@@ -60,8 +52,6 @@ export function useUserSuspension() {
     setError(null);
 
     try {
-      console.log("🔓 Levantando suspensión para usuario:", userId);
-
       const suspensionData = {
         "suspension.isSuspended": false,
         "suspension.reason": null,
@@ -73,7 +63,6 @@ export function useUserSuspension() {
 
       await updateDoc(doc(db, "users", userId), suspensionData);
 
-      console.log("✅ Suspensión levantada exitosamente");
       return { success: true };
     } catch (err) {
       console.error("❌ Error levantando suspensión:", err);
