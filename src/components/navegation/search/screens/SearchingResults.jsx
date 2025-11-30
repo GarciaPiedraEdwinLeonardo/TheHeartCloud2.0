@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearch } from './../hooks/useSearch';
 import SearchForumsList from './../lists/SearchForumsList';
 import SearchUsersList from './../lists/SearchUsersList';
+import SearchPostsList from './../lists/SearchPostsList';
 
 function SearchResults({ 
   searchQuery, 
-  searchType = 'forums', 
+  searchType = 'posts', 
   onThemeClick, 
   onUserClick,
-  onShowUserProfile  
+  onShowUserProfile,
+  onPostClick 
 }) {
   const [activeTab, setActiveTab] = useState(searchType);
   const { results, loading, error } = useSearch(searchQuery);
@@ -24,18 +26,27 @@ function SearchResults({
   };
 
   const handleUserClick = (user) => {
-  
-  if (onShowUserProfile) {
-    if (user && user.id) {
-      onShowUserProfile(user);
-    } else {
-      console.error('El objeto usuario no tiene ID:', user);
+    if (onShowUserProfile) {
+      if (user && user.id) {
+        onShowUserProfile(user);
+      } else {
+        console.error('El objeto usuario no tiene ID:', user);
+      }
     }
-  }
-};
+  };
 
-  // Obtener resultados del tipo activo (cambio instantáneo)
-  const activeResults = activeTab === 'forums' ? results.forums : results.users;
+  const handlePostClick = (post) => {
+    if (onPostClick) {
+      onPostClick(post);
+    }
+  };
+
+  // Obtener resultados del tipo activo
+  const activeResults = 
+    activeTab === 'forums' ? results.forums : 
+    activeTab === 'users' ? results.users : 
+    results.posts;
+  
   const resultsCount = activeResults.length;
 
   return (
@@ -52,7 +63,9 @@ function SearchResults({
               ? 'Buscando...' 
               : activeTab === 'forums' 
                 ? `Encontramos ${resultsCount} comunidades relacionadas` 
-                : `Encontramos ${resultsCount} usuarios relacionados`
+                : activeTab === 'users'
+                  ? `Encontramos ${resultsCount} usuarios relacionados`
+                  : `Encontramos ${resultsCount} publicaciones relacionadas`
             }
           </p>
         </div>
@@ -60,6 +73,16 @@ function SearchResults({
         {/* Navegación por pestañas */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
           <div className="flex border-b border-gray-200">
+            <button
+              onClick={() => handleTabChange('posts')}
+              className={`flex-1 py-4 px-6 text-center font-medium transition duration-200 ${
+                activeTab === 'posts'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Publicaciones ({loading ? '...' : results.posts.length})
+            </button>
             <button
               onClick={() => handleTabChange('forums')}
               className={`flex-1 py-4 px-6 text-center font-medium transition duration-200 ${
@@ -100,11 +123,18 @@ function SearchResults({
                 searchQuery={searchQuery} 
                 onForumClick={handleForumClick}
               />
-            ) : (
+            ) : activeTab === 'users' ? (
               <SearchUsersList 
                 users={activeResults} 
                 searchQuery={searchQuery} 
                 onUserClick={handleUserClick}
+              />
+            ) : (
+              <SearchPostsList 
+                posts={activeResults} 
+                searchQuery={searchQuery} 
+                onPostClick={handlePostClick}
+                onShowUserProfile={onShowUserProfile}
               />
             )}
           </div>
