@@ -1,16 +1,23 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  limit,
+  orderBy,
+} from "firebase/firestore";
 import { db } from "./../../../../config/firebase";
 
 export const useSearch = (searchQuery) => {
-  const [results, setResults] = useState({ forums: [], users: [] });
+  const [results, setResults] = useState({ forums: [], users: [], posts: [] });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const performSearch = async () => {
       if (!searchQuery.trim()) {
-        setResults({ forums: [], users: [] });
+        setResults({ forums: [], users: [], posts: [] });
         return;
       }
 
@@ -18,15 +25,17 @@ export const useSearch = (searchQuery) => {
       setError(null);
 
       try {
-        // Buscar AMBOS tipos simultáneamente
-        const [forumsResults, usersResults] = await Promise.all([
+        // Buscar TODOS los tipos simultáneamente
+        const [forumsResults, usersResults, postsResults] = await Promise.all([
           searchForums(searchQuery),
           searchUsers(searchQuery),
+          searchPosts(searchQuery),
         ]);
 
         setResults({
           forums: forumsResults,
           users: usersResults,
+          posts: postsResults,
         });
       } catch (error) {
         console.error("Error en búsqueda:", error);
@@ -105,7 +114,6 @@ export const useSearch = (searchQuery) => {
             type: "user",
             ...userData,
             fullName: fullName,
-            // Asegurar que tenemos los datos necesarios para mostrar en la lista
             photoURL: userData.photoURL || null,
             role: userData.role || "unverified",
             professionalInfo: userData.professionalInfo || {},
@@ -130,10 +138,61 @@ export const useSearch = (searchQuery) => {
       }
     };
 
+    const searchPosts = async (queryText) => {
+      try {
+        const postsQuery = query(
+          collection(db, "posts"),
+          where("isDeleted", "==", false),
+          where("status", "==", "active"),
+          orderBy("createdAt", "desc"),
+          limit(50)
+        );
+
+        const postsSnapshot = await getDocs(postsQuery);
+        const allPosts = postsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          type: "post",
+          ...doc.data(),
+        }));
+
+        // Filtrar posts por título O contenido
+        const filteredPosts = allPosts.filter((post) => {
+          const searchText = queryText.toLowerCase();
+          const postTitle = post.title?.toLowerCase() || "";
+          const postContent = post.content?.toLowerCase() || "";
+
+          return (
+            postTitle.includes(searchText) || postContent.includes(searchText)
+          );
+        });
+
+        // Ordenar por relevancia (título primero)
+        return filteredPosts.sort((a, b) => {
+          const aTitle = a.title?.toLowerCase() || "";
+          const bTitle = b.title?.toLowerCase() || "";
+          const searchText = queryText.toLowerCase();
+
+          const aStartsWith = aTitle.startsWith(searchText);
+          const bStartsWith = bTitle.startsWith(searchText);
+
+          if (aStartsWith && !bStartsWith) return -1;
+          if (!aStartsWith && bStartsWith) return 1;
+
+          return (
+            new Date(b.createdAt?.toDate?.() || b.createdAt) -
+            new Date(a.createdAt?.toDate?.() || a.createdAt)
+          );
+        });
+      } catch (error) {
+        console.error("Error buscando posts:", error);
+        return [];
+      }
+    };
+
     // Debounce para evitar muchas llamadas
     const timeoutId = setTimeout(performSearch, 400);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]); // Solo dependemos de searchQuery
+  }, [searchQuery]);
 
   return { results, loading, error };
 };
