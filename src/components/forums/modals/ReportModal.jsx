@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { FaTimes, FaSpinner, FaExclamationTriangle, FaUser } from 'react-icons/fa';
+import { useState, useEffect, useRef } from 'react';
+import { FaTimes, FaSpinner, FaExclamationTriangle, FaUser, FaExclamationCircle } from 'react-icons/fa';
 import { auth, db } from '../../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useReportActions } from './../../reports/hooks/useReportActions';
@@ -13,9 +13,14 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
   });
   const [userData, setUserData] = useState(null);
   const [targetData, setTargetData] = useState(null);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   
   const { createReport, loading } = useReportActions();
+
+  // Refs para hacer focus
+  const reasonRef = useRef(null);
+  const descriptionRef = useRef(null);
 
   // Cargar datos del usuario actual y información del target
   useEffect(() => {
@@ -72,6 +77,9 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
     if (isOpen) {
       loadUserData();
       loadTargetData();
+      // Resetear errores y touched al abrir
+      setErrors({});
+      setTouched({});
     }
   }, [isOpen, targetId, reportType]);
 
@@ -134,6 +142,67 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
     { value: 'critical', label: 'Crítica', color: 'text-red-600', description: 'Necesita acción inmediata' }
   ];
 
+  // Validaciones
+  const validateField = (name, value) => {
+    switch (name) {
+      case 'reason':
+        if (!value) return 'Debes seleccionar un motivo para el reporte';
+        return '';
+      
+      case 'description':
+        if (!value.trim()) return 'La descripción es requerida';
+        if (value.trim().length < 10) return 'La descripción debe tener al menos 10 caracteres';
+        if (value.trim().length > 1000) return 'La descripción no puede exceder 1000 caracteres';
+        return '';
+      
+      default:
+        return '';
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    newErrors.reason = validateField('reason', formData.reason);
+    newErrors.description = validateField('description', formData.description);
+    
+    setErrors(newErrors);
+    
+    // Retornar si hay errores
+    return !newErrors.reason && !newErrors.description;
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Validar en tiempo real solo si el campo ya fue tocado
+    if (touched[name]) {
+      const error = validateField(name, value);
+      setErrors(prev => ({
+        ...prev,
+        [name]: error
+      }));
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+    
+    const error = validateField(name, value);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
+  };
+
   const getReportTitle = () => {
     switch (reportType) {
       case 'forum':
@@ -194,115 +263,124 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    setError('');
-  };
-
   const getAuthorInfoFromTarget = async () => {
-  if (!targetData) return { authorId: null, authorName: null };
-  
-  switch (reportType) {
-    case 'post':
-      // Obtener nombre del autor desde users
-      if (targetData.authorId) {
-        try {
-          const authorDoc = await getDoc(doc(db, 'users', targetData.authorId));
-          if (authorDoc.exists()) {
-            const authorData = authorDoc.data();
-            const authorName = authorData.name ? 
-              `${authorData.name.name || ''} ${authorData.name.apellidopat || ''} ${authorData.name.apellidomat || ''}`.trim() 
-              : authorData.email || 'Usuario';
-            
-            return { 
-              authorId: targetData.authorId, 
-              authorName: authorName,
-              forumId: targetData.forumId,
-              forumName: targetData.forumName || 'Foro desconocido'
-            };
+    if (!targetData) return { authorId: null, authorName: null };
+    
+    switch (reportType) {
+      case 'post':
+        // Obtener nombre del autor desde users
+        if (targetData.authorId) {
+          try {
+            const authorDoc = await getDoc(doc(db, 'users', targetData.authorId));
+            if (authorDoc.exists()) {
+              const authorData = authorDoc.data();
+              const authorName = authorData.name ? 
+                `${authorData.name.name || ''} ${authorData.name.apellidopat || ''} ${authorData.name.apellidomat || ''}`.trim() 
+                : authorData.email || 'Usuario';
+              
+              return { 
+                authorId: targetData.authorId, 
+                authorName: authorName,
+                forumId: targetData.forumId,
+                forumName: targetData.forumName || 'Foro desconocido'
+              };
+            }
+          } catch (error) {
+            console.error('Error obteniendo datos del autor:', error);
           }
-        } catch (error) {
-          console.error('Error obteniendo datos del autor:', error);
         }
-      }
-      return { 
-        authorId: targetData.authorId, 
-        authorName: 'Autor desconocido',
-        forumId: targetData.forumId,
-        forumName: targetData.forumName || 'Foro desconocido'
-      };
-      
-    case 'comment':
-      // Misma lógica para comentarios
-      if (targetData.authorId) {
-        try {
-          const authorDoc = await getDoc(doc(db, 'users', targetData.authorId));
-          if (authorDoc.exists()) {
-            const authorData = authorDoc.data();
-            const authorName = authorData.name ? 
-              `${authorData.name.name || ''} ${authorData.name.apellidopat || ''} ${authorData.name.apellidomat || ''}`.trim() 
-              : authorData.email || 'Usuario';
-            
-            return { 
-              authorId: targetData.authorId, 
-              authorName: authorName,
-              postId: targetData.postId,
-              postTitle: targetData.postTitle || 'Post desconocido'
-            };
+        return { 
+          authorId: targetData.authorId, 
+          authorName: 'Autor desconocido',
+          forumId: targetData.forumId,
+          forumName: targetData.forumName || 'Foro desconocido'
+        };
+        
+      case 'comment':
+        // Misma lógica para comentarios
+        if (targetData.authorId) {
+          try {
+            const authorDoc = await getDoc(doc(db, 'users', targetData.authorId));
+            if (authorDoc.exists()) {
+              const authorData = authorDoc.data();
+              const authorName = authorData.name ? 
+                `${authorData.name.name || ''} ${authorData.name.apellidopat || ''} ${authorData.name.apellidomat || ''}`.trim() 
+                : authorData.email || 'Usuario';
+              
+              return { 
+                authorId: targetData.authorId, 
+                authorName: authorName,
+                postId: targetData.postId,
+                postTitle: targetData.postTitle || 'Post desconocido'
+              };
+            }
+          } catch (error) {
+            console.error('Error obteniendo datos del autor:', error);
           }
-        } catch (error) {
-          console.error('Error obteniendo datos del autor:', error);
         }
-      }
-      return { 
-        authorId: targetData.authorId, 
-        authorName: 'Autor desconocido',
-        postId: targetData.postId,
-        postTitle: targetData.postTitle || 'Post desconocido'
-      };
-      
-    case 'user':
-    case 'profile':
-      return { 
-        authorId: targetId, 
-        authorName: targetData.name ? 
-          `${targetData.name.name || ''} ${targetData.name.apellidopat || ''} ${targetData.name.apellidomat || ''}`.trim() 
-          : targetData.email || 'Usuario'
-      };
-    case 'forum':
-      return { 
-        authorId: targetData.ownerId || null,
-        authorName: targetData.ownerName || null
-      };
-    default:
-      return { authorId: null, authorName: null };
-  }
-};
+        return { 
+          authorId: targetData.authorId, 
+          authorName: 'Autor desconocido',
+          postId: targetData.postId,
+          postTitle: targetData.postTitle || 'Post desconocido'
+        };
+        
+      case 'user':
+      case 'profile':
+        return { 
+          authorId: targetId, 
+          authorName: targetData.name ? 
+            `${targetData.name.name || ''} ${targetData.name.apellidopat || ''} ${targetData.name.apellidomat || ''}`.trim() 
+            : targetData.email || 'Usuario'
+        };
+      case 'forum':
+        return { 
+          authorId: targetData.ownerId || null,
+          authorName: targetData.ownerName || null
+        };
+      default:
+        return { authorId: null, authorName: null };
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.reason || !formData.description.trim()) {
-      setError('Por favor selecciona un motivo y proporciona una descripción');
-      return;
-    }
-
-    if (formData.description.length < 10) {
-      setError('La descripción debe tener al menos 10 caracteres');
+    // Marcar todos los campos como tocados
+    const allTouched = {
+      reason: true,
+      description: true
+    };
+    setTouched(allTouched);
+    
+    // Validar formulario completo
+    if (!validateForm()) {
+      // Encontrar el primer campo con error y hacer focus
+      if (errors.reason) {
+        reasonRef.current?.focus();
+      } else if (errors.description) {
+        descriptionRef.current?.focus();
+      }
+      
+      // Scroll al primer error
+      const firstErrorElement = document.querySelector('.error-message');
+      if (firstErrorElement) {
+        firstErrorElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+      
       return;
     }
 
     const user = auth.currentUser;
     if (!user) {
-      setError('Debes iniciar sesión para reportar contenido');
+      toast.error('Debes iniciar sesión para reportar contenido');
       return;
     }
 
-    const { authorId, authorName, forumId, forumName, postId, postTitle } = getAuthorInfoFromTarget();
+    const { authorId, authorName, forumId, forumName, postId, postTitle } = await getAuthorInfoFromTarget();
 
     const reportData = {
       type: reportType,
@@ -330,7 +408,6 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       ...(postTitle && { postTitle })
     };
 
-
     const result = await createReport(reportData);
     
     if (result.success) {
@@ -341,8 +418,10 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         description: '',
         urgency: 'medium'
       });
+      setErrors({});
+      setTouched({});
     } else {
-      setError(result.error || 'Error al enviar el reporte');
+      toast.error(result.error || 'Error al enviar el reporte');
     }
   };
 
@@ -392,9 +471,17 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         {/* Contenido scrolleable */}
         <div className="max-h-[calc(80vh-120px)] overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-6">
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-700 text-sm">{error}</p>
+            {/* Mensaje de error general */}
+            {(errors.reason || errors.description) && Object.values(touched).some(t => t) && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
+                <div className="flex items-center gap-2 mb-2">
+                  <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <span className="text-red-800 font-medium text-sm">Completa los campos requeridos</span>
+                </div>
+                <ul className="text-red-700 text-sm space-y-1">
+                  {errors.reason && <li>• {errors.reason}</li>}
+                  {errors.description && <li>• {errors.description}</li>}
+                </ul>
               </div>
             )}
 
@@ -404,12 +491,18 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
                 Motivo del reporte *
               </label>
               <select
+                ref={reasonRef}
                 id="reason"
                 name="reason"
                 value={formData.reason}
                 onChange={handleInputChange}
+                onBlur={handleBlur}
                 disabled={loading}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 disabled:opacity-50"
+                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 disabled:opacity-50 ${
+                  errors.reason && touched.reason 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : 'border-gray-300 focus:border-blue-500'
+                }`}
                 required
               >
                 <option value="">Selecciona un motivo</option>
@@ -417,6 +510,12 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
                   <option key={index} value={reason}>{reason}</option>
                 ))}
               </select>
+              {errors.reason && touched.reason && (
+                <div className="flex items-center gap-1 mt-1">
+                  <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                  <p className="text-red-600 text-xs">{errors.reason}</p>
+                </div>
+              )}
             </div>
 
             {/* Urgencia */}
@@ -462,19 +561,39 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
                 Descripción detallada *
               </label>
               <textarea
+                ref={descriptionRef}
                 id="description"
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
+                onBlur={handleBlur}
                 disabled={loading}
                 rows={5}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none disabled:opacity-50"
+                maxLength={1000}
+                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none disabled:opacity-50 ${
+                  errors.description && touched.description 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : 'border-gray-300 focus:border-blue-500'
+                }`}
                 placeholder={getPlaceholderText()}
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.description.length} caracteres (mínimo 10)
-              </p>
+              <div className="flex justify-between items-center mt-1">
+                <div className="flex items-center gap-1">
+                  {errors.description && touched.description && (
+                    <>
+                      <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                      <p className="text-red-600 text-xs">{errors.description}</p>
+                    </>
+                  )}
+                </div>
+                <p className={`text-xs ${
+                  formData.description.length < 10 ? 'text-red-500' : 
+                  formData.description.length > 800 ? 'text-orange-500' : 'text-gray-500'
+                }`}>
+                  {formData.description.length}/1000 caracteres
+                </p>
+              </div>
             </div>
           
             {/* Información adicional general */}
