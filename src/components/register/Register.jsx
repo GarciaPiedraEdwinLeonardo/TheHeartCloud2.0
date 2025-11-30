@@ -13,7 +13,11 @@ function Register({ onSwitchToLogin }) {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [passwordErrors, setPasswordErrors] = useState([]);
+    const [fieldErrors, setFieldErrors] = useState({
+        email: '',
+        password: '',
+        confirmPassword: ''
+    });
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [verificationSent, setVerificationSent] = useState(false);
@@ -27,20 +31,28 @@ function Register({ onSwitchToLogin }) {
         setShowConfirmPassword(!showConfirmPassword);
     }
 
-    const handleChange = (e) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
-    };
-
     const validateEmail = (email) => {
+        if(!email) return 'El email es requerido';
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
+        if(!emailRegex.test(email)) return 'Formato de email inválido';
+
+        if(email.length > 254) return 'El email no puede ser de esa longitud';
+
+        if(email.length < 6) return 'El email no puede ser tan corto';
+
+        const invalidChars = /[<>()\[\]\\;:,@"]/;
+        if (invalidChars.test(email.split('@')[0])) {
+            return 'El email contiene caracteres no permitidos';
+        }
+
+        return null;
     };
 
     const validatePassword = (password) => {
-        if(password.length < 8 ){
+        if(!password) return 'Ingresa una contraseña';
+
+        if(password.length < 8){
             return 'La contraseña debe tener al menos 8 caracteres';
         }
 
@@ -48,31 +60,78 @@ function Register({ onSwitchToLogin }) {
             return 'La contraseña debe tener como máximo 18 caracteres';
         }
 
-        const specialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/;
-        if(specialChars.test(password)){
-            return 'La contraseña no puede contener caracteres especiales';
+        const allowedChars = /^[a-zA-Z0-9]+$/;
+        if (!allowedChars.test(password)) {
+            return 'Solo se permiten letras y números sin espacios';
         }
+
+        if (!/(?=.*[a-z])/.test(password)) return 'La contraseña debe contener al menos una minúscula';
+        if (!/(?=.*[A-Z])/.test(password)) return 'La contraseña debe contener al menos una mayúscula';
+        if (!/(?=.*\d)/.test(password)) return 'La contraseña debe contener al menos un número';
 
         return null;
     };
 
-    const validatePasswordRealTime = (password) => {
-        const errors = [];
+    const validateField = (name, value) => {
+        let error = '';
+        
+        switch (name) {
+            case 'email':
+                error = validateEmail(value);
+                break;
+            case 'password':
+                error = validatePassword(value);
+                break;
+            case 'confirmPassword':
+                if (value !== formData.password) {
+                    error = 'Las contraseñas no coinciden';
+                }
+                break;
+            default:
+                break;
+        }
+        
+        setFieldErrors(prev => ({
+            ...prev,
+            [name]: error
+        }));
+        
+        return !error;
+    };
 
-        if (password.length < 8) {
-            errors.push('Mínimo 8 caracteres');
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        
+        // Limitar longitud según campo
+        let processedValue = value;
+        if (name === 'email' && value.length > 254) {
+            processedValue = value.slice(0, 254);
+        } else if ((name === 'password' || name === 'confirmPassword') && value.length > 18) {
+            processedValue = value.slice(0, 18);
         }
-        if (password.length > 18) {
-            errors.push('Máximo 18 caracteres');
+        
+        // Para contraseñas, permitir solo letras y números
+        if ((name === 'password' || name === 'confirmPassword') && value.length > 0) {
+            const filteredValue = value.replace(/[^a-zA-Z0-9]/g, '');
+            processedValue = filteredValue.slice(0, 18);
         }
-        const specialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]+/;
-        if (specialChars.test(password)) {
-            errors.push('Solo letras y números');
+        
+        setFormData({
+            ...formData,
+            [name]: processedValue
+        });
+        
+        // Validación en tiempo real
+        if (processedValue) {
+            validateField(name, processedValue);
+        } else {
+            // Limpiar error si el campo está vacío
+            setFieldErrors(prev => ({
+                ...prev,
+                [name]: ''
+            }));
         }
-
-        setPasswordErrors(errors);
-        return errors.length === 0;
-    }
+    };
 
     // Limpiar usuario no verificado existente
     const cleanupExistingUnverifiedUser = async (email) => {
@@ -112,9 +171,12 @@ function Register({ onSwitchToLogin }) {
         setLoading(true);
         setError('');
 
-        // Validar email
-        if (!validateEmail(formData.email)) {
-            setError('Por favor ingresa un correo electrónico válido.');
+        // Validar todos los campos antes de enviar
+        const isEmailValid = validateField('email', formData.email);
+        const isPasswordValid = validateField('password', formData.password);
+        const isConfirmValid = validateField('confirmPassword', formData.confirmPassword);
+        
+        if (!isEmailValid || !isPasswordValid || !isConfirmValid) {
             setLoading(false);
             return;
         }
@@ -122,13 +184,6 @@ function Register({ onSwitchToLogin }) {
         // Validar que coinciden las contraseñas
         if (formData.password !== formData.confirmPassword) {
             setError('Las contraseñas no coinciden.');
-            setLoading(false);
-            return;
-        }
-
-        const passwordError = validatePassword(formData.password);
-        if(passwordError){
-            setError(passwordError);
             setLoading(false);
             return;
         }
@@ -331,10 +386,17 @@ function Register({ onSwitchToLogin }) {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
+                        onBlur={() => validateField('email', formData.email)}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        maxLength={254}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                            fieldErrors.email ? 'border-red-300' : 'border-gray-300'
+                        }`}
                         placeholder="tu@correo.com"
                     />
+                    {fieldErrors.email && (
+                        <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
+                    )}
                 </div>
 
                 <div className='relative'>
@@ -347,11 +409,15 @@ function Register({ onSwitchToLogin }) {
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
-                        onBlur={() => validatePasswordRealTime(formData.password)}
+                        onBlur={() => validateField('password', formData.password)}
                         required
                         minLength={8}
                         maxLength={18}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        pattern="[a-zA-Z0-9]+"
+                        title="Solo letras y números (sin espacios ni caracteres especiales)"
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                            fieldErrors.password ? 'border-red-300' : 'border-gray-300'
+                        }`}
                         placeholder="Entre 8 y 18 caracteres"
                     />
 
@@ -362,15 +428,11 @@ function Register({ onSwitchToLogin }) {
                             <FaEye className='w-5 h-5'></FaEye>
                         )}
                     </button>
+                    
+                    {fieldErrors.password && (
+                        <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>
+                    )}
                 </div>
-
-                {passwordErrors.length > 0 && (
-                    <div className='text-red-500 text-xs space-y-1 mt-1'>
-                        {passwordErrors.map((error,index) => (
-                            <p key={index}> {error}</p>
-                        ))}
-                    </div>
-                )}
 
                 <div className='relative'>
                     <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
@@ -382,9 +444,14 @@ function Register({ onSwitchToLogin }) {
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleChange}
+                        onBlur={() => validateField('confirmPassword', formData.confirmPassword)}
                         required
                         minLength={8}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        maxLength={18}
+                        pattern="[a-zA-Z0-9]+"
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                            fieldErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
+                        }`}
                         placeholder="Repite tu contraseña"
                     />
 
@@ -395,6 +462,10 @@ function Register({ onSwitchToLogin }) {
                             <FaEye className='w-5 h-5'></FaEye>
                         )}
                     </button>
+                    
+                    {fieldErrors.confirmPassword && (
+                        <p className="text-red-500 text-xs mt-1">{fieldErrors.confirmPassword}</p>
+                    )}
                 </div>
 
                 <button

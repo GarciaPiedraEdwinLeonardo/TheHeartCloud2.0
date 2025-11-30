@@ -7,6 +7,48 @@ function ForgotPassword({ onSwitchToLogin }) {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
+    const [fieldError, setFieldError] = useState('');
+
+    const validateEmail = (email) => {
+        if(!email) return 'El email es requerido';
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if(!emailRegex.test(email)) return 'Formato de email inválido';
+
+        if(email.length > 254) return 'El email no puede ser de esa longitud';
+
+        if(email.length < 6) return 'El email no puede ser tan corto';
+
+        const invalidChars = /[<>()\[\]\\;:,@"]/;
+        if (invalidChars.test(email.split('@')[0])) {
+            return 'El email contiene caracteres no permitidos';
+        }
+
+        return null;
+    };
+
+    const validateField = (value) => {
+        const error = validateEmail(value);
+        setFieldError(error);
+        return !error;
+    };
+
+    const handleEmailChange = (value) => {
+        // Limitar longitud
+        let processedValue = value;
+        if (value.length > 254) {
+            processedValue = value.slice(0, 254);
+        }
+        
+        setEmail(processedValue);
+        
+        // Validación en tiempo real
+        if (processedValue) {
+            validateField(processedValue);
+        } else {
+            setFieldError('');
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -14,9 +56,17 @@ function ForgotPassword({ onSwitchToLogin }) {
         setError('');
         setMessage('');
 
+        // Validar email antes de enviar
+        if (!validateField(email)) {
+            setLoading(false);
+            return;
+        }
+
         try {
             await sendPasswordResetEmail(auth, email);
             setMessage('Se ha enviado un enlace para restablecer tu contraseña a tu correo electrónico.');
+            setEmail(''); // Limpiar campo después del envío exitoso
+            setFieldError(''); // Limpiar errores
         } catch (error) {
             setError(getErrorMessage(error.code));
         } finally {
@@ -64,11 +114,18 @@ function ForgotPassword({ onSwitchToLogin }) {
                         type="email"
                         id="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => handleEmailChange(e.target.value)}
+                        onBlur={() => validateField(email)}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        maxLength={254}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                            fieldError ? 'border-red-300' : 'border-gray-300'
+                        }`}
                         placeholder="tu@correo.com"
                     />
+                    {fieldError && (
+                        <p className="text-red-500 text-xs mt-1">{fieldError}</p>
+                    )}
                 </div>
 
                 <button

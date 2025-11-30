@@ -11,13 +11,103 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [showPassword,setShowPassword] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    const [fieldErrors, setFieldErrors] = useState({
+        email: '',
+        password: ''
+    });
+
+    const validateEmail = (email) => {
+        if(!email) return 'El email es requerido';
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if(!emailRegex.test(email)) return 'Formato de email inválido';
+
+        if(email.length > 254) return 'El email no puede ser de esa longitud';
+
+        if(email.length < 6) return 'El email no puede ser tan corto';
+
+        const invalidChars = /[<>()\[\]\\;:,@"]/;
+        if (invalidChars.test(email.split('@')[0])) {
+            return 'El email contiene caracteres no permitidos';
+        }
+
+        return null;
+    };
+
+    const validatePassword = (password) => {
+        if(!password) return 'Ingresa una contraseña';
+
+        if(password.length < 8){
+            return 'La contraseña debe tener al menos 8 caracteres';
+        }
+
+        if(password.length > 18){
+            return 'La contraseña debe tener como máximo 18 caracteres';
+        }
+
+        const allowedChars = /^[a-zA-Z0-9]+$/;
+        if (!allowedChars.test(password)) {
+            return 'Solo se permiten letras y números sin espacios';
+        }
+
+        return null;
+    };
+
+    const validateField = (name, value) => {
+        let error = '';
+        
+        switch (name) {
+            case 'email':
+                error = validateEmail(value);
+                break;
+            case 'password':
+                error = validatePassword(value);
+                break;
+            default:
+                break;
+        }
+        
+        setFieldErrors(prev => ({
+            ...prev,
+            [name]: error
+        }));
+        
+        return !error;
+    };
 
     const handleChange = (e) => {
+        const { name, value } = e.target;
+        
+        // Limitar longitud según campo
+        let processedValue = value;
+        if (name === 'email' && value.length > 254) {
+            processedValue = value.slice(0, 254);
+        } else if (name === 'password' && value.length > 18) {
+            processedValue = value.slice(0, 18);
+        }
+        
+        // Para contraseñas, permitir solo letras y números
+        if (name === 'password' && value.length > 0) {
+            const filteredValue = value.replace(/[^a-zA-Z0-9]/g, '');
+            processedValue = filteredValue.slice(0, 18);
+        }
+        
         setFormData({
             ...formData,
-            [e.target.name]: e.target.value
+            [name]: processedValue
         });
+        
+        // Validación en tiempo real
+        if (processedValue) {
+            validateField(name, processedValue);
+        } else {
+            // Limpiar error si el campo está vacío
+            setFieldErrors(prev => ({
+                ...prev,
+                [name]: ''
+            }));
+        }
     };
 
     const toggleShowPassword = () => {
@@ -54,6 +144,15 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         setLoading(true);
         setError('');
 
+        // Validar todos los campos antes de enviar
+        const isEmailValid = validateField('email', formData.email);
+        const isPasswordValid = validateField('password', formData.password);
+        
+        if (!isEmailValid || !isPasswordValid) {
+            setLoading(false);
+            return;
+        }
+
         try {
             const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
             const user = userCredential.user;
@@ -65,13 +164,13 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                 
                 if (wasDeleted) {
                     await auth.signOut();
-                    setError('❌ El enlace de verificación ha expirado. Por favor regístrate nuevamente.');
+                    setError('El enlace de verificación ha expirado. Por favor regístrate nuevamente.');
                     setLoading(false);
                     return;
                 }
                 
                 await auth.signOut();
-                setError('❌ Por favor verifica tu email antes de iniciar sesión. Revisa tu bandeja de entrada y carpeta de spam. Si no recibiste el email, puedes registrarte nuevamente después de 1 hora.');
+                setError('Por favor verifica tu email antes de iniciar sesión. Revisa tu bandeja de entrada y carpeta de spam. Si no recibiste el email, puedes registrarte nuevamente después de 1 hora.');
                 setLoading(false);
                 return;
             }
@@ -102,36 +201,36 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             if (!userDoc.exists()) {
                 await setDoc(doc(db, 'users', user.uid), {
                     id: user.uid,
-                email: user.email,
-                name: null,
-                role: "unverified",
-                profileMedia: null,
-                professionalInfo: null,
-                stats: {
-                    aura: 0,
-                    contributionCount: 0,
-                    postCount: 0,
-                    commentCount: 0,
-                    forumCount: 0,
-                    joinedForumsCount: 0,
-                    totalImagesUploaded: 0,
-                    totalStorageUsed: 0
-                },
-                suspension: {
-                    isSuspended: false,
-                    reason: null,
-                    startDate: null,
-                    endDate: null,
-                    suspendedBy: null
-                },
-                joinedForums: [],
-                joinDate: new Date(),
-                lastLogin: new Date(),
-                isActive: true,
-                isDeleted: false,
-                deletedAt: null,
-                emailVerified: true,
-                emailVerificationSentAt: new Date()
+                    email: user.email,
+                    name: null,
+                    role: "unverified",
+                    profileMedia: null,
+                    professionalInfo: null,
+                    stats: {
+                        aura: 0,
+                        contributionCount: 0,
+                        postCount: 0,
+                        commentCount: 0,
+                        forumCount: 0,
+                        joinedForumsCount: 0,
+                        totalImagesUploaded: 0,
+                        totalStorageUsed: 0
+                    },
+                    suspension: {
+                        isSuspended: false,
+                        reason: null,
+                        startDate: null,
+                        endDate: null,
+                        suspendedBy: null
+                    },
+                    joinedForums: [],
+                    joinDate: new Date(),
+                    lastLogin: new Date(),
+                    isActive: true,
+                    isDeleted: false,
+                    deletedAt: null,
+                    emailVerified: true,
+                    emailVerificationSentAt: new Date()
                 });
                 console.log('Nuevo usuario de Google creado en Firestore');
             } else {
@@ -160,9 +259,9 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         
         switch (errorCode) {
             case 'auth/invalid-email':
-                return 'El correo electrónico es invalido';
+                return 'El correo electrónico es inválido';
             case 'auth/invalid-credential':
-                return 'El correo electrónico o contraseña no es valido.';
+                return 'El correo electrónico o contraseña no es válido.';
             case 'auth/user-disabled':
                 return 'Esta cuenta ha sido deshabilitada.';
             case 'auth/user-not-found':
@@ -206,10 +305,17 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
+                        onBlur={() => validateField('email', formData.email)}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        maxLength={254}
+                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                            fieldErrors.email ? 'border-red-300' : 'border-gray-300'
+                        }`}
                         placeholder="tu@correo.com"
                     />
+                    {fieldErrors.email && (
+                        <p className="text-red-500 text-xs mt-1">{fieldErrors.email}</p>
+                    )}
                 </div>
 
                 <div className='relative'>
@@ -222,18 +328,32 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
+                        onBlur={() => validateField('password', formData.password)}
                         required
-                        className="w-full px-4 py-3 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        maxLength={18}
+                        pattern="[a-zA-Z0-9]+"
+                        title="Solo letras y números (sin espacios ni caracteres especiales)"
+                        className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                            fieldErrors.password ? 'border-red-300' : 'border-gray-300'
+                        }`}
                         placeholder="••••••••"
                     />
 
-                    <button type='button' onClick={toggleShowPassword} className='absolute right-3 top-9 p-1 text-gray-500 hover:text-gray-700 transition duration-200'>
+                    <button 
+                        type='button' 
+                        onClick={toggleShowPassword} 
+                        className='absolute right-3 top-9 p-1 text-gray-500 hover:text-gray-700 transition duration-200'
+                    >
                         {showPassword ? (
-                            <FaEyeSlash className='w-5 h-5'></FaEyeSlash>
-                        ):(
-                            <FaEye className='w-5 h-5'></FaEye>
+                            <FaEyeSlash className='w-5 h-5' />
+                        ) : (
+                            <FaEye className='w-5 h-5' />
                         )}
                     </button>
+                    
+                    {fieldErrors.password && (
+                        <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>
+                    )}
                 </div>
 
                 <button
