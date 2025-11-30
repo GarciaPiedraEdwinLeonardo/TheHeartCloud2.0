@@ -1,69 +1,166 @@
-import { useState } from 'react';
-import { FaTimes, FaSpinner, FaUsers, FaInfoCircle, FaLock, FaUnlock } from 'react-icons/fa';
+import { useState, useRef, useEffect } from 'react';
+import { FaTimes, FaSpinner, FaUsers, FaInfoCircle, FaLock, FaUnlock, FaExclamationCircle } from 'react-icons/fa';
 import { useForumActions } from './../hooks/useForumsActions';
+import { toast } from 'react-hot-toast';
 
 function CreateForumModal({ isOpen, onClose, onForumCreated }) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     rules: '• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional',
-    requiresApproval: false  // NUEVO: Por defecto entrada libre
+    requiresApproval: false
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   
   const { createForum } = useForumActions();
 
+  // Refs para focus automático
+  const nameRef = useRef(null);
+  const descriptionRef = useRef(null);
+
+  // Resetear formulario al abrir/cerrar
+  useEffect(() => {
+    if (isOpen) {
+      setErrors({});
+      setTouched({});
+      // Focus en el primer campo después de un pequeño delay
+      setTimeout(() => {
+        nameRef.current?.focus();
+      }, 100);
+    } else {
+      // Resetear formulario al cerrar
+      setFormData({
+        name: '',
+        description: '',
+        rules: '• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional',
+        requiresApproval: false
+      });
+    }
+  }, [isOpen]);
+
+  // Validaciones
+  const validateField = (name, value) => {
+    switch (name) {
+      case 'name':
+        if (!value.trim()) return 'El nombre de la comunidad es obligatorio';
+        if (value.trim().length < 3) return 'El nombre debe tener al menos 3 caracteres';
+        if (value.trim().length > 50) return 'El nombre no puede exceder 50 caracteres';
+        if (!/^[A-Za-zÁáÉéÍíÓóÚúÑñ0-9\s\-\.,!¡¿?()]+$/.test(value)) {
+          return 'El nombre contiene caracteres no permitidos';
+        }
+        return '';
+      
+      case 'description':
+        if (!value.trim()) return 'La descripción es obligatoria';
+        if (value.trim().length < 10) return 'La descripción debe tener al menos 10 caracteres';
+        if (value.trim().length > 500) return 'La descripción no puede exceder 500 caracteres';
+        return '';
+      
+      case 'rules':
+        if (value.trim().length > 1000) return 'Las reglas no pueden exceder 1000 caracteres';
+        return '';
+      
+      default:
+        return '';
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    newErrors.name = validateField('name', formData.name);
+    newErrors.description = validateField('description', formData.description);
+    newErrors.rules = validateField('rules', formData.rules);
+    
+    setErrors(newErrors);
+    
+    return !newErrors.name && !newErrors.description && !newErrors.rules;
+  };
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    const newValue = type === 'checkbox' ? checked : value;
+    
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: newValue
     }));
-    setError('');
+    
+    // Validar en tiempo real solo si el campo ya fue tocado
+    if (touched[name]) {
+      const error = validateField(name, newValue);
+      setErrors(prev => ({
+        ...prev,
+        [name]: error
+      }));
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+    
+    const error = validateField(name, value);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.name.trim() || !formData.description.trim()) {
-      setError('El nombre y descripción son obligatorios');
-      return;
-    }
-
-    if (formData.name.length < 3) {
-      setError('El nombre debe tener al menos 3 caracteres');
-      return;
-    }
-
-    if (formData.description.length < 10) {
-      setError('La descripción debe tener al menos 10 caracteres');
+    // Marcar todos los campos como tocados
+    const allTouched = {
+      name: true,
+      description: true,
+      rules: true
+    };
+    setTouched(allTouched);
+    
+    // Validar formulario completo
+    if (!validateForm()) {
+      // Encontrar el primer campo con error y hacer focus
+      if (errors.name) {
+        nameRef.current?.focus();
+      } else if (errors.description) {
+        descriptionRef.current?.focus();
+      }
+      
+      // Scroll al primer error
+      const firstErrorElement = document.querySelector('.error-message');
+      if (firstErrorElement) {
+        firstErrorElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+      
       return;
     }
 
     setLoading(true);
-    setError('');
 
     try {
       const result = await createForum(formData);
       
       if (result.success) {
+        toast.success('¡Comunidad creada exitosamente!');
         if (onForumCreated) {
           onForumCreated(result.forum);
         }
         onClose();
-        setFormData({
-          name: '',
-          description: '',
-          rules: '• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional',
-          requiresApproval: false
-        });
       } else {
-        setError(result.error);
+        toast.error(result.error || 'Error al crear la comunidad');
       }
     } catch (error) {
       console.error('Error creando comunidad:', error);
-      setError('Error al crear la comunidad. Intenta nuevamente.');
+      toast.error('Error al crear la comunidad. Intenta nuevamente.');
     } finally {
       setLoading(false);
     }
@@ -91,9 +188,18 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
 
         <form onSubmit={handleSubmit} className="flex flex-col h-[calc(90vh-80px)]">
           <div className="flex-1 overflow-y-auto p-6">
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-700 text-sm">{error}</p>
+            {/* Mensaje de error general */}
+            {(errors.name || errors.description || errors.rules) && Object.values(touched).some(t => t) && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
+                <div className="flex items-center gap-2 mb-2">
+                  <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <span className="text-red-800 font-medium text-sm">Completa los campos requeridos</span>
+                </div>
+                <ul className="text-red-700 text-sm space-y-1">
+                  {errors.name && <li>• {errors.name}</li>}
+                  {errors.description && <li>• {errors.description}</li>}
+                  {errors.rules && <li>• {errors.rules}</li>}
+                </ul>
               </div>
             )}
 
@@ -103,20 +209,39 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                 Nombre de la Comunidad *
               </label>
               <input
+                ref={nameRef}
                 type="text"
                 id="name"
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
+                onBlur={handleBlur}
                 disabled={loading}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 disabled:opacity-50"
+                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition duration-200 disabled:opacity-50 ${
+                  errors.name && touched.name 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                }`}
                 placeholder="Ej: Cardiología Avanzada, Diabetes Tipo 1..."
                 maxLength={50}
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.name.length}/50 caracteres
-              </p>
+              <div className="flex justify-between items-center mt-1">
+                <div className="flex items-center gap-1">
+                  {errors.name && touched.name && (
+                    <>
+                      <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                      <p className="text-red-600 text-xs">{errors.name}</p>
+                    </>
+                  )}
+                </div>
+                <p className={`text-xs ${
+                  formData.name.length < 3 ? 'text-red-500' : 
+                  formData.name.length > 40 ? 'text-orange-500' : 'text-gray-500'
+                }`}>
+                  {formData.name.length}/50 caracteres
+                </p>
+              </div>
             </div>
 
             {/* Descripción */}
@@ -125,23 +250,42 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                 Descripción *
               </label>
               <textarea
+                ref={descriptionRef}
                 id="description"
                 name="description"
                 value={formData.description}
                 onChange={handleInputChange}
+                onBlur={handleBlur}
                 disabled={loading}
                 rows={4}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none disabled:opacity-50"
+                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition duration-200 resize-none disabled:opacity-50 ${
+                  errors.description && touched.description 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                }`}
                 placeholder="Describe el propósito, enfoque y temas que se discutirán en esta comunidad..."
                 maxLength={500}
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {formData.description.length}/500 caracteres
-              </p>
+              <div className="flex justify-between items-center mt-1">
+                <div className="flex items-center gap-1">
+                  {errors.description && touched.description && (
+                    <>
+                      <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                      <p className="text-red-600 text-xs">{errors.description}</p>
+                    </>
+                  )}
+                </div>
+                <p className={`text-xs ${
+                  formData.description.length < 10 ? 'text-red-500' : 
+                  formData.description.length > 400 ? 'text-orange-500' : 'text-gray-500'
+                }`}>
+                  {formData.description.length}/500 caracteres
+                </p>
+              </div>
             </div>
 
-            {/* NUEVO: Configuración de Membresía */}
+            {/* Configuración de Membresía */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-4">
                 Configuración de Membresía
@@ -221,14 +365,34 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                 name="rules"
                 value={formData.rules}
                 onChange={handleInputChange}
+                onBlur={handleBlur}
                 disabled={loading}
                 rows={6}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none disabled:opacity-50"
+                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition duration-200 resize-none disabled:opacity-50 ${
+                  errors.rules && touched.rules 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                }`}
                 placeholder="Establece las reglas básicas para los miembros de tu comunidad..."
                 maxLength={1000}
               />
+              <div className="flex justify-between items-center mt-1">
+                <div className="flex items-center gap-1">
+                  {errors.rules && touched.rules && (
+                    <>
+                      <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                      <p className="text-red-600 text-xs">{errors.rules}</p>
+                    </>
+                  )}
+                </div>
+                <p className={`text-xs ${
+                  formData.rules.length > 900 ? 'text-orange-500' : 'text-gray-500'
+                }`}>
+                  {formData.rules.length}/1000 caracteres
+                </p>
+              </div>
               <p className="text-xs text-gray-500 mt-1">
-                {formData.rules.length}/1000 caracteres. Las reglas ayudan a mantener un ambiente profesional.
+                Las reglas ayudan a mantener un ambiente profesional.
               </p>
             </div>
 
