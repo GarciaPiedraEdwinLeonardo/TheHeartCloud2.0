@@ -8,7 +8,7 @@ function MobileSearchButton({ onSearch }) {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      onSearch(searchQuery.trim(), 'temas');
+      onSearch(searchQuery.trim(), 'posts');
       setShowSearch(false);
       setSearchQuery('');
     }
@@ -42,7 +42,7 @@ function MobileSearchButton({ onSearch }) {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="¿Qué estás buscando?"
+              placeholder="Buscar publicaciones..."
               className="flex-1 px-4 py-3 border border-gray-300 rounded-l-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               autoFocus
             />
@@ -69,4 +69,4 @@ function MobileSearchButton({ onSearch }) {
   );
 }
 
-export default MobileSearchButton; 
+export default MobileSearchButton;
