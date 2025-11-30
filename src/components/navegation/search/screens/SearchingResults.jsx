@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearch } from './../hooks/useSearch';
 import SearchForumsList from './../lists/SearchForumsList';
 import SearchUsersList from './../lists/SearchUsersList';
@@ -29,8 +29,6 @@ function SearchResults({
     if (onShowUserProfile) {
       if (user && user.id) {
         onShowUserProfile(user);
-      } else {
-        console.error('El objeto usuario no tiene ID:', user);
       }
     }
   };

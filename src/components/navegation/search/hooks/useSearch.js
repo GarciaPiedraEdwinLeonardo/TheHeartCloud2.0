@@ -1,12 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  limit,
-  orderBy,
-} from "firebase/firestore";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { db } from "./../../../../config/firebase";
 
 export const useSearch = (searchQuery) => {
@@ -140,22 +133,15 @@ export const useSearch = (searchQuery) => {
 
     const searchPosts = async (queryText) => {
       try {
-        const postsQuery = query(
-          collection(db, "posts"),
-          where("isDeleted", "==", false),
-          where("status", "==", "active"),
-          orderBy("createdAt", "desc"),
-          limit(50)
-        );
-
-        const postsSnapshot = await getDocs(postsQuery);
+        // Cargar todos los posts
+        const postsSnapshot = await getDocs(collection(db, "posts"));
         const allPosts = postsSnapshot.docs.map((doc) => ({
           id: doc.id,
           type: "post",
           ...doc.data(),
         }));
 
-        // Filtrar posts por título O contenido
+        // Filtrar por título o contenido
         const filteredPosts = allPosts.filter((post) => {
           const searchText = queryText.toLowerCase();
           const postTitle = post.title?.toLowerCase() || "";
@@ -166,30 +152,43 @@ export const useSearch = (searchQuery) => {
           );
         });
 
-        // Ordenar por relevancia (título primero)
-        return filteredPosts.sort((a, b) => {
-          const aTitle = a.title?.toLowerCase() || "";
-          const bTitle = b.title?.toLowerCase() || "";
-          const searchText = queryText.toLowerCase();
+        // Cargar datos adicionales para posts filtrados
+        const postsWithDetails = [];
+        for (const post of filteredPosts) {
+          // Cargar datos del autor
+          if (post.authorId) {
+            try {
+              const authorDoc = await getDoc(doc(db, "users", post.authorId));
+              if (authorDoc.exists()) {
+                post.authorData = authorDoc.data();
+              }
+            } catch (error) {
+              console.error("Error cargando autor:", error);
+            }
+          }
 
-          const aStartsWith = aTitle.startsWith(searchText);
-          const bStartsWith = bTitle.startsWith(searchText);
+          // Cargar datos del foro
+          if (post.forumId) {
+            try {
+              const forumDoc = await getDoc(doc(db, "forums", post.forumId));
+              if (forumDoc.exists()) {
+                post.forumData = { id: forumDoc.id, ...forumDoc.data() };
+              }
+            } catch (error) {
+              console.error("Error cargando foro:", error);
+            }
+          }
 
-          if (aStartsWith && !bStartsWith) return -1;
-          if (!aStartsWith && bStartsWith) return 1;
+          postsWithDetails.push(post);
+        }
 
-          return (
-            new Date(b.createdAt?.toDate?.() || b.createdAt) -
-            new Date(a.createdAt?.toDate?.() || a.createdAt)
-          );
-        });
+        return postsWithDetails;
       } catch (error) {
         console.error("Error buscando posts:", error);
         return [];
       }
     };
 
-    // Debounce para evitar muchas llamadas
     const timeoutId = setTimeout(performSearch, 400);
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);

@@ -199,7 +199,12 @@ function Home() {
         {/* Contenido Principal - Cambia según la vista */}
         <div className="flex-1 min-w-0 flex justify-center">
           <div className="w-full max-w-7xl">
-            {currentView === 'main' && <Main/>}
+            {currentView === 'main' && (
+              <Main 
+                onShowPost={handleShowPost}
+                onShowUserProfile={handleShowUserProfile}
+              />
+            )}
             
             {currentView === 'profile' && (
               <ProfileView 
@@ -216,6 +221,7 @@ function Home() {
                 searchType={searchData.type} 
                 onThemeClick={handleShowForum} 
                 onShowUserProfile={handleShowUserProfile}
+                onPostClick={handleShowPost}
               />
             )}
             
