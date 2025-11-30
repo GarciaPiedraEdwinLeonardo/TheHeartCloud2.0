@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FaTimes, FaSpinner, FaImage, FaUserShield } from 'react-icons/fa';
+import { useState, useRef, useEffect } from 'react';
+import { FaTimes, FaSpinner, FaImage, FaUserShield, FaExclamationCircle } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
 import { usePostUpload } from './../hooks/usePostUpload';
 import { toast } from 'react-hot-toast';
@@ -11,32 +11,127 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
   });
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   
   const { createPost } = usePostActions();
   const { uploadImage, uploading: imageUploading } = usePostUpload();
 
+  // Refs para focus automático
+  const titleRef = useRef(null);
+  const contentRef = useRef(null);
+
+  // Resetear formulario al abrir/cerrar
+  useEffect(() => {
+    if (isOpen) {
+      setErrors({});
+      setTouched({});
+      // Focus en el primer campo después de un pequeño delay
+      setTimeout(() => {
+        titleRef.current?.focus();
+      }, 100);
+    } else {
+      // Resetear formulario al cerrar
+      setFormData({ title: '', content: '' });
+      setImages([]);
+    }
+  }, [isOpen]);
+
+  // Validaciones
+  const validateField = (name, value) => {
+    switch (name) {
+      case 'title':
+        if (!value.trim()) return 'El título es obligatorio';
+        if (value.trim().length < 5) return 'El título debe tener al menos 5 caracteres';
+        if (value.trim().length > 200) return 'El título no puede exceder 200 caracteres';
+        if (!/^[A-Za-zÁáÉéÍíÓóÚúÑñ0-9\s\-\.,!¡¿?()":]+$/.test(value)) {
+          return 'El título contiene caracteres no permitidos';
+        }
+        return '';
+      
+      case 'content':
+        if (!value.trim()) return 'El contenido es obligatorio';
+        if (value.trim().length < 10) return 'El contenido debe tener al menos 10 caracteres';
+        if (value.trim().length > 10000) return 'El contenido no puede exceder 10000 caracteres';
+        return '';
+      
+      default:
+        return '';
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    newErrors.title = validateField('title', formData.title);
+    newErrors.content = validateField('content', formData.content);
+    
+    setErrors(newErrors);
+    
+    return !newErrors.title && !newErrors.content;
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
-    setError('');
+    
+    // Validar en tiempo real solo si el campo ya fue tocado
+    if (touched[name]) {
+      const error = validateField(name, value);
+      setErrors(prev => ({
+        ...prev,
+        [name]: error
+      }));
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+    
+    const error = validateField(name, value);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
   };
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     
     if (images.length + files.length > 1) {
-      setError('Máximo 1 imagen');
+      toast.error('Máximo 1 imagen permitida');
       return;
     }
 
     for (const file of files) {
+      // Validar tipo de archivo
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error('Formato de imagen no permitido. Use JPEG, PNG o WebP');
+        continue;
+      }
+
+      // Validar tamaño (2MB)
+      const maxSize = 2 * 1024 * 1024;
+      if (file.size > maxSize) {
+        toast.error('La imagen no puede pesar más de 2MB');
+        continue;
+      }
+
       const result = await uploadImage(file);
       if (result.success) {
         setImages(prev => [...prev, result.image]);
+        toast.success('Imagen subida exitosamente');
+      } else {
+        toast.error(result.error || 'Error al subir la imagen');
       }
     }
   };
@@ -48,18 +143,35 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.title.trim() || !formData.content.trim()) {
-      setError('El título y contenido son obligatorios');
-      return;
-    }
-
-    if (formData.content.length < 10) {
-      setError('El contenido debe tener al menos 10 caracteres');
+    // Marcar todos los campos como tocados
+    const allTouched = {
+      title: true,
+      content: true
+    };
+    setTouched(allTouched);
+    
+    // Validar formulario completo
+    if (!validateForm()) {
+      // Encontrar el primer campo con error y hacer focus
+      if (errors.title) {
+        titleRef.current?.focus();
+      } else if (errors.content) {
+        contentRef.current?.focus();
+      }
+      
+      // Scroll al primer error
+      const firstErrorElement = document.querySelector('.error-message');
+      if (firstErrorElement) {
+        firstErrorElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+      
       return;
     }
 
     setLoading(true);
-    setError('');
 
     try {
       // Determinar el estado del post basado en la configuración y permisos
@@ -69,7 +181,7 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
         ...formData,
         forumId: forumId,
         images: images,
-        status: postStatus // Agregar el estado del post
+        status: postStatus
       });
 
       if (result.success) {
@@ -84,21 +196,27 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
           toast.success('Publicación creada exitosamente.');
         }
       } else {
-        setError(result.error);
+        toast.error(result.error || 'Error al crear la publicación');
       }
     } catch (error) {
-      setError('Error al crear la publicación');
+      toast.error('Error al crear la publicación');
     } finally {
       setLoading(false);
     }
   };
 
   // Prevenir scroll del body
-  if (isOpen) {
-    document.body.style.overflow = 'hidden';
-  } else {
-    document.body.style.overflow = 'unset';
-  }
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -132,9 +250,17 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
         <form onSubmit={handleSubmit} className="flex flex-col max-h-[calc(100vh-100px)]">
           <div className="flex-1 overflow-y-auto">
             <div className="p-6">
-              {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-red-700 text-sm">{error}</p>
+              {/* Mensaje de error general */}
+              {(errors.title || errors.content) && Object.values(touched).some(t => t) && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                    <span className="text-red-800 font-medium text-sm">Completa los campos requeridos</span>
+                  </div>
+                  <ul className="text-red-700 text-sm space-y-1">
+                    {errors.title && <li>• {errors.title}</li>}
+                    {errors.content && <li>• {errors.content}</li>}
+                  </ul>
                 </div>
               )}
 
@@ -144,20 +270,39 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
                   Título *
                 </label>
                 <input
+                  ref={titleRef}
                   type="text"
                   id="title"
                   name="title"
                   value={formData.title}
                   onChange={handleInputChange}
+                  onBlur={handleBlur}
                   disabled={loading}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 disabled:opacity-50"
+                  className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition duration-200 disabled:opacity-50 ${
+                    errors.title && touched.title 
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
                   placeholder="Escribe un título claro y descriptivo..."
                   maxLength={200}
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  {formData.title.length}/200 caracteres
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <div className="flex items-center gap-1">
+                    {errors.title && touched.title && (
+                      <>
+                        <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                        <p className="text-red-600 text-xs">{errors.title}</p>
+                      </>
+                    )}
+                  </div>
+                  <p className={`text-xs ${
+                    formData.title.length < 5 ? 'text-red-500' : 
+                    formData.title.length > 180 ? 'text-orange-500' : 'text-gray-500'
+                  }`}>
+                    {formData.title.length}/200 caracteres
+                  </p>
+                </div>
               </div>
 
               {/* Contenido */}
@@ -166,20 +311,39 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
                   Contenido *
                 </label>
                 <textarea
+                  ref={contentRef}
                   id="content"
                   name="content"
                   value={formData.content}
                   onChange={handleInputChange}
+                  onBlur={handleBlur}
                   disabled={loading}
                   rows={8}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none disabled:opacity-50"
+                  className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition duration-200 resize-none disabled:opacity-50 ${
+                    errors.content && touched.content 
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
                   placeholder="Comparte tu conocimiento, experiencia, pregunta o caso clínico..."
                   maxLength={10000}
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  {formData.content.length}/10000 caracteres (mínimo 10)
-                </p>
+                <div className="flex justify-between items-center mt-1">
+                  <div className="flex items-center gap-1">
+                    {errors.content && touched.content && (
+                      <>
+                        <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                        <p className="text-red-600 text-xs">{errors.content}</p>
+                      </>
+                    )}
+                  </div>
+                  <p className={`text-xs ${
+                    formData.content.length < 10 ? 'text-red-500' : 
+                    formData.content.length > 8000 ? 'text-orange-500' : 'text-gray-500'
+                  }`}>
+                    {formData.content.length}/10000 caracteres
+                  </p>
+                </div>
               </div>
 
               {/* Imágenes subidas */}
@@ -199,7 +363,8 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
                         <button
                           type="button"
                           onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          disabled={loading}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
                         >
                           ×
                         </button>
@@ -220,7 +385,7 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
                     <span className="text-sm">Subir imagen</span>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp,image/jpg"
                       onChange={handleImageUpload}
                       disabled={loading || imageUploading || images.length >= 1}
                       className="hidden"
@@ -228,7 +393,7 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
                   </label>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  Máximo 1 imágen. Formatos: JPEG, PNG, WebP. Tamaño máximo: 2MB por imagen.
+                  Máximo 1 imagen. Formatos: JPEG, PNG, WebP. Tamaño máximo: 2MB por imagen.
                 </p>
               </div>
 
