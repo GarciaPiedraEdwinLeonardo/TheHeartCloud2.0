@@ -22,6 +22,12 @@ function TopicsList({ temas, onTopicClick }) {
     }
   };
 
+  const truncateText = (text, maxLength = 150) => {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  };
+
   const handleTopicClick = (topic) => {
     if (onTopicClick) {
       onTopicClick(topic);
@@ -37,48 +43,48 @@ function TopicsList({ temas, onTopicClick }) {
           onClick={() => handleTopicClick(tema)}
         >
           <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition duration-200">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition duration-200 break-words">
                 {tema.nombre}
               </h3>
               
               <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-                <FaCalendar className="w-4 h-4 text-green-500" />
-                <span>Se unió el {formatDate(tema.fechaUnion)}</span>
+                <FaCalendar className="w-4 h-4 text-green-500 flex-shrink-0" />
+                <span className="truncate">Se unió el {formatDate(tema.fechaUnion)}</span>
               </div>
             </div>
             
-            <FaArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition duration-200 flex-shrink-0 mt-1" />
+            <FaArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition duration-200 flex-shrink-0 mt-1 ml-3" />
           </div>
 
           {/* Estadísticas de participación */}
           <div className="flex flex-wrap gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-lg">
-              <FaEdit className="w-4 h-4 text-blue-600" />
+              <FaEdit className="w-4 h-4 text-blue-600 flex-shrink-0" />
               <span className="font-medium text-blue-700">{tema.publicaciones}</span>
-              <span className="text-blue-600">publicaciones</span>
+              <span className="text-blue-600 whitespace-nowrap">publicaciones</span>
             </div>
             
             <div className="flex items-center gap-2 bg-green-50 px-3 py-2 rounded-lg">
-              <FaComment className="w-4 h-4 text-green-600" />
+              <FaComment className="w-4 h-4 text-green-600 flex-shrink-0" />
               <span className="font-medium text-green-700">{tema.comentarios}</span>
-              <span className="text-green-600">comentarios</span>
+              <span className="text-green-600 whitespace-nowrap">comentarios</span>
             </div>
 
             {/* Miembros del foro (si está disponible) */}
             {tema.memberCount && (
               <div className="flex items-center gap-2 bg-purple-50 px-3 py-2 rounded-lg">
-                <FaUsers className="w-4 h-4 text-purple-600" />
+                <FaUsers className="w-4 h-4 text-purple-600 flex-shrink-0" />
                 <span className="font-medium text-purple-700">{tema.memberCount}</span>
-                <span className="text-purple-600">miembros</span>
+                <span className="text-purple-600 whitespace-nowrap">miembros</span>
               </div>
             )}
           </div>
 
           {/* Descripción del foro (si está disponible) */}
           {tema.description && (
-            <p className="mt-3 text-gray-600 text-sm leading-relaxed">
-              {tema.description}
+            <p className="mt-3 text-gray-600 text-sm leading-relaxed break-words overflow-hidden">
+              {truncateText(tema.description, 150)}
             </p>
           )}
 
@@ -86,7 +92,7 @@ function TopicsList({ temas, onTopicClick }) {
           {tema.lastActivity && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span>Última actividad: {formatDate(tema.lastActivity)}</span>
+                <span className="truncate">Última actividad: {formatDate(tema.lastActivity)}</span>
               </div>
             </div>
           )}
