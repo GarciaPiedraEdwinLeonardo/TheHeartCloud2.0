@@ -394,13 +394,17 @@ function PostCard({
                           <FaTrash className="w-3 h-3" />
                           Eliminar como moderador
                         </button>
-                        <button
-                          onClick={handleBanAuthor}
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                        >
-                          <FaBan className="w-3 h-3" />
-                          Banear autor
-                        </button>
+                        
+                        {/* Solo mostrar opción de banear si es moderador del foro (no moderador/administrador global) */}
+                        {isForumModerator && !isGlobalModerator && (
+                          <button
+                            onClick={handleBanAuthor}
+                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                          >
+                            <FaBan className="w-3 h-3" />
+                            Banear autor
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
