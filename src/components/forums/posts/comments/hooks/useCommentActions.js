@@ -126,7 +126,7 @@ export const useCommentActions = () => {
       // 1. Agregar al historial de ediciones
       const editRecord = {
         previousContent: commentData.content,
-        editedAt: serverTimestamp(),
+        editedAt: new Date(),
         editedBy: user.uid,
       };
 
@@ -142,7 +142,10 @@ export const useCommentActions = () => {
       return { success: true };
     } catch (error) {
       console.error("Error editando comentario:", error);
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error: "Error al editar el comentario regrese mas tarde",
+      };
     }
   };
 

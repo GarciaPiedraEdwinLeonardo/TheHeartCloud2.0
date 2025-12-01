@@ -9,21 +9,56 @@ function CreateCommentModal({ isOpen, onClose, postId, postTitle, parentCommentI
   
   const { createComment } = useCommentActions();
 
+  // Constantes de validación
+  const MIN_LENGTH = 2;
+  const MAX_LENGTH = 500; 
+  const CHAR_WARNING_THRESHOLD = 450;
+
+  const handleContentChange = (e) => {
+    const newContent = e.target.value;
+    
+    // Limitar caracteres en tiempo real
+    if (newContent.length <= MAX_LENGTH) {
+      setContent(newContent);
+      setError(''); // Limpiar error al escribir
+    }
+  };
+
+  const validateContent = () => {
+    const trimmedContent = content.trim();
+    
+    if (!trimmedContent) {
+      return 'El contenido del comentario es obligatorio';
+    }
+
+    if (trimmedContent.length < MIN_LENGTH) {
+      return `El comentario debe tener al menos ${MIN_LENGTH} caracteres`;
+    }
+
+    if (trimmedContent.length > MAX_LENGTH) {
+      return `El comentario no puede tener más de ${MAX_LENGTH} caracteres`;
+    }
+
+    // Validación adicional: evitar comentarios con solo espacios o saltos de línea
+    if (trimmedContent.replace(/\s/g, '').length === 0) {
+      return 'El comentario no puede contener solo espacios';
+    }
+
+    // Validación adicional: limitar saltos de línea excesivos
+    const lineBreaks = (trimmedContent.match(/\n/g) || []).length;
+    if (lineBreaks > 20) {
+      return 'El comentario tiene demasiados saltos de línea';
+    }
+
+    return null;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!content.trim()) {
-      setError('El contenido del comentario es obligatorio');
-      return;
-    }
-
-    if (content.length < 2) {
-      setError('El comentario debe tener al menos 2 caracteres');
-      return;
-    }
-
-    if (content.length > 1000) {
-      setError('El comentario no puede tener más de 1000 caracteres');
+    const validationError = validateContent();
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -69,6 +104,11 @@ function CreateCommentModal({ isOpen, onClose, postId, postTitle, parentCommentI
     return `Comentar en: ${postTitle}`;
   };
 
+  // Calcular caracteres restantes y estado
+  const remainingChars = MAX_LENGTH - content.length;
+  const isNearLimit = content.length >= CHAR_WARNING_THRESHOLD;
+  const isValid = content.trim().length >= MIN_LENGTH && content.length <= MAX_LENGTH;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div 
@@ -109,17 +149,44 @@ function CreateCommentModal({ isOpen, onClose, postId, postTitle, parentCommentI
                 <textarea
                   id="content"
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={handleContentChange}
                   disabled={loading}
                   rows={6}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none disabled:opacity-50"
-                  placeholder="Escribe tu comentario aquí"
-                  maxLength={1000}
+                  placeholder="Escribe tu comentario aquí (máximo 500 caracteres)"
+                  maxLength={MAX_LENGTH}
                   required
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>{content.length}/1000</span>
+                <div className="flex justify-between items-center text-xs mt-2">
+                  <span className="text-gray-500">
+                    Mínimo {MIN_LENGTH} caracteres
+                  </span>
+                  <span 
+                    className={`font-medium ${
+                      isNearLimit 
+                        ? 'text-orange-600' 
+                        : remainingChars === 0 
+                          ? 'text-red-600' 
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {content.length}/{MAX_LENGTH}
+                  </span>
                 </div>
+                
+                {/* Advertencia cuando está cerca del límite */}
+                {isNearLimit && remainingChars > 0 && (
+                  <p className="text-xs text-orange-600 mt-1">
+                    ⚠️ Te quedan {remainingChars} caracteres
+                  </p>
+                )}
+                
+                {/* Mensaje cuando alcanza el límite */}
+                {remainingChars === 0 && (
+                  <p className="text-xs text-red-600 mt-1">
+                    ⚠️ Has alcanzado el límite de caracteres
+                  </p>
+                )}
               </div>
               
             </div>
@@ -138,8 +205,8 @@ function CreateCommentModal({ isOpen, onClose, postId, postTitle, parentCommentI
               </button>
               <button
                 type="submit"
-                disabled={loading || content.length < 2}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
+                disabled={loading || !isValid}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
               >
                 {loading && <FaSpinner className="w-4 h-4 animate-spin" />}
                 {parentCommentId ? 'Responder' : 'Publicar Comentario'}

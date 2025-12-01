@@ -172,21 +172,6 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
                   maxLength={1000}
                   required
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>Soporte para <strong>**negritas**</strong> y <em>*cursivas*</em></span>
-                  <span>{content.length}/1000</span>
-                </div>
-              </div>
-
-              {/* Información */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-blue-800 mb-2">Información importante</h4>
-                <ul className="text-xs text-blue-700 space-y-1">
-                  <li>• Esta edición quedará registrada en el historial</li>
-                  <li>• Los cambios serán visibles inmediatamente</li>
-                  <li>• No puedes editar comentarios de otros usuarios</li>
-                  <li>• Mantén un lenguaje profesional y respetuoso</li>
-                </ul>
               </div>
             </div>
           </div>
