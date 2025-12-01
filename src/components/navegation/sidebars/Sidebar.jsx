@@ -214,16 +214,6 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, o
 
           {/* Separador */}
           <div className="border-t border-gray-200 my-4"></div>
-
-          {/* Términos y Condiciones */}
-          <div className="mb-4">
-            <a 
-              href="/terminos-y-condiciones"
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800 transition duration-200"
-            >
-              <span className="text-sm font-medium">Términos y Condiciones</span>
-            </a>
-          </div>
         </nav>
       </aside>
 

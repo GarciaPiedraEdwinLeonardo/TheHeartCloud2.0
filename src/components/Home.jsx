@@ -26,6 +26,7 @@ function Home() {
   const [userData, setUserData] = useState(null); 
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [showSuspendedScreen, setShowSuspendedScreen] = useState(false); 
+  const [currentForumFromPost, setCurrentForumFromPost] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -88,6 +89,7 @@ function Home() {
 
   const handleShowPost = (postData) => {
     setCurrentPost(postData);
+    setCurrentForumFromPost(postData.forumData || null);
     navigateToView('post');
   };
 
@@ -237,8 +239,10 @@ function Home() {
             {currentView === 'post' && (
               <PostDetailView 
                 post={currentPost}
+                forumData = {currentForumFromPost}
                 onBack={handleBackFromPost}
                 onShowUserProfile={handleShowUserProfile}
+                onShowForum = {handleShowForum}
               />
             )}
             

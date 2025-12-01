@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaArrowLeft, FaSpinner, FaExclamationTriangle } from 'react-icons/fa';
+import { FaArrowLeft, FaSpinner, FaExclamationTriangle, FaUsers } from 'react-icons/fa';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from './../../../config/firebase';
 import { useComments } from './comments/hooks/useComments';
@@ -8,11 +8,11 @@ import CommentList from './comments/components/CommentList';
 import CreateCommentModal from './comments/modals/CreateCommentModal';
 import { usePost } from './hooks/usePost';
 
-function PostDetailView({ post, onBack, onShowUserProfile }) {
+function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserProfile, onShowForum }) {
   const { post: postData, loading: postLoading, error: postError } = usePost(post?.id);
   const [authorData, setAuthorData] = useState(null);
   const [userData, setUserData] = useState(null);
-  const [forumData, setForumData] = useState(null);
+  const [forumData, setForumData] = useState(initialForumData || null);
   const [showCreateCommentModal, setShowCreateCommentModal] = useState(false);
 
   const { comments, loading: commentsLoading, error: commentsError } = useComments(post?.id);
@@ -27,7 +27,11 @@ function PostDetailView({ post, onBack, onShowUserProfile }) {
   useEffect(() => {
     if (postData) {
       loadAuthorData();
-      loadForumData();
+      
+      // Solo cargar forumData si no lo tenemos ya desde las props
+      if (!forumData) {
+        loadForumData();
+      }
     }
   }, [postData]);
 
@@ -72,7 +76,6 @@ function PostDetailView({ post, onBack, onShowUserProfile }) {
 
   const handleCommentCreated = () => {
     setShowCreateCommentModal(false);
-    // ¡Ahora el postData se actualizará automáticamente gracias a usePost!
   };
 
   const handlePostUpdated = () => {
@@ -137,7 +140,7 @@ function PostDetailView({ post, onBack, onShowUserProfile }) {
     <div className="min-h-screen bg-gray-50 py-6">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header con botón de volver */}
-        <div className="mb-6">
+        <div className="mb-6 flex justify-between items-center">
           <button
             onClick={onBack}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-4 py-2 rounded-lg transition duration-200"
@@ -145,9 +148,22 @@ function PostDetailView({ post, onBack, onShowUserProfile }) {
             <FaArrowLeft className="w-4 h-4" />
             <span>Volver</span>
           </button>
+
+          {/* Mostrar nombre del foro en el header en móviles */}
+          {forumData && (
+            <div className="lg:hidden">
+              <button
+                onClick={() => onShowForum && onShowForum(forumData)}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 px-3 py-2 rounded-lg hover:bg-blue-50 transition duration-200 text-sm font-medium"
+              >
+                <FaUsers className="w-4 h-4" />
+                <span className="max-w-[120px] truncate">{forumData.name}</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Post Principal - AHORA CON DATOS EN TIEMPO REAL */}
+        {/* Post Principal */}
         <div className="mb-8">
           <PostCard
             post={postData}
@@ -155,10 +171,12 @@ function PostDetailView({ post, onBack, onShowUserProfile }) {
             onPostUpdated={handlePostUpdated}
             onPostDeleted={handlePostDeleted}
             onShowUserProfile={onShowUserProfile}
+            onShowForum={onShowForum}
             userRole={userData?.role}
             userMembership={{}}
             requiresPostApproval={false}
             showCommentsButton={false}
+            forumData={forumData}
           />
         </div>
 
