@@ -21,6 +21,7 @@ import ForumHeader from './../components/ForumHeader';
 import WelcomeMessage from './../components/WelcomeMessage';
 import ForumSidebar from './../components/ForumSidebar';
 import PostList from './../posts/components/PostList';
+import LeaveAsOwnerModal from '../modals/LeaveAsOwnerModal';
 import DeleteCommunityModal from '../modals/DeleteCommunityModal';
 import { useCommunityDeletion } from './../hooks/useCommunityDeletion'
 import { toast } from 'react-hot-toast';
@@ -41,6 +42,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   const [showAddModeratorModal, setShowAddModeratorModal] = useState(false);
   const [showCreatePostModal, setShowCreatePostModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [showLeaveAsOwnerModal, setShowLeaveAsOwnerModal] = useState(false);
   const [showManageMembersModal, setShowManageMembersModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showValidationModal, setShowValidationModal] = useState(false);
@@ -199,21 +201,24 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   };
 
   const handleLeaveAsOwner = async () => {
-    if (!window.confirm('¿Estás seguro de que quieres abandonar la comunidad? Se transferirá la propiedad al moderador más antiguo.')) {
-      return;
-    }
+    setShowLeaveAsOwnerModal(true);
+  };
 
+  const handleConfirmLeaveAsOwner = async () => {
     const result = await leaveForumAsOwner(forumDetails.id);
 
     if (result.success) {
       toast.success('Has abandonado la comunidad. La propiedad ha sido transferida.');
-
-       // Recargar los datos del foro para ver los cambios
+      
+      // Cerrar modal
+      setShowLeaveAsOwnerModal(false);
+      
+      // Recargar los datos del foro para ver los cambios
       await loadForumDetails();
       onBack();
     } else {
       console.error("Error en transferencia:", result.error);
-      toast.success(result.error);
+      toast.error(result.error); // Cambié de toast.success a toast.error
     }
   };
 
@@ -432,7 +437,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
               // Handlers
               onCreatePost={() => setShowCreatePostModal(true)}
               onJoinLeave={handleJoinLeave}
-              onLeaveAsOwner={handleLeaveAsOwner}
+              onLeaveAsOwner={() => setShowLeaveAsOwnerModal(true)}
               onReport={() => setShowReportModal(true)}
               onManageModerators={() => setShowAddModeratorModal(true)}
               onManageMembers={() => setShowManageMembersModal(true)}
@@ -512,6 +517,13 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
         onDeleteConfirmed={handleDeleteCommunityConfirmed}
         communityName={forumDetails.name}
         forumId={forumDetails.id}
+      />
+
+      <LeaveAsOwnerModal
+        isOpen={showLeaveAsOwnerModal}
+        onClose={() => setShowLeaveAsOwnerModal(false)}
+        onConfirm={handleConfirmLeaveAsOwner}
+        communityName={forumDetails.name}
       />
 
       {/* Botón flotante para móviles */}

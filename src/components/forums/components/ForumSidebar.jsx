@@ -136,7 +136,7 @@ import {
               >
                 <FaSignOutAlt className="w-4 h-4" />
                 {actionLoading ? 'Procesando...' : (
-                  isOwner ? 'Transferir y Salir' : 'Abandonar Comunidad'
+                  isOwner ? 'Salir' : 'Abandonar Comunidad'
                 )}
               </button>
             )}
