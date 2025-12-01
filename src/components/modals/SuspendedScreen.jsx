@@ -98,12 +98,6 @@ function SuspendedScreen({ userData, onLogout }) {
               {isPermanent ? 'Suspensión permanente' : timeLeft}
             </p>
           </div>
-
-          {/* Suspended by */}
-          <div className="text-left">
-            <label className="text-sm font-medium text-gray-700">Suspendido por:</label>
-            <p className="text-gray-900 mt-1">{userData.suspension.suspendedBy}</p>
-          </div>
         </div>
 
         {/* Información adicional */}

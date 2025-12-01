@@ -5,7 +5,6 @@ import { useReports } from "../../reports/hooks/useReports";
 
 export const useModerationDashboard = () => {
   const [activeTab, setActiveTab] = useState("pending");
-  const [globalReports, setGlobalReports] = useState([]);
   const [deletedContent, setDeletedContent] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,27 +17,7 @@ export const useModerationDashboard = () => {
     refresh: refreshUserReports,
   } = useReports();
 
-  // Cargar reportes globales
-  const loadGlobalReports = async () => {
-    try {
-      const q = query(
-        collection(db, "global_moderation_reports"),
-        orderBy("reportedAt", "desc")
-      );
-      const snapshot = await getDocs(q);
-      const reportsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-        source: "global",
-      }));
-      setGlobalReports(reportsData);
-    } catch (error) {
-      console.error("Error loading global reports:", error);
-      throw error;
-    }
-  };
-
-  // Cargar contenido eliminado
+  // Cargar contenido eliminado para estadísticas
   const loadDeletedContent = async () => {
     try {
       // Posts eliminados
@@ -82,17 +61,8 @@ export const useModerationDashboard = () => {
     setError(null);
 
     try {
-      const loadPromises = [];
-
-      // Siempre cargar reportes globales
-      loadPromises.push(loadGlobalReports());
-
-      // Cargar contenido eliminado solo para auditoría
-      if (activeTab === "audit") {
-        loadPromises.push(loadDeletedContent());
-      }
-
-      await Promise.all(loadPromises);
+      // Cargar contenido eliminado para estadísticas (siempre)
+      await loadDeletedContent();
     } catch (error) {
       console.error("Error loading dashboard data:", error);
       setError(error.message);
@@ -105,7 +75,7 @@ export const useModerationDashboard = () => {
     loadDataForTab();
   }, [activeTab, refreshTrigger]);
 
-  // Obtener reportes combinados según pestaña
+  // Obtener reportes según pestaña
   const getCombinedReports = () => {
     switch (activeTab) {
       case "pending":
@@ -116,17 +86,9 @@ export const useModerationDashboard = () => {
         // Solo reportes de usuarios resueltos
         return userReports.filter((report) => report.status === "resolved");
 
-      case "global":
-        // Solo reportes globales
-        return globalReports;
-
       case "user_reports":
-        // Todos los reportes de usuarios
+        // En auditoría, mostrar TODOS los reportes de usuarios
         return userReports;
-
-      case "audit":
-        // Contenido eliminado
-        return deletedContent;
 
       default:
         return [];
@@ -137,10 +99,9 @@ export const useModerationDashboard = () => {
   const stats = {
     pending: userReports.filter((r) => r.status === "pending").length,
     resolved: userReports.filter((r) => r.status === "resolved").length,
-    global: globalReports.length,
-    user_reports: userReports.length,
-    audit: deletedContent.length,
-    total: userReports.length + globalReports.length + deletedContent.length,
+    user_reports: userReports.length, // Para auditoría usamos el conteo total de reportes
+    audit: deletedContent.length, // Mantenemos esta estadística pero no la usamos en tabs
+    total: userReports.length,
   };
 
   const refreshAll = () => {

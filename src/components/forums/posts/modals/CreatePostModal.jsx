@@ -13,6 +13,7 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [showGeneralError, setShowGeneralError] = useState(false);
   
   const { createPost } = usePostActions();
   const { uploadImage, uploading: imageUploading } = usePostUpload();
@@ -26,6 +27,7 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
     if (isOpen) {
       setErrors({});
       setTouched({});
+      setShowGeneralError(false);
       // Focus en el primer campo después de un pequeño delay
       setTimeout(() => {
         titleRef.current?.focus();
@@ -86,6 +88,14 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
         ...prev,
         [name]: error
       }));
+    }
+
+    // Ocultar el mensaje de error general cuando el usuario empiece a corregir
+    if (showGeneralError && errors[name]) {
+      const error = validateField(name, value);
+      if (!error) {
+        setShowGeneralError(false);
+      }
     }
   };
 
@@ -152,6 +162,9 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
     
     // Validar formulario completo
     if (!validateForm()) {
+      // Mostrar mensaje de error general solo al enviar
+      setShowGeneralError(true);
+      
       // Encontrar el primer campo con error y hacer focus
       if (errors.title) {
         titleRef.current?.focus();
@@ -250,8 +263,8 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
         <form onSubmit={handleSubmit} className="flex flex-col max-h-[calc(100vh-100px)]">
           <div className="flex-1 overflow-y-auto">
             <div className="p-6">
-              {/* Mensaje de error general */}
-              {(errors.title || errors.content) && Object.values(touched).some(t => t) && (
+              {/* Mensaje de error general - SOLO al enviar */}
+              {showGeneralError && (errors.title || errors.content) && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
                   <div className="flex items-center gap-2 mb-2">
                     <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />

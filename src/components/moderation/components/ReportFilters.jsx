@@ -29,14 +29,6 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
     { value: 'year', label: 'Este año' }
   ];
 
-  const actionTypes = [
-    { value: 'all', label: 'Todas las acciones' },
-    { value: 'post_rejected', label: 'Posts Rechazados' },
-    { value: 'comment_rejected', label: 'Comentarios Rechazados' },
-    { value: 'community_ban', label: 'Usuarios Baneados' },
-    { value: 'post_deleted_by_moderator', label: 'Posts Eliminados' }
-  ];
-
   const handleFilterChange = (filterName, value) => {
     onFiltersChange({
       ...filters,
@@ -49,7 +41,6 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
       type: 'all',
       urgency: 'all',
       dateRange: 'all',
-      actionType: 'all',
       search: ''
     });
   };
@@ -59,7 +50,6 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
     if (filters.type !== 'all') count++;
     if (filters.urgency !== 'all') count++;
     if (filters.dateRange !== 'all') count++;
-    if (filters.actionType !== 'all') count++;
     if (filters.search) count++;
     return count;
   };
@@ -142,65 +132,41 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
             </div>
           </div>
 
-          {/* Tipo de contenido (no aplica para auditoría) */}
-          {activeTab !== 'audit' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo de contenido
-              </label>
-              <select
-                value={filters.type}
-                onChange={(e) => handleFilterChange('type', e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-              >
-                {reportTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Tipo de contenido */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tipo de contenido
+            </label>
+            <select
+              value={filters.type}
+              onChange={(e) => handleFilterChange('type', e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+              {reportTypes.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          {/* Tipo de acción (solo para reportes globales y auditoría) */}
-          {(activeTab === 'global' || activeTab === 'audit') && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo de acción
-              </label>
-              <select
-                value={filters.actionType}
-                onChange={(e) => handleFilterChange('actionType', e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-              >
-                {actionTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Nivel de urgencia (no aplica para auditoría) */}
-          {activeTab !== 'audit' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Urgencia
-              </label>
-              <select
-                value={filters.urgency}
-                onChange={(e) => handleFilterChange('urgency', e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-              >
-                {urgencyLevels.map((level) => (
-                  <option key={level.value} value={level.value}>
-                    {level.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Nivel de urgencia */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Urgencia
+            </label>
+            <select
+              value={filters.urgency}
+              onChange={(e) => handleFilterChange('urgency', e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+              {urgencyLevels.map((level) => (
+                <option key={level.value} value={level.value}>
+                  {level.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Rango de fechas */}
           <div>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   FaHeart, FaRegHeart, FaThumbsDown, FaRegThumbsDown, FaComment, 
   FaEllipsisH, FaUser, FaCalendar, FaEdit, FaTrash, FaBan,
-  FaClock, FaCheckCircle, FaTimesCircle, FaFlag
+  FaClock, FaCheckCircle, FaTimesCircle, FaFlag, FaUsers
 } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
 import { auth, db } from './../../../../config/firebase';
@@ -19,7 +19,8 @@ function PostCard({
   onPostDeleted, 
   onDeleteContent, 
   onBanUser,
-  onShowUserProfile, // Nueva prop para mostrar perfil de usuario
+  onShowUserProfile,
+  onShowForum, // Nueva prop para navegar al foro
   userRole,
   userMembership,
   requiresPostApproval,
@@ -160,6 +161,13 @@ function PostCard({
     }
   };
 
+  // Nueva función para manejar clic en la comunidad
+  const handleForumClick = () => {
+    if (onShowForum && forumData) {
+      onShowForum(forumData);
+    }
+  };
+
   const handleEdit = () => {
     setShowEditModal(true);
     setShowMenu(false);
@@ -250,6 +258,14 @@ function PostCard({
   const getAuthorPhoto = () => {
     if (!authorData) return null;
     return authorData.photoURL || null;
+  };
+
+  // Obtener nombre del foro
+  const getForumName = () => {
+    if (forumData?.name) return forumData.name;
+    if (post.forumData?.name) return post.forumData.name;
+    if (post.forumName) return post.forumName;
+    return 'Comunidad';
   };
 
   // Determinar estado del post
@@ -393,6 +409,19 @@ function PostCard({
             )}
           </div>
         </div>
+
+        {/* Información de la Comunidad */}
+        {forumData && (
+          <div className="mb-4">
+            <button
+              onClick={handleForumClick}
+              className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition duration-200 text-sm font-medium border border-blue-200"
+            >
+              <FaUsers className="w-3 h-3" />
+              <span>{getForumName()}</span>
+            </button>
+          </div>
+        )}
 
         {/* Contenido del Post */}
         <div className="mb-4">

@@ -214,6 +214,7 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
                   userData={userData} 
                   onTopicClick={handleTopicClick}
                   onCommentClick={handleCommentClick}
+                  onShowForum={onShowForum}
                 />
               </div>
             </main>

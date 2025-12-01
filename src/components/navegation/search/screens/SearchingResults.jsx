@@ -10,7 +10,7 @@ function SearchResults({
   onThemeClick, 
   onUserClick,
   onShowUserProfile,
-  onPostClick 
+  onPostClick, 
 }) {
   const [activeTab, setActiveTab] = useState(searchType);
   const { results, loading, error } = useSearch(searchQuery);
@@ -133,6 +133,7 @@ function SearchResults({
                 searchQuery={searchQuery} 
                 onPostClick={handlePostClick}
                 onShowUserProfile={onShowUserProfile}
+                onShowForum={onThemeClick}
               />
             )}
           </div>

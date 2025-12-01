@@ -202,6 +202,7 @@ function Home() {
               <Main 
                 onShowPost={handleShowPost}
                 onShowUserProfile={handleShowUserProfile}
+                onShowForum={handleShowForum}
               />
             )}
             

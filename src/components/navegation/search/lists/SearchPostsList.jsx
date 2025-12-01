@@ -1,7 +1,7 @@
 import { FaComments } from 'react-icons/fa';
 import PostCard from './../../../forums/posts/components/PostCard';
 
-function SearchPostsList({ posts, searchQuery, onPostClick, onShowUserProfile }) {
+function SearchPostsList({ posts, searchQuery, onPostClick, onShowUserProfile, onShowForum }) {
   if (posts.length === 0) {
     return (
       <div className="text-center py-8">
@@ -28,7 +28,8 @@ function SearchPostsList({ posts, searchQuery, onPostClick, onShowUserProfile })
           onPostUpdated={() => {}}
           onPostDeleted={() => {}}
           onShowUserProfile={onShowUserProfile}
-          userRole={null} // No necesitamos rol del usuario para búsqueda
+          onShowForum={onShowForum}
+          userRole={null} 
           userMembership={{}}
           requiresPostApproval={false}
           forumData={post.forumData}

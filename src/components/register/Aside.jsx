@@ -29,7 +29,7 @@ function Aside() {
                         <h3 className="text-xl font-semibold text-gray-900">Foros Especializados</h3>
                         <p className="text-gray-600 mt-2">
                             Participa en comunidades médicas específicas y comparte casos clínicos 
-                            con colegas de tu especialidad.
+                            con compañeros de tu especialidad.
                         </p>
                     </div>
                 </div>
@@ -68,7 +68,7 @@ function Aside() {
                         <h3 className="text-xl font-semibold text-gray-900">Casos Clínicos</h3>
                         <p className="text-gray-600 mt-2">
                             Discute diagnósticos complejos y comparte experiencias con 
-                            profesionales de todo el mundo.
+                            profesionales de todos.
                         </p>
                     </div>
                 </div>

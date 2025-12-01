@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaExclamationTriangle, FaCheckCircle, FaGlobe, FaUsers, FaHistory, FaBars, FaTimes } from 'react-icons/fa';
+import { FaExclamationTriangle, FaCheckCircle, FaUsers, FaHistory, FaBars, FaTimes } from 'react-icons/fa';
 import { IoIosRefresh } from "react-icons/io";
 import { useModerationDashboard } from './hooks/useModerationDashboard';
 import ReportsPanel from './components/ReportsPanel';
@@ -19,7 +19,6 @@ function ModerationDashboard({ onShowUserProfile, onShowForum, onShowMain }) {
   const tabs = [
     { id: 'pending', name: 'Pendientes', icon: FaExclamationTriangle, count: stats.pending, color: 'text-red-600' },
     { id: 'resolved', name: 'Resueltos', icon: FaCheckCircle, count: stats.resolved, color: 'text-green-600' },
-    { id: 'global', name: 'Globales', icon: FaGlobe, count: stats.global, color: 'text-blue-600' },
     { id: 'user_reports', name: 'Auditoría', icon: FaHistory, count: stats.user_reports, color: 'text-purple-600' },
   ];
 
@@ -100,7 +99,7 @@ function ModerationDashboard({ onShowUserProfile, onShowForum, onShowMain }) {
         </div>
 
         {/* Stats Cards Responsive */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -128,16 +127,6 @@ function ModerationDashboard({ onShowUserProfile, onShowForum, onShowMain }) {
                 <p className="text-xl sm:text-2xl font-bold text-green-600">{stats.resolved}</p>
               </div>
               <FaCheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Globales</p>
-                <p className="text-xl sm:text-2xl font-bold text-purple-600">{stats.global}</p>
-              </div>
-              <FaGlobe className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
             </div>
           </div>
         </div>

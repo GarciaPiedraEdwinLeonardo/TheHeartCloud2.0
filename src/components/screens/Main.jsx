@@ -4,7 +4,7 @@ import { auth, db } from './../../config/firebase';
 import { FaSpinner, FaExclamationTriangle, FaComments } from 'react-icons/fa';
 import PostCard from './../forums/posts/components/PostCard';
 
-function Main({ onShowPost, onShowUserProfile }) {
+function Main({ onShowPost, onShowUserProfile, onShowForum }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -151,6 +151,7 @@ function Main({ onShowPost, onShowUserProfile }) {
                 onPostUpdated={handlePostUpdated}
                 onPostDeleted={handlePostDeleted}
                 onShowUserProfile={onShowUserProfile}
+                onShowForum={onShowForum}
                 userRole={userData?.role}
                 userMembership={{}}
                 requiresPostApproval={false}

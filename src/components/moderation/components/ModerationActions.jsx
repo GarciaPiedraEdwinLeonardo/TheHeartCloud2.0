@@ -1,40 +1,29 @@
 import { useState } from 'react';
 import { 
-  FaCheck, FaTimes, FaBan, FaTrash, FaUserSlash, FaSpinner, FaInfoCircle 
+  FaCheck, FaTimes, FaTrash, FaSpinner,
 } from 'react-icons/fa';
 import { useModerationActions } from './../hooks/useModerationActions';
 import { toast } from 'react-hot-toast';
 
 function ModerationActions({ report, onClose }) {
   const [showModal, setShowModal] = useState(false);
-  const [modalData, setModalData] = useState({ reason: '', duration: '7 days' });
+  const [modalData, setModalData] = useState({ reason: '' });
   const [selectedAction, setSelectedAction] = useState('');
   
   const { 
     resolveReport, 
     dismissReport,
-    suspendUser, 
     deleteContent,
     loading,
     error 
   } = useModerationActions();
 
-  // Determinar tipo de reporte
-  const isGlobalReport = report.source === 'global';
-  const isAuditReport = report.source === 'audit';
-  const isUserReport = !isGlobalReport && !isAuditReport;
-
-  // Obtener acciones disponibles - CORREGIDO: Sin acciones para global reports
+  // Obtener acciones disponibles - SOLO para reportes pendientes de usuarios
   const getAvailableActions = () => {
     const actions = [];
 
-    // Si es reporte global o de auditoría, no hay acciones
-    if (isGlobalReport || isAuditReport) {
-      return actions;
-    }
-
-    // Para reportes pendientes de usuarios
-    if (isUserReport && report.status === 'pending') {
+    // Solo para reportes pendientes
+    if (report.status === 'pending') {
       actions.push(
         {
           id: 'resolve',
@@ -54,24 +43,13 @@ function ModerationActions({ report, onClose }) {
     }
 
     // Para contenido que se puede eliminar (solo posts y comentarios)
-    if (isUserReport && (report.type === 'post' || report.type === 'comment')) {
+    if (report.status === 'pending' && (report.type === 'post' || report.type === 'comment')) {
       actions.push({
         id: 'delete_content',
         label: `Eliminar ${report.type === 'post' ? 'publicación' : 'comentario'}`,
         icon: FaTrash,
         color: 'text-red-600',
         bgColor: 'bg-red-50 hover:bg-red-100',
-      });
-    }
-
-    // Suspender usuario (para reportes de usuario o cuando hay autor)
-    if (isUserReport && (report.type === 'user' || report.type === 'profile' || report.targetAuthorId)) {
-      actions.push({
-        id: 'suspend_user',
-        label: 'Suspender usuario',
-        icon: FaUserSlash,
-        color: 'text-orange-600',
-        bgColor: 'bg-orange-50 hover:bg-orange-100',
       });
     }
 
@@ -102,15 +80,6 @@ function ModerationActions({ report, onClose }) {
         case 'delete_content':
           result = await deleteContent(report.type, report.targetId, modalData.reason, report.forumId);
           break;
-        case 'suspend_user':
-          const userId = report.targetAuthorId || report.targetId;
-          if (userId) {
-            result = await suspendUser(userId, modalData.reason, modalData.duration);
-          } else {
-            toast.error('No se pudo identificar el usuario');
-            return;
-          }
-          break;
         default:
           break;
       }
@@ -119,6 +88,7 @@ function ModerationActions({ report, onClose }) {
         toast.success('Acción ejecutada correctamente');
         onClose();
         setShowModal(false);
+        window.location.reload();
       } else {
         toast.error("Error, acción fallida");
         console.error("Error acción fallida " + error);        
@@ -131,50 +101,16 @@ function ModerationActions({ report, onClose }) {
     }
   };
 
-  const actions = getAvailableActions();
-
   const getModalTitle = () => {
     switch (selectedAction) {
       case 'resolve': return 'Resolver Reporte';
       case 'dismiss': return 'Desestimar Reporte';
       case 'delete_content': return `Eliminar ${report.type === 'post' ? 'Publicación' : 'Comentario'}`;
-      case 'suspend_user': return 'Suspender Usuario';
       default: return 'Confirmar Acción';
     }
   };
 
-  // Si es reporte global, mostrar información en lugar de acciones
-  if (isGlobalReport) {
-    return (
-      <div className="border-t border-gray-200 pt-4 mt-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">Información del Reporte Global</h4>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <FaInfoCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-blue-800 mb-1">
-                Reporte de Acción de Moderación
-              </p>
-              <p className="text-sm text-blue-700">
-                Este es un reporte global de una acción de moderación ya ejecutada. 
-                No requiere acciones adicionales.
-              </p>
-              {report.actionType && (
-                <p className="text-xs text-blue-600 mt-2">
-                  <strong>Tipo de acción:</strong> {report.actionType}
-                </p>
-              )}
-              {report.reason && (
-                <p className="text-xs text-blue-600">
-                  <strong>Motivo:</strong> {report.reason}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const actions = getAvailableActions();
 
   return (
     <>
@@ -237,29 +173,11 @@ function ModerationActions({ report, onClose }) {
               />
             </div>
 
-            {selectedAction === 'suspend_user' && (
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Duración de la suspensión
-                </label>
-                <select
-                  value={modalData.duration}
-                  onChange={(e) => setModalData(prev => ({ ...prev, duration: e.target.value }))}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="1 day">1 día</option>
-                  <option value="7 days">7 días</option>
-                  <option value="30 days">30 días</option>
-                  <option value="permanent">Permanente</option>
-                </select>
-              </div>
-            )}
-
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => {
                   setShowModal(false);
-                  setModalData({ reason: '', duration: '7 days' });
+                  setModalData({ reason: '' });
                 }}
                 className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200"
               >

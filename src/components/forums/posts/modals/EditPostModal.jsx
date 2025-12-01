@@ -13,6 +13,7 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [showGeneralError, setShowGeneralError] = useState(false);
   
   const { editPost } = usePostActions();
   const { uploadImage, uploading: imageUploading } = usePostUpload();
@@ -31,6 +32,7 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
       setImages(post.images || []);
       setErrors({});
       setTouched({});
+      setShowGeneralError(false);
     }
   }, [post]);
 
@@ -83,6 +85,14 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
         ...prev,
         [name]: error
       }));
+    }
+
+    // Ocultar el mensaje de error general cuando el usuario empiece a corregir
+    if (showGeneralError && errors[name]) {
+      const error = validateField(name, value);
+      if (!error) {
+        setShowGeneralError(false);
+      }
     }
   };
 
@@ -149,6 +159,9 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
     
     // Validar formulario completo
     if (!validateForm()) {
+      // Mostrar mensaje de error general solo al enviar
+      setShowGeneralError(true);
+      
       // Encontrar el primer campo con error y hacer focus
       if (errors.title) {
         titleRef.current?.focus();
@@ -218,8 +231,8 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
 
         <form onSubmit={handleSubmit} className="flex flex-col h-[calc(90vh-80px)]">
           <div className="flex-1 overflow-y-auto p-6">
-            {/* Mensaje de error general */}
-            {(errors.title || errors.content) && Object.values(touched).some(t => t) && (
+            {/* Mensaje de error general - SOLO al enviar */}
+            {showGeneralError && (errors.title || errors.content) && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
                 <div className="flex items-center gap-2 mb-2">
                   <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />

@@ -15,6 +15,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
   const [targetData, setTargetData] = useState(null);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [showGeneralError, setShowGeneralError] = useState(false); // Nuevo estado
   
   const { createReport, loading } = useReportActions();
 
@@ -80,6 +81,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       // Resetear errores y touched al abrir
       setErrors({});
       setTouched({});
+      setShowGeneralError(false); // Resetear también el error general
     }
   }, [isOpen, targetId, reportType]);
 
@@ -178,6 +180,11 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       ...prev,
       [name]: value
     }));
+    
+    // Si ya se mostró el error general y el usuario está corrigiendo, ocultarlo
+    if (showGeneralError) {
+      setShowGeneralError(false);
+    }
     
     // Validar en tiempo real solo si el campo ya fue tocado
     if (touched[name]) {
@@ -355,6 +362,9 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
     
     // Validar formulario completo
     if (!validateForm()) {
+      // Mostrar el mensaje de error general
+      setShowGeneralError(true);
+      
       // Encontrar el primer campo con error y hacer focus
       if (errors.reason) {
         reasonRef.current?.focus();
@@ -420,6 +430,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       });
       setErrors({});
       setTouched({});
+      setShowGeneralError(false);
     } else {
       toast.error(result.error || 'Error al enviar el reporte');
     }
@@ -471,8 +482,8 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         {/* Contenido scrolleable */}
         <div className="max-h-[calc(80vh-120px)] overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-6">
-            {/* Mensaje de error general */}
-            {(errors.reason || errors.description) && Object.values(touched).some(t => t) && (
+            {/* Mensaje de error general - SOLO cuando se intenta enviar con errores */}
+            {showGeneralError && (errors.reason || errors.description) && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
                 <div className="flex items-center gap-2 mb-2">
                   <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />

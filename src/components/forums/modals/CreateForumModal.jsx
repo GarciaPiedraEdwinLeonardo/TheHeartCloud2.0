@@ -13,6 +13,7 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
+  const [showGeneralError, setShowGeneralError] = useState(false);
   
   const { createForum } = useForumActions();
 
@@ -25,6 +26,7 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
     if (isOpen) {
       setErrors({});
       setTouched({});
+      setShowGeneralError(false);
       // Focus en el primer campo después de un pequeño delay
       setTimeout(() => {
         nameRef.current?.focus();
@@ -96,6 +98,14 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
         [name]: error
       }));
     }
+
+    // Ocultar el mensaje de error general cuando el usuario empiece a corregir
+    if (showGeneralError && errors[name]) {
+      const error = validateField(name, newValue);
+      if (!error) {
+        setShowGeneralError(false);
+      }
+    }
   };
 
   const handleBlur = (e) => {
@@ -125,6 +135,9 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
     
     // Validar formulario completo
     if (!validateForm()) {
+      // Mostrar mensaje de error general solo al enviar
+      setShowGeneralError(true);
+      
       // Encontrar el primer campo con error y hacer focus
       if (errors.name) {
         nameRef.current?.focus();
@@ -188,8 +201,8 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
 
         <form onSubmit={handleSubmit} className="flex flex-col h-[calc(90vh-80px)]">
           <div className="flex-1 overflow-y-auto p-6">
-            {/* Mensaje de error general */}
-            {(errors.name || errors.description || errors.rules) && Object.values(touched).some(t => t) && (
+            {/* Mensaje de error general - SOLO al enviar */}
+            {showGeneralError && (errors.name || errors.description || errors.rules) && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
                 <div className="flex items-center gap-2 mb-2">
                   <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />

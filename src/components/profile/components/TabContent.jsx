@@ -4,7 +4,7 @@ import TopicsList from "./TopicsList";
 import LoadingSpinner from "./LoadingSpinner";
 import EmptyState from "./EmptyState";
 
-function TabContent({ activeTab, userData, onTopicClick, onCommentClick }) {
+function TabContent({ activeTab, userData, onTopicClick, onCommentClick, onShowForum }) {
   const isLoading = !userData;
 
   if (isLoading) {
@@ -22,6 +22,7 @@ function TabContent({ activeTab, userData, onTopicClick, onCommentClick }) {
           <PublicationsList 
             publicaciones={userData.publicaciones} 
             onCommentClick={onCommentClick}
+            onShowForum={onShowForum}
           />
         ) : (
           <EmptyState type="publicaciones" />

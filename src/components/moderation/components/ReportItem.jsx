@@ -20,42 +20,24 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
   const [showActions, setShowActions] = useState(false);
   const [showContentPreview, setShowContentPreview] = useState(false);
 
-  // Determinar tipo de contenido BASADO EN TU ESTRUCTURA
+  // Determinar tipo de contenido - SOLO reportes de usuarios
   const getContentType = () => {
-    // Si es de global_moderation_reports
-    if (report.actionType) {
-      switch (report.actionType) {
-        case 'post_deleted_by_moderator':
-          return { type: 'deleted_post', label: 'Post Eliminado', source: 'global' };
-        case 'post_rejected':
-          return { type: 'post', label: 'Post Rechazado', source: 'global' };
-        case 'comment_rejected':
-          return { type: 'comment', label: 'Comentario Rechazado', source: 'global' };
-        case 'community_ban':
-          return { type: 'user', label: 'Usuario Baneado', source: 'global' };
-        default:
-          return { type: 'moderator_action', label: 'Acción de Moderador', source: 'global' };
-      }
-    }
-    
-    // Si es de reports normal
     switch (report.type) {
       case 'user':
       case 'profile':
-        return { type: 'user', label: 'Reporte de Usuario', source: 'user' };
+        return { type: 'user', label: 'Reporte de Usuario' };
       case 'post':
-        return { type: 'post', label: 'Reporte de Publicación', source: 'user' };
+        return { type: 'post', label: 'Reporte de Publicación' };
       case 'comment':
-        return { type: 'comment', label: 'Reporte de Comentario', source: 'user' };
+        return { type: 'comment', label: 'Reporte de Comentario' };
       case 'forum':
-        return { type: 'forum', label: 'Reporte de Comunidad', source: 'user' };
+        return { type: 'forum', label: 'Reporte de Comunidad' };
       default:
-        return { type: 'unknown', label: 'Reporte', source: 'user' };
+        return { type: 'unknown', label: 'Reporte' };
     }
   };
 
   const contentType = getContentType();
-  const isGlobalReport = contentType.source === 'global';
   
   const getReportIcon = () => {
     switch (contentType.type) {
@@ -63,8 +45,6 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
         return <FaUser className="w-5 h-5 text-purple-600" />;
       case 'post':
         return <FaFileAlt className="w-5 h-5 text-blue-600" />;
-      case 'deleted_post':
-        return <FaFileAlt className="w-5 h-5 text-red-600" />;
       case 'comment':
         return <FaComment className="w-5 h-5 text-green-600" />;
       case 'forum':
@@ -75,8 +55,6 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
   };
 
   const getUrgencyColor = () => {
-    if (isGlobalReport) return 'bg-gray-100 text-gray-800 border-gray-200';
-    
     switch (report.urgency) {
       case 'critical':
         return 'bg-red-100 text-red-800 border-red-200';
@@ -93,10 +71,6 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
 
   const getStatusInfo = () => {
     const status = report.status;
-
-    if (isGlobalReport) {
-    return { label: 'Completado', color: 'bg-green-100 text-green-800', icon: FaCheckCircle };
-  }
     
     if (status === 'resolved') {
       return { label: 'Resuelto', color: 'bg-green-100 text-green-800', icon: FaCheckCircle };
@@ -131,25 +105,15 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
     }
   };
 
-  // Obtener información específica según el tipo de reporte
+  // Obtener información del reporte
   const getReportInfo = () => {
-    if (isGlobalReport) {
-      return {
-        title: report.targetName || `Acción de moderación`,
-        reporter: `Moderador`,
-        date: report.reportedAt,
-        reason: report.reason,
-        description: `Acción: ${report.actionType}`
-      };
-    } else {
-      return {
-        title: report.targetName || 'Contenido reportado',
-        reporter: report.reporterName || 'Usuario',
-        date: report.createdAt,
-        reason: report.reason,
-        description: report.description
-      };
-    }
+    return {
+      title: report.targetName || 'Contenido reportado',
+      reporter: report.reporterName || 'Usuario',
+      date: report.createdAt,
+      reason: report.reason,
+      description: report.description
+    };
   };
 
   const reportInfo = getReportInfo();
@@ -239,10 +203,10 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
                   <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${getUrgencyColor()}`}>
                     <FaExclamationTriangle className="w-3 h-3" />
                     <span className="hidden sm:inline">
-                      {isGlobalReport ? 'Moderación' : (report.urgency || 'media')}
+                      {report.urgency || 'media'}
                     </span>
                     <span className="sm:hidden">
-                      {isGlobalReport ? 'M' : (report.urgency ? report.urgency.charAt(0).toUpperCase() : 'M')}
+                      {report.urgency ? report.urgency.charAt(0).toUpperCase() : 'M'}
                     </span>
                   </span>
                   
@@ -276,13 +240,6 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
                     <strong className="text-gray-900">Descripción:</strong> {reportInfo.description}
                   </p>
                 )}
-
-                {/* Información adicional para global reports */}
-                {isGlobalReport && report.userId && (
-                  <p className="text-sm text-gray-700">
-                    <strong className="text-gray-900">Usuario afectado:</strong> {report.userId}
-                  </p>
-                )}
               </div>
 
               {/* Botón de acción según tipo de contenido */}
@@ -292,7 +249,7 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
             </div>
           </div>
 
-          {/* Botón de acciones (solo para moderación básica) */}
+          {/* Botón de acciones */}
           <div className="flex-shrink-0">
             <button
               onClick={() => setShowActions(!showActions)}
@@ -332,7 +289,6 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
               <ContentPreview 
                 report={report}
                 contentType={contentType.type}
-                isGlobalReport={isGlobalReport}
                 onContentDeleted={() => {
                   setShowContentPreview(false);
                   window.location.reload(); // Recargar para actualizar la lista

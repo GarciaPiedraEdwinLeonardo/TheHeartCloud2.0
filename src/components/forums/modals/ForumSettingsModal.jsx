@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaTimes, FaSpinner, FaGlobe, FaLock, FaUserShield, FaInfoCircle } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaGlobe, FaLock, FaUserShield, FaInfoCircle, FaExclamationCircle } from 'react-icons/fa';
 import { useForumSettings } from '../hooks/useForumSettings';
 
 function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
@@ -10,6 +10,10 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
     },
     requiresPostApproval: false
   });
+  
+  const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
+  const [showGeneralError, setShowGeneralError] = useState(false);
   
   const { updateForumSettings, loading, error } = useForumSettings();
 
@@ -25,16 +29,110 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
     }
   }, [forum]);
 
+  // Validaciones
+  const validateField = (name, value) => {
+    switch (name) {
+      case 'description':
+        if (!value.trim()) return 'La descripción es requerida';
+        if (value.trim().length < 10) return 'La descripción debe tener al menos 10 caracteres';
+        if (value.trim().length > 500) return 'La descripción no puede exceder 500 caracteres';
+        return '';
+      default:
+        return '';
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    newErrors.description = validateField('description', formData.description);
+    
+    setErrors(newErrors);
+    
+    // Retornar si hay errores
+    return !newErrors.description;
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Si ya se mostró el error general y el usuario está corrigiendo, ocultarlo
+    if (showGeneralError) {
+      setShowGeneralError(false);
+    }
+    
+    // Validar en tiempo real solo si el campo ya fue tocado
+    if (touched[name]) {
+      const error = validateField(name, value);
+      setErrors(prev => ({
+        ...prev,
+        [name]: error
+      }));
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+    
+    const error = validateField(name, value);
+    setErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Marcar el campo como tocado
+    setTouched({ description: true });
+    
+    // Validar formulario completo
+    if (!validateForm()) {
+      // Mostrar el mensaje de error general
+      setShowGeneralError(true);
+      
+      // Scroll al error
+      const firstErrorElement = document.querySelector('.error-message');
+      if (firstErrorElement) {
+        firstErrorElement.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+      
+      return;
+    }
+
     const result = await updateForumSettings(forum.id, formData);
     if (result.success) {
       if (onSettingsUpdated) {
         onSettingsUpdated();
       }
       onClose();
+      // Resetear estados al cerrar
+      setErrors({});
+      setTouched({});
+      setShowGeneralError(false);
     }
   };
+
+  // Resetear estados al abrir/cerrar
+  useEffect(() => {
+    if (isOpen) {
+      setErrors({});
+      setTouched({});
+      setShowGeneralError(false);
+    }
+  }, [isOpen]);
 
   // Prevenir scroll del body cuando el modal está abierto
   useEffect(() => {
@@ -73,6 +171,19 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
         {/* Contenido scrolleable */}
         <div className="max-h-[calc(80vh-120px)] overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-6">
+            {/* Mensaje de error general - SOLO cuando se intenta enviar con errores */}
+            {showGeneralError && errors.description && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
+                <div className="flex items-center gap-2 mb-2">
+                  <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                  <span className="text-red-800 font-medium text-sm">Completa el campo requerido</span>
+                </div>
+                <ul className="text-red-700 text-sm space-y-1">
+                  {errors.description && <li>• {errors.description}</li>}
+                </ul>
+              </div>
+            )}
+
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-700 text-sm">{error}</p>
@@ -82,17 +193,39 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
             {/* Descripción */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Descripción de la comunidad
+                Descripción de la comunidad *
               </label>
               <textarea
+                name="description"
                 value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                onChange={handleInputChange}
+                onBlur={handleBlur}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none ${
+                  errors.description && touched.description 
+                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                    : 'border-gray-300 focus:border-blue-500'
+                }`}
                 maxLength={500}
-                placeholder="Describe el propósito y temas de esta comunidad..."
+                placeholder="Describe el propósito y temas de esta comunidad (mínimo 10 caracteres)..."
+                required
               />
-              <p className="text-xs text-gray-500 mt-1">{formData.description.length}/500 caracteres</p>
+              <div className="flex justify-between items-center mt-1">
+                <div className="flex items-center gap-1">
+                  {errors.description && touched.description && (
+                    <>
+                      <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                      <p className="text-red-600 text-xs">{errors.description}</p>
+                    </>
+                  )}
+                </div>
+                <p className={`text-xs ${
+                  formData.description.length < 10 ? 'text-red-500' : 
+                  formData.description.length > 450 ? 'text-orange-500' : 'text-gray-500'
+                }`}>
+                  {formData.description.length}/500 caracteres
+                </p>
+              </div>
             </div>
 
             {/* Configuración de Membresía */}
@@ -204,7 +337,7 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || (errors.description && touched.description)}
               className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {loading && <FaSpinner className="w-4 h-4 animate-spin" />}

@@ -73,46 +73,6 @@ export const useModerationActions = () => {
     }
   };
 
-  // Suspender usuario
-  const suspendUser = async (userId, reason, duration) => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const userRef = doc(db, "users", userId);
-      const endDate = calculateEndDate(duration);
-
-      await updateDoc(userRef, {
-        suspension: {
-          isSuspended: true,
-          reason,
-          startDate: new Date(),
-          endDate,
-          suspendedBy: getCurrentUserId(),
-        },
-        updatedAt: serverTimestamp(),
-      });
-
-      // Registrar la acción en el historial de moderación
-      const moderationLogRef = doc(collection(db, "moderation_logs"));
-      await setDoc(moderationLogRef, {
-        action: "user_suspension",
-        targetUserId: userId,
-        reason,
-        duration,
-        moderatorId: getCurrentUserId(),
-        createdAt: serverTimestamp(),
-      });
-
-      return { success: true };
-    } catch (error) {
-      setError(error.message);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Eliminar contenido
   const deleteContent = async (
     contentType,
@@ -227,31 +187,9 @@ export const useModerationActions = () => {
     }
   };
 
-  // Función auxiliar para calcular fecha de fin
-  const calculateEndDate = (duration) => {
-    const endDate = new Date();
-    switch (duration) {
-      case "1 day":
-        endDate.setDate(endDate.getDate() + 1);
-        break;
-      case "7 days":
-        endDate.setDate(endDate.getDate() + 7);
-        break;
-      case "30 days":
-        endDate.setDate(endDate.getDate() + 30);
-        break;
-      case "permanent":
-        return null; // Suspensión permanente
-      default:
-        endDate.setDate(endDate.getDate() + 7);
-    }
-    return endDate;
-  };
-
   return {
     resolveReport,
     dismissReport,
-    suspendUser,
     deleteContent,
     deleteCommunity,
     banFromCommunity,

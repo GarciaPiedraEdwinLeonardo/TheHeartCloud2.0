@@ -1,6 +1,6 @@
 import PostCard from './../../forums/posts/components/PostCard';
 
-function PublicationsList({ publicaciones, onCommentClick }) {
+function PublicationsList({ publicaciones, onCommentClick, onShowForum }) {
   // Transformar los datos para que sean compatibles con PostCard
   const transformPostData = (publicacion) => {
     return {
@@ -40,6 +40,7 @@ function PublicationsList({ publicaciones, onCommentClick }) {
           showActions={true}
           isProfileView={true}
           onCommentClick={() => handleCommentClick(transformPostData(publicacion))}
+          onShowForum={onShowForum}
         />
       ))}
 
