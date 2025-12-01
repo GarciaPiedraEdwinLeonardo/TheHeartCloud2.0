@@ -177,14 +177,14 @@ function CreateCommentModal({ isOpen, onClose, postId, postTitle, parentCommentI
                 {/* Advertencia cuando está cerca del límite */}
                 {isNearLimit && remainingChars > 0 && (
                   <p className="text-xs text-orange-600 mt-1">
-                    ⚠️ Te quedan {remainingChars} caracteres
+                    Te quedan {remainingChars} caracteres
                   </p>
                 )}
                 
                 {/* Mensaje cuando alcanza el límite */}
                 {remainingChars === 0 && (
                   <p className="text-xs text-red-600 mt-1">
-                    ⚠️ Has alcanzado el límite de caracteres
+                    Has alcanzado el límite de caracteres
                   </p>
                 )}
               </div>

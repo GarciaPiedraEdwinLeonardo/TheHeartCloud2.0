@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaTimes, FaSpinner, FaHistory, FaUserEdit } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaHistory } from 'react-icons/fa';
 import { useCommentActions } from './../hooks/useCommentActions';
 
 function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
@@ -10,33 +10,69 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
   
   const { editComment } = useCommentActions();
 
+  // Constantes de validación (iguales al CreateCommentModal)
+  const MIN_LENGTH = 2;
+  const MAX_LENGTH = 500;
+  const CHAR_WARNING_THRESHOLD = 450;
+
   useEffect(() => {
     if (comment) {
       setContent(comment.content || '');
+      setError('');
+      setShowHistory(false);
     }
   }, [comment]);
+
+  const handleContentChange = (e) => {
+    const newContent = e.target.value;
+    
+    // Limitar caracteres en tiempo real
+    if (newContent.length <= MAX_LENGTH) {
+      setContent(newContent);
+      setError(''); // Limpiar error al escribir
+    }
+  };
+
+  const validateContent = () => {
+    const trimmedContent = content.trim();
+    
+    if (!trimmedContent) {
+      return 'El contenido del comentario es obligatorio';
+    }
+
+    if (trimmedContent.length < MIN_LENGTH) {
+      return `El comentario debe tener al menos ${MIN_LENGTH} caracteres`;
+    }
+
+    if (trimmedContent.length > MAX_LENGTH) {
+      return `El comentario no puede tener más de ${MAX_LENGTH} caracteres`;
+    }
+
+    // Validación adicional: evitar comentarios con solo espacios o saltos de línea
+    if (trimmedContent.replace(/\s/g, '').length === 0) {
+      return 'El comentario no puede contener solo espacios';
+    }
+
+    // Validación adicional: limitar saltos de línea excesivos
+    const lineBreaks = (trimmedContent.match(/\n/g) || []).length;
+    if (lineBreaks > 20) {
+      return 'El comentario tiene demasiados saltos de línea';
+    }
+
+    // Verificar si realmente hubo cambios
+    if (trimmedContent === comment.content.trim()) {
+      return 'No hay cambios para guardar';
+    }
+
+    return null;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!content.trim()) {
-      setError('El contenido del comentario es obligatorio');
-      return;
-    }
-
-    if (content.length < 2) {
-      setError('El comentario debe tener al menos 2 caracteres');
-      return;
-    }
-
-    if (content.length > 1000) {
-      setError('El comentario no puede tener más de 1000 caracteres');
-      return;
-    }
-
-    // Verificar si realmente hubo cambios
-    if (content === comment.content) {
-      setError('No hay cambios para guardar');
+    const validationError = validateContent();
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -73,7 +109,13 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
           minute: '2-digit'
         });
       }
-      return new Date(timestamp).toLocaleDateString('es-ES');
+      return new Date(timestamp).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     } catch {
       return 'Fecha inválida';
     }
@@ -88,22 +130,25 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
 
   if (!isOpen || !comment) return null;
 
+  // Calcular caracteres restantes y estado
+  const remainingChars = MAX_LENGTH - content.length;
+  const isNearLimit = content.length >= CHAR_WARNING_THRESHOLD;
+  const hasChanges = content.trim() !== comment.content.trim();
+  const isValid = content.trim().length >= MIN_LENGTH && content.length <= MAX_LENGTH && hasChanges;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div 
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl my-8"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md my-8"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white z-10 rounded-t-2xl">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <FaUserEdit className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-bold text-gray-900 truncate">Editar Comentario</h2>
-              <p className="text-sm text-gray-500 truncate">Actualiza tu comentario</p>
-            </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xl font-bold text-gray-900 truncate">Editar Comentario</h2>
+            <p className="text-sm text-gray-500 mt-1 truncate">
+              Actualiza tu comentario
+            </p>
           </div>
           <button 
             onClick={onClose}
@@ -129,10 +174,12 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
                   <button
                     type="button"
                     onClick={() => setShowHistory(!showHistory)}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200"
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition duration-200 font-medium"
                   >
                     <FaHistory className="w-4 h-4" />
-                    <span>Ver historial de ediciones ({comment.editHistory.length})</span>
+                    <span>
+                      {showHistory ? 'Ocultar' : 'Ver'} historial ({comment.editHistory.length} {comment.editHistory.length === 1 ? 'edición' : 'ediciones'})
+                    </span>
                   </button>
                 </div>
               )}
@@ -140,14 +187,19 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
               {/* Historial de ediciones */}
               {showHistory && comment.editHistory && comment.editHistory.length > 0 && (
                 <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Historial de Ediciones</h4>
-                  <div className="space-y-3 max-h-40 overflow-y-auto">
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <FaHistory className="w-4 h-4 text-gray-600" />
+                    Historial de Ediciones
+                  </h4>
+                  <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                     {comment.editHistory.map((edit, index) => (
-                      <div key={index} className="text-sm border-l-2 border-blue-500 pl-3">
-                        <div className="text-gray-500 mb-1">
-                          Editado el {formatHistoryDate(edit.editedAt)}
+                      <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                          <span className="font-medium">Versión {comment.editHistory.length - index}</span>
+                          <span>•</span>
+                          <span>{formatHistoryDate(edit.editedAt)}</span>
                         </div>
-                        <div className="text-gray-700 bg-white p-2 rounded border">
+                        <div className="text-sm text-gray-700 bg-gray-50 p-2 rounded border border-gray-100">
                           {edit.previousContent}
                         </div>
                       </div>
@@ -159,20 +211,58 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
               {/* Contenido */}
               <div className="mb-6">
                 <label htmlFor="content" className="block text-sm font-medium text-gray-700 mb-2">
-                  Comentario *
+                  Tu comentario *
                 </label>
                 <textarea
                   id="content"
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={handleContentChange}
                   disabled={loading}
                   rows={6}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 resize-none disabled:opacity-50"
-                  placeholder="Escribe tu comentario aquí..."
-                  maxLength={1000}
+                  placeholder="Escribe tu comentario aquí (máximo 500 caracteres)"
+                  maxLength={MAX_LENGTH}
                   required
                 />
+                <div className="flex justify-between items-center text-xs mt-2">
+                  <span className="text-gray-500">
+                    Mínimo {MIN_LENGTH} caracteres
+                  </span>
+                  <span 
+                    className={`font-medium ${
+                      isNearLimit 
+                        ? 'text-orange-600' 
+                        : remainingChars === 0 
+                          ? 'text-red-600' 
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {content.length}/{MAX_LENGTH}
+                  </span>
+                </div>
+                
+                {/* Advertencia cuando está cerca del límite */}
+                {isNearLimit && remainingChars > 0 && (
+                  <p className="text-xs text-orange-600 mt-1">
+                    ⚠️ Te quedan {remainingChars} caracteres
+                  </p>
+                )}
+                
+                {/* Mensaje cuando alcanza el límite */}
+                {remainingChars === 0 && (
+                  <p className="text-xs text-red-600 mt-1">
+                    Has alcanzado el límite de caracteres
+                  </p>
+                )}
+
+                {/* Mensaje cuando no hay cambios */}
+                {!hasChanges && content.length >= MIN_LENGTH && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    No se detectaron cambios en el comentario
+                  </p>
+                )}
               </div>
+              
             </div>
           </div>
 
@@ -189,8 +279,8 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
               </button>
               <button
                 type="submit"
-                disabled={loading || content.length < 2 || content === comment.content}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
+                disabled={loading || !isValid}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
               >
                 {loading && <FaSpinner className="w-4 h-4 animate-spin" />}
                 Guardar Cambios
