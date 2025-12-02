@@ -15,7 +15,7 @@ import ReportModal from './../modals/ReportModal';
 import ForumSettingsModal from './../modals/ForumSettingsModal';
 import PostValidationModal from './../modals/PostValidationModal';
 import BanUserModal from './../modals/BanUserModal';
-import MobileActionsModal from '../modals/MobileActionsModal';
+import MobileCommunityModal from '../modals/MobileCommunityModal';
 import ManageMembersModal from '../modals/ManageMembersModal';
 import ForumHeader from './../components/ForumHeader';
 import WelcomeMessage from './../components/WelcomeMessage';
@@ -446,6 +446,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
               onValidatePosts={() => setShowValidationModal(true)}
               onDeleteCommunity={handleDeleteCommunity}
               userRole={userData?.role}
+              onOpenMobileActions={() => setShowMobileActions}
             />
           </aside>
         </div>
@@ -506,10 +507,13 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
         onUserBanned={handleUserBanned}
       />
 
-      <MobileActionsModal
+      <MobileCommunityModal
         isOpen={showMobileActions}
         onClose={() => setShowMobileActions(false)}
         actions={mobileActions}
+        forumDetails={forumDetails}
+        userMembership={userMembership}
+        isUserBanned={isUserBanned}
       />
 
       <DeleteCommunityModal
