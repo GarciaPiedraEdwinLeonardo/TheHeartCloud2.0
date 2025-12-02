@@ -1,6 +1,6 @@
 import { FaUser, FaAward, FaComment, FaArrowRight } from 'react-icons/fa';
 
-function SearchUsersList({ users, searchQuery, onUserClick }) {
+function SearchUsersList({ users, searchQuery, onUserClick, queryDisplay }) {
   if (users.length === 0) {
     return (
       <div className="text-center py-8">
@@ -8,7 +8,7 @@ function SearchUsersList({ users, searchQuery, onUserClick }) {
           <FaUser className="w-16 h-16 mx-auto" />
         </div>
         <p className="text-gray-500 text-lg mb-2">
-          No se encontraron usuarios relacionados con "{searchQuery}"
+          No se encontraron usuarios relacionados con "{queryDisplay || searchQuery}"
         </p>
         <p className="text-gray-400 text-sm">
           Intenta con otros términos de búsqueda

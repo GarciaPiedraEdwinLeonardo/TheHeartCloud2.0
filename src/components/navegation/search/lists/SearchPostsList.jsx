@@ -1,7 +1,7 @@
 import { FaComments } from 'react-icons/fa';
 import PostCard from './../../../forums/posts/components/PostCard';
 
-function SearchPostsList({ posts, searchQuery, onPostClick, onShowUserProfile, onShowForum }) {
+function SearchPostsList({ posts, searchQuery, onPostClick, onShowUserProfile, onShowForum,queryDisplay }) {
   if (posts.length === 0) {
     return (
       <div className="text-center py-8">
@@ -9,7 +9,7 @@ function SearchPostsList({ posts, searchQuery, onPostClick, onShowUserProfile, o
           <FaComments className="w-16 h-16 mx-auto" />
         </div>
         <p className="text-gray-500 text-lg mb-2">
-          No se encontraron publicaciones relacionadas con "{searchQuery}"
+          No se encontraron publicaciones relacionadas con "{queryDisplay || searchQuery}"
         </p>
         <p className="text-gray-400 text-sm">
           Intenta con otros términos de búsqueda

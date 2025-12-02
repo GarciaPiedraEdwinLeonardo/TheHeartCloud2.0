@@ -1,6 +1,6 @@
 import { FaUsers, FaEdit, FaCalendar } from 'react-icons/fa';
 
-function SearchForumsList({ forums, searchQuery, onForumClick }) {
+function SearchForumsList({ forums, searchQuery, onForumClick, queryDisplay }) {
   if (forums.length === 0) {
     return (
       <div className="text-center py-8">
@@ -8,7 +8,7 @@ function SearchForumsList({ forums, searchQuery, onForumClick }) {
           <FaUsers className="w-16 h-16 mx-auto" />
         </div>
         <p className="text-gray-500 text-lg mb-2">
-          No se encontraron comunidades relacionadas con "{searchQuery}"
+          No se encontraron comunidades relacionadas con "{queryDisplay || searchQuery}"
         </p>
         <p className="text-gray-400 text-sm">
           Intenta con otros términos o crea una nueva comunidad

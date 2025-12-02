@@ -9,8 +9,6 @@ export function useUserSuspension() {
   //Verificar y quitar suspensión expirada
   const checkAndRemoveExpiredSuspension = async (userId) => {
     try {
-      console.log(`🔍 Verificando suspensión para usuario: ${userId}`);
-
       const userDoc = await getDoc(doc(db, "users", userId));
 
       if (!userDoc.exists()) {
@@ -45,8 +43,6 @@ export function useUserSuspension() {
 
       // Verificar si la suspensión ha expirado
       if (now >= endDate) {
-        console.log(`Suspensión expirada para usuario ${userId}. Quitando...`);
-
         // Quitar la suspensión automáticamente
         await updateDoc(doc(db, "users", userId), {
           "suspension.isSuspended": false,
@@ -59,9 +55,6 @@ export function useUserSuspension() {
           lastUpdated: serverTimestamp(),
         });
 
-        console.log(
-          `Suspensión quitada automáticamente para usuario ${userId}`
-        );
         return {
           success: true,
           expired: true,
@@ -106,9 +99,6 @@ export function useUserSuspension() {
         const timeUntilExpiry = endDate.getTime() - Date.now();
         if (timeUntilExpiry > 0 && timeUntilExpiry < 7 * 24 * 60 * 60 * 1000) {
           // Solo programar para suspensiones menores a 7 días
-          console.log(
-            `Programando verificación automática en ${timeUntilExpiry}ms`
-          );
           setTimeout(async () => {
             await checkAndRemoveExpiredSuspension(userId);
           }, timeUntilExpiry);

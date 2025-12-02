@@ -47,14 +47,23 @@ function SearchResults({
   
   const resultsCount = activeResults.length;
 
+  // Función para truncar texto largo
+  const truncateLongText = (text, maxLength = 60) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
+  // Texto truncado para el título
+  const truncatedQuery = truncateLongText(searchQuery, 60);
+
   return (
     <div className="min-h-screen bg-gray-50 py-6">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header de búsqueda */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Resultados de búsqueda: "{searchQuery}"
+          <h1 className="text-2xl font-bold text-gray-900 mb-2 break-words">
+            Resultados de búsqueda: "{truncatedQuery}"
           </h1>
           <p className="text-gray-600">
             {loading 
@@ -120,12 +129,14 @@ function SearchResults({
                 forums={activeResults} 
                 searchQuery={searchQuery} 
                 onForumClick={handleForumClick}
+                queryDisplay={truncatedQuery}
               />
             ) : activeTab === 'users' ? (
               <SearchUsersList 
                 users={activeResults} 
                 searchQuery={searchQuery} 
                 onUserClick={handleUserClick}
+                queryDisplay={truncatedQuery}
               />
             ) : (
               <SearchPostsList 
@@ -134,6 +145,7 @@ function SearchResults({
                 onPostClick={handlePostClick}
                 onShowUserProfile={onShowUserProfile}
                 onShowForum={onThemeClick}
+                queryDisplay={truncatedQuery}
               />
             )}
           </div>
