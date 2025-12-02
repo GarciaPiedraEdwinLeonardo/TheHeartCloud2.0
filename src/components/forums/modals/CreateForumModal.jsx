@@ -17,22 +17,18 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
   
   const { createForum } = useForumActions();
 
-  // Refs para focus automático
   const nameRef = useRef(null);
   const descriptionRef = useRef(null);
 
-  // Resetear formulario al abrir/cerrar
   useEffect(() => {
     if (isOpen) {
       setErrors({});
       setTouched({});
       setShowGeneralError(false);
-      // Focus en el primer campo después de un pequeño delay
       setTimeout(() => {
         nameRef.current?.focus();
       }, 100);
     } else {
-      // Resetear formulario al cerrar
       setFormData({
         name: '',
         description: '',
@@ -42,7 +38,6 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
     }
   }, [isOpen]);
 
-  // Validaciones
   const validateField = (name, value) => {
     switch (name) {
       case 'name':
@@ -90,7 +85,6 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
       [name]: newValue
     }));
     
-    // Validar en tiempo real solo si el campo ya fue tocado
     if (touched[name]) {
       const error = validateField(name, newValue);
       setErrors(prev => ({
@@ -99,7 +93,6 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
       }));
     }
 
-    // Ocultar el mensaje de error general cuando el usuario empiece a corregir
     if (showGeneralError && errors[name]) {
       const error = validateField(name, newValue);
       if (!error) {
@@ -122,10 +115,7 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // Marcar todos los campos como tocados
+  const handleSubmit = async () => {
     const allTouched = {
       name: true,
       description: true,
@@ -133,19 +123,15 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
     };
     setTouched(allTouched);
     
-    // Validar formulario completo
     if (!validateForm()) {
-      // Mostrar mensaje de error general solo al enviar
       setShowGeneralError(true);
       
-      // Encontrar el primer campo con error y hacer focus
       if (errors.name) {
         nameRef.current?.focus();
       } else if (errors.description) {
         descriptionRef.current?.focus();
       }
       
-      // Scroll al primer error
       const firstErrorElement = document.querySelector('.error-message');
       if (firstErrorElement) {
         firstErrorElement.scrollIntoView({ 
@@ -182,33 +168,33 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
       <div 
-        className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden"
+        className="bg-white rounded-lg sm:rounded-2xl shadow-xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-gray-900">Crear Nueva Comunidad</h2>
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
+          <h2 className="text-lg sm:text-2xl font-bold text-gray-900">Crear Nueva Comunidad</h2>
           <button 
             onClick={onClose}
             disabled={loading}
             className="p-2 hover:bg-gray-100 rounded-lg transition duration-200 disabled:opacity-50"
           >
-            <FaTimes className="w-5 h-5 text-gray-500" />
+            <FaTimes className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col h-[calc(90vh-80px)]">
-          <div className="flex-1 overflow-y-auto p-6">
-            {/* Mensaje de error general - SOLO al enviar */}
+        <div className="flex flex-col h-[calc(95vh-64px)] sm:h-[calc(90vh-80px)]">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {/* Mensaje de error general */}
             {showGeneralError && (errors.name || errors.description || errors.rules) && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
                 <div className="flex items-center gap-2 mb-2">
                   <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                   <span className="text-red-800 font-medium text-sm">Completa los campos requeridos</span>
                 </div>
-                <ul className="text-red-700 text-sm space-y-1">
+                <ul className="text-red-700 text-xs sm:text-sm space-y-1">
                   {errors.name && <li>• {errors.name}</li>}
                   {errors.description && <li>• {errors.description}</li>}
                   {errors.rules && <li>• {errors.rules}</li>}
@@ -217,7 +203,7 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
             )}
 
             {/* Nombre de la Comunidad */}
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                 Nombre de la Comunidad *
               </label>
@@ -230,14 +216,13 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 disabled={loading}
-                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition duration-200 disabled:opacity-50 ${
+                className={`block w-full px-3 py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 transition duration-200 disabled:opacity-50 ${
                   errors.name && touched.name 
                     ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
                     : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                 }`}
-                placeholder="Ej: Cardiología Avanzada, Diabetes Tipo 1..."
+                placeholder="Ej: Cardiología Avanzada..."
                 maxLength={50}
-                required
               />
               <div className="flex justify-between items-center mt-1">
                 <div className="flex items-center gap-1">
@@ -252,13 +237,13 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                   formData.name.length < 3 ? 'text-red-500' : 
                   formData.name.length > 40 ? 'text-orange-500' : 'text-gray-500'
                 }`}>
-                  {formData.name.length}/50 caracteres
+                  {formData.name.length}/50
                 </p>
               </div>
             </div>
 
             {/* Descripción */}
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
                 Descripción *
               </label>
@@ -270,15 +255,14 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 disabled={loading}
-                rows={4}
-                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition duration-200 resize-none disabled:opacity-50 ${
+                rows={3}
+                className={`block w-full px-3 py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 transition duration-200 resize-none disabled:opacity-50 ${
                   errors.description && touched.description 
                     ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
                     : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                 }`}
-                placeholder="Describe el propósito, enfoque y temas que se discutirán en esta comunidad..."
+                placeholder="Describe el propósito y temas..."
                 maxLength={500}
-                required
               />
               <div className="flex justify-between items-center mt-1">
                 <div className="flex items-center gap-1">
@@ -293,20 +277,20 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                   formData.description.length < 10 ? 'text-red-500' : 
                   formData.description.length > 400 ? 'text-orange-500' : 'text-gray-500'
                 }`}>
-                  {formData.description.length}/500 caracteres
+                  {formData.description.length}/500
                 </p>
               </div>
             </div>
 
             {/* Configuración de Membresía */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-4">
+            <div className="mb-4 sm:mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3 sm:mb-4">
                 Configuración de Membresía
               </label>
               
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {/* Opción 1: Entrada libre */}
-                <label className={`flex items-start p-4 border rounded-lg cursor-pointer transition duration-200 ${
+                <label className={`flex items-start p-3 sm:p-4 border rounded-lg cursor-pointer transition duration-200 ${
                   !formData.requiresApproval
                     ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500 ring-opacity-50'
                     : 'border-gray-300 hover:bg-gray-50'
@@ -323,17 +307,17 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                   </div>
                   <div className="ml-3 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <FaUnlock className="w-4 h-4 text-green-600" />
-                      <span className="text-sm font-medium text-gray-900">Entrada Libre</span>
+                      <FaUnlock className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                      <span className="text-xs sm:text-sm font-medium text-gray-900">Entrada Libre</span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      Los usuarios pueden unirse directamente sin necesidad de aprobación.
+                      Los usuarios pueden unirse directamente sin aprobación.
                     </p>
                   </div>
                 </label>
 
                 {/* Opción 2: Requiere aprobación */}
-                <label className={`flex items-start p-4 border rounded-lg cursor-pointer transition duration-200 ${
+                <label className={`flex items-start p-3 sm:p-4 border rounded-lg cursor-pointer transition duration-200 ${
                   formData.requiresApproval
                     ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500 ring-opacity-50'
                     : 'border-gray-300 hover:bg-gray-50'
@@ -350,11 +334,11 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                   </div>
                   <div className="ml-3 flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <FaLock className="w-4 h-4 text-orange-600" />
-                      <span className="text-sm font-medium text-gray-900">Requiere Aprobación</span>
+                      <FaLock className="w-3 h-3 sm:w-4 sm:h-4 text-orange-600" />
+                      <span className="text-xs sm:text-sm font-medium text-gray-900">Requiere Aprobación</span>
                     </div>
                     <p className="text-xs text-gray-600">
-                      Los usuarios solicitan unirse y necesitan aprobación de un moderador.
+                      Los usuarios necesitan aprobación de un moderador.
                     </p>
                   </div>
                 </label>
@@ -362,14 +346,14 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
               
               <p className="text-xs text-gray-500 mt-2">
                 {formData.requiresApproval 
-                  ? 'Los usuarios enviarán solicitudes que deberás aprobar manualmente.'
-                  : 'Cualquier usuario verificado podrá unirse automáticamente.'
+                  ? 'Aprobarás solicitudes manualmente.'
+                  : 'Usuarios verificados se unirán automáticamente.'
                 }
               </p>
             </div>
 
             {/* Reglas de la Comunidad */}
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <label htmlFor="rules" className="block text-sm font-medium text-gray-700 mb-2">
                 Reglas de la Comunidad
               </label>
@@ -380,13 +364,13 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                 onChange={handleInputChange}
                 onBlur={handleBlur}
                 disabled={loading}
-                rows={6}
-                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition duration-200 resize-none disabled:opacity-50 ${
+                rows={5}
+                className={`block w-full px-3 py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 transition duration-200 resize-none disabled:opacity-50 ${
                   errors.rules && touched.rules 
                     ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
                     : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                 }`}
-                placeholder="Establece las reglas básicas para los miembros de tu comunidad..."
+                placeholder="Establece las reglas básicas..."
                 maxLength={1000}
               />
               <div className="flex justify-between items-center mt-1">
@@ -401,7 +385,7 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                 <p className={`text-xs ${
                   formData.rules.length > 900 ? 'text-orange-500' : 'text-gray-500'
                 }`}>
-                  {formData.rules.length}/1000 caracteres
+                  {formData.rules.length}/1000
                 </p>
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -410,19 +394,19 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
             </div>
 
             {/* Información adicional */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <FaInfoCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <FaInfoCircle className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h4 className="text-sm font-medium text-blue-800 mb-2">Información importante</h4>
+                  <h4 className="text-xs sm:text-sm font-medium text-blue-800 mb-2">Información importante</h4>
                   <ul className="text-xs text-blue-700 space-y-1">
-                    <li>• Serás el dueño y primer moderador de la comunidad</li>
+                    <li>• Serás el dueño y primer moderador</li>
                     <li>• Puedes agregar más moderadores después</li>
-                    <li>• Eres responsable del contenido en tu comunidad</li>
-                    <li>• Las comunidades deben seguir las normas de TheHeartCloud</li>
+                    <li>• Eres responsable del contenido</li>
+                    <li>• Seguir normas de TheHeartCloud</li>
                     <li>• {formData.requiresApproval 
-                      ? 'Aprobarás manualmente las solicitudes de membresía' 
-                      : 'Los usuarios podrán unirse libremente'
+                      ? 'Aprobarás solicitudes manualmente' 
+                      : 'Los usuarios se unirán libremente'
                     }</li>
                   </ul>
                 </div>
@@ -431,41 +415,44 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
           </div>
 
           {/* Footer con botones */}
-          <div className="p-6 border-t border-gray-200 bg-gray-50">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-500">
-                Tu comunidad será pública y visible para todos los usuarios.
+          <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <p className="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
+                Tu comunidad será pública y visible.
               </p>
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={onClose}
                   disabled={loading}
-                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm sm:text-base bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSubmit}
                   disabled={loading}
-                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium flex items-center gap-2 disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {loading ? (
                     <>
-                      <FaSpinner className="w-4 h-4 animate-spin" />
-                      Creando...
+                      <FaSpinner className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
+                      <span className="hidden sm:inline">Creando...</span>
+                      <span className="sm:hidden">Creando</span>
                     </>
                   ) : (
                     <>
-                      <FaUsers className="w-4 h-4" />
-                      Crear Comunidad
+                      <FaUsers className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="hidden sm:inline">Crear Comunidad</span>
+                      <span className="sm:hidden">Crear</span>
                     </>
                   )}
                 </button>
               </div>
             </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
