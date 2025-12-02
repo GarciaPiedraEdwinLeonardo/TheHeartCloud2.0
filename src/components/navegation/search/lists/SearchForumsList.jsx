@@ -37,7 +37,7 @@ function SearchForumsList({ forums, searchQuery, onForumClick, queryDisplay }) {
           className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:border-blue-300 transition duration-200 cursor-pointer group"
           onClick={() => onForumClick(forum)}
         >
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -69,7 +69,7 @@ function SearchForumsList({ forums, searchQuery, onForumClick, queryDisplay }) {
               </div>
             </div>
             
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 text-sm opacity-0 group-hover:opacity-100">
+            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200 text-sm opacity-0 group-hover:opacity-100 w-full md:w-auto mt-4 md:mt-0">
               Ver Comunidad
             </button>
           </div>

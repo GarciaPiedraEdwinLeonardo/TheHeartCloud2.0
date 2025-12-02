@@ -46,7 +46,7 @@ function SearchUsersList({ users, searchQuery, onUserClick, queryDisplay }) {
           className="bg-white rounded-lg p-4 border border-gray-200 hover:border-blue-300 hover:shadow-md transition duration-200 cursor-pointer group"
           onClick={() => handleUserClick(user)}
         >
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-4">
             {/* Avatar - Mostrar foto si existe */}
             {user.photoURL ? (
               <img 
@@ -94,7 +94,7 @@ function SearchUsersList({ users, searchQuery, onUserClick, queryDisplay }) {
             </div>
             
             {/* Botón de acción */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 mt-2 sm:mt-0 justify-end">
               <span className="text-gray-400 text-sm hidden group-hover:block transition duration-200">
                 Ver perfil
               </span>

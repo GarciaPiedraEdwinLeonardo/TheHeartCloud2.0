@@ -58,7 +58,7 @@ function SearchResults({
 
   return (
     <div className="min-h-screen bg-gray-50 py-6">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-2xl lg:max-w-4xl xl:max-w-6xl 2xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Header de búsqueda */}
         <div className="mb-6">
@@ -78,7 +78,7 @@ function SearchResults({
         </div>
 
         {/* Navegación por pestañas */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6 w-full">
           <div className="flex border-b border-gray-200">
             <button
               onClick={() => handleTabChange('posts')}

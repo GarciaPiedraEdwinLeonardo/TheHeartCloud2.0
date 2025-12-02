@@ -249,8 +249,8 @@ function Home() {
         />
         
         {/* Contenido Principal - Cambia según la vista */}
-        <div className="flex-1 min-w-0 flex justify-center">
-          <div className="w-full max-w-7xl">
+        <div className="flex-1 min-w-0">
+          <div className="w-full max-w-2xl lg:max-w-4xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {currentView === 'main' && (
               <Main 
                 onShowPost={handleShowPost}

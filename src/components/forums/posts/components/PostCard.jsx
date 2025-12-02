@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { 
   FaHeart, FaRegHeart, FaThumbsDown, FaRegThumbsDown, FaComment, 
   FaEllipsisH, FaUser, FaCalendar, FaEdit, FaTrash, FaBan,
-  FaClock, FaCheckCircle, FaTimesCircle, FaFlag, FaUsers
+  FaClock, FaCheckCircle, FaTimesCircle, FaFlag, FaUsers,
+  FaBriefcaseMedical
 } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
 import { auth, db } from './../../../../config/firebase';
@@ -20,7 +21,7 @@ function PostCard({
   onDeleteContent, 
   onBanUser,
   onShowUserProfile,
-  onShowForum, // Nueva prop para navegar al foro
+  onShowForum,
   userRole,
   userMembership,
   requiresPostApproval,
@@ -35,9 +36,17 @@ function PostCard({
   const [showReportModal, setShowReportModal] = useState(false);
   const [localLikes, setLocalLikes] = useState(post.likes || []);
   const [localDislikes, setLocalDislikes] = useState(post.dislikes || []);
+  const [showScrollHint, setShowScrollHint] = useState(false);
   
   const { reactToPost } = usePostActions();
   const user = auth.currentUser;
+
+  // Verificar si el contenido es muy largo y necesita scroll
+  useEffect(() => {
+    if (post.content && post.content.length > 1000) {
+      setShowScrollHint(true);
+    }
+  }, [post.content]);
 
   // Cargar datos del autor y usuario actual
   useEffect(() => {
@@ -141,7 +150,7 @@ function PostCard({
     }
   };
 
-  // Verificar permisos para modificar - CORREGIDO
+  // Verificar permisos para modificar
   const isAuthor = user && user.uid === post.authorId;
   const isForumModerator = user && ['owner', 'moderator'].includes(userMembership?.role);
   const isGlobalModerator = user && ['moderator', 'admin'].includes(userData?.role);
@@ -216,17 +225,29 @@ function PostCard({
     if (!timestamp) return '';
     try {
       if (timestamp.toDate) {
-        return timestamp.toDate().toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+        const date = timestamp.toDate();
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 60) {
+          return `Hace ${diffMins} min${diffMins !== 1 ? 's' : ''}`;
+        } else if (diffHours < 24) {
+          return `Hace ${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
+        } else if (diffDays < 7) {
+          return `Hace ${diffDays} día${diffDays !== 1 ? 's' : ''}`;
+        } else {
+          return date.toLocaleDateString('es-ES', {
+            month: 'short',
+            day: 'numeric'
+          });
+        }
       }
       return new Date(timestamp).toLocaleDateString('es-ES');
     } catch {
-      return 'Fecha inválida';
+      return '';
     }
   };
 
@@ -236,7 +257,8 @@ function PostCard({
     
     const { name } = authorData;
     if (name && (name.name || name.apellidopat || name.apellidomat)) {
-      return `${name.name || ''} ${name.apellidopat || ''} ${name.apellidomat || ''}`.trim();
+      const fullName = `${name.name || ''} ${name.apellidopat || ''}`.trim();
+      return fullName.length > 25 ? fullName.substring(0, 22) + '...' : fullName;
     }
     
     return authorData.email || 'Usuario';
@@ -245,7 +267,8 @@ function PostCard({
   // Obtener especialidad del autor
   const getAuthorSpecialty = () => {
     if (!authorData) return null;
-    return authorData.professionalInfo?.specialty || null;
+    const specialty = authorData.professionalInfo?.specialty;
+    return specialty && specialty.length > 30 ? specialty.substring(0, 27) + '...' : specialty;
   };
 
   // Obtener aura del autor
@@ -271,7 +294,7 @@ function PostCard({
   // Determinar estado del post
   const getPostStatus = () => {
     if (post.status === 'pending') {
-      return { label: 'Pendiente de aprobación', color: 'bg-yellow-100 text-yellow-800', icon: FaClock };
+      return { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800', icon: FaClock };
     }
     if (post.status === 'rejected') {
       return { label: 'Rechazado', color: 'bg-red-100 text-red-800', icon: FaTimesCircle };
@@ -286,42 +309,41 @@ function PostCard({
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-4">
-        {/* Header del Post */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6 mb-4 w-full max-w-6xl mx-auto">
+        {/* Header del Post - Rediseñado para ser más compacto */}
         <div className="flex justify-between items-start mb-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             {/* Foto de perfil del autor - Clickable */}
             <button 
               onClick={handleAuthorClick}
-              className="flex items-center gap-3 hover:bg-gray-50 rounded-lg p-1 transition duration-200 group"
+              className="flex items-center gap-2 hover:bg-gray-50 rounded-lg p-1 transition duration-200 group min-w-0 flex-shrink-0"
             >
               {getAuthorPhoto() ? (
                 <img 
                   src={getAuthorPhoto()} 
                   alt={`Foto de ${getAuthorName()}`}
-                  className="w-10 h-10 rounded-full object-cover border-2 border-blue-100 group-hover:border-blue-300 transition duration-200"
+                  className="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover border border-gray-200 group-hover:border-gray-300 transition duration-200 flex-shrink-0"
                 />
               ) : (
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center group-hover:from-blue-600 group-hover:to-purple-700 transition duration-200">
-                  <FaUser className="w-5 h-5 text-white" />
+                <div className="w-7 h-7 md:w-8 md:h-8 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center group-hover:from-gray-500 group-hover:to-gray-600 transition duration-200 flex-shrink-0">
+                  <FaUser className="w-3.5 h-3.5 md:w-4 md:h-4 text-white" />
                 </div>
               )}
-              <div className="text-left">
-                <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition duration-200">
-                  {getAuthorName()}
-                </h3>
-                {getAuthorSpecialty() && (
-                  <p className="text-sm text-gray-600">{getAuthorSpecialty()}</p>
-                )}
-                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                  <FaCalendar className="w-3 h-3" />
-                  <span>{formatDate(post.createdAt)}</span>
-                  {post.updatedAt && (
-                    <>
-                      <span>•</span>
-                      <span className="text-gray-400">Editado</span>
-                    </>
+              <div className="text-left min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h3 className="text-xs md:text-sm font-medium text-gray-700 group-hover:text-gray-900 transition duration-200 truncate max-w-[120px] md:max-w-none">
+                    {getAuthorName()}
+                  </h3>
+                  {getAuthorSpecialty() && (
+                    <span className="hidden sm:inline-flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full border border-gray-200">
+                      <FaBriefcaseMedical className="w-2.5 h-2.5 flex-shrink-0" />
+                      <span className="truncate max-w-[100px]">{getAuthorSpecialty()}</span>
+                    </span>
                   )}
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-0.5">
+                  <FaCalendar className="w-2.5 h-2.5 flex-shrink-0" />
+                  <span className='truncate'>{formatDate(post.createdAt)}</span>
                 </div>
               </div>
             </button>
@@ -329,10 +351,22 @@ function PostCard({
 
           {/* Estado del post y menú de opciones */}
           <div className="flex items-center gap-2">
+            {forumData && (
+              <button
+                onClick={handleForumClick}
+                className="hidden sm:inline-flex items-center gap-1 px-2 py-1 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition duration-200 text-xs font-medium border border-blue-200"
+                title={getForumName()}
+              >
+                <FaUsers className="w-2.5 h-2.5 flex-shrink-0" />
+                <span className="truncate max-w-[80px] md:max-w-[100px]">{getForumName()}</span>
+              </button>
+            )}
+            
             {postStatus && (
               <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${postStatus.color}`}>
                 <postStatus.icon className="w-3 h-3" />
-                {postStatus.label}
+                <span className="hidden sm:inline">{postStatus.label}</span>
+                <span className="sm:hidden">{postStatus.label.substring(0, 3)}</span>
               </span>
             )}
             
@@ -341,9 +375,9 @@ function PostCard({
               <div className="relative">
                 <button
                   onClick={() => setShowMenu(!showMenu)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition duration-200"
+                  className="p-1.5 md:p-2 hover:bg-gray-100 rounded-lg transition duration-200"
                 >
-                  <FaEllipsisH className="w-4 h-4 text-gray-500" />
+                  <FaEllipsisH className="w-3.5 h-3.5 md:w-4 md:h-4 text-gray-500" />
                 </button>
                 
                 {showMenu && (
@@ -414,26 +448,31 @@ function PostCard({
           </div>
         </div>
 
-        {/* Información de la Comunidad */}
-        {forumData && (
-          <div className="mb-4">
-            <button
-              onClick={handleForumClick}
-              className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full hover:bg-blue-100 transition duration-200 text-sm font-medium border border-blue-200"
-            >
-              <FaUsers className="w-3 h-3" />
-              <span>{getForumName()}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Contenido del Post */}
+        {/* Contenido del Post - CON SCROLLBAR PARA CONTENIDO LARGO */}
         <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900 mb-3 break-words">
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900 mb-3 break-words leading-tight">
             {post.title}
           </h2>
-          <div className="text-gray-700 whitespace-pre-line break-words leading-relaxed">
-            {post.content}
+          
+          {/* Contenedor con scroll para contenido muy largo */}
+          <div className="relative">
+            {/* Indicador de scroll si el contenido es muy largo */}
+            
+            <div 
+              className={`
+                text-gray-800 text-base md:text-lg whitespace-pre-line break-words leading-relaxed
+                ${post.content && post.content.length > 800 ? 'max-h-[500px] overflow-y-auto pr-2' : ''}
+                scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100
+                hover:scrollbar-thumb-gray-400 transition-colors
+              `}
+            >
+              {post.content}
+            </div>
+            
+            {/* Gradiente para indicar que hay más contenido */}
+            {post.content && post.content.length > 800 && (
+              <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-t from-white/80 to-transparent pointer-events-none"></div>
+            )}
           </div>
 
           {/* Motivo de rechazo */}
@@ -445,7 +484,7 @@ function PostCard({
           )}
         </div>
 
-        {/* Imágenes */}
+        {/* Imágenes - CON SCROLL HORIZONTAL PARA MUCHAS IMÁGENES */}
         {post.images && post.images.length > 0 && (
           <div className="mb-4">
             <PostImages images={post.images} />
@@ -457,8 +496,9 @@ function PostCard({
           {/* Estadísticas */}
           <div className="flex items-center gap-4 text-sm text-gray-500">
             <div className="flex items-center gap-1">
-              <FaComment className="w-4 h-4" />
-              <span>{post.stats?.commentCount || 0} comentarios</span>
+              <FaComment className="w-4 h-4 flex-shrink-0" />
+              <span className="hidden sm:inline">{post.stats?.commentCount || 0} comentarios</span>
+              <span className="sm:hidden">{post.stats?.commentCount || 0}</span>
             </div>
           </div>
 
@@ -469,54 +509,57 @@ function PostCard({
               <button
                 onClick={() => handleReaction(userReaction === 'like' ? 'remove' : 'like')}
                 disabled={post.status !== 'active'}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
+                className={`flex items-center gap-1.5 md:gap-2 px-2 py-1.5 md:px-3 md:py-2 rounded-lg transition duration-200 ${
                   userReaction === 'like' 
                     ? 'bg-red-50 text-red-600 border border-red-200' 
                     : 'text-gray-600 hover:bg-gray-100 border border-transparent'
                 } ${post.status !== 'active' ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {userReaction === 'like' ? (
-                  <FaHeart className="w-4 h-4" />
+                  <FaHeart className="w-4 h-4 flex-shrink-0" />
                 ) : (
-                  <FaRegHeart className="w-4 h-4" />
+                  <FaRegHeart className="w-4 h-4 flex-shrink-0" />
                 )}
-                <span className="text-sm font-medium">{localLikes.length}</span>
+                <span className="text-sm font-medium hidden sm:inline">{localLikes.length}</span>
+                <span className="text-sm font-medium sm:hidden">{localLikes.length}</span>
               </button>
 
               {/* Dislike */}
               <button
                 onClick={() => handleReaction(userReaction === 'dislike' ? 'remove' : 'dislike')}
                 disabled={post.status !== 'active'}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
+                className={`flex items-center gap-1.5 md:gap-2 px-2 py-1.5 md:px-3 md:py-2 rounded-lg transition duration-200 ${
                   userReaction === 'dislike' 
                     ? 'bg-blue-50 text-blue-600 border border-blue-200' 
                     : 'text-gray-600 hover:bg-gray-100 border border-transparent'
                 } ${post.status !== 'active' ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 {userReaction === 'dislike' ? (
-                  <FaThumbsDown className="w-4 h-4" />
+                  <FaThumbsDown className="w-4 h-4 flex-shrink-0" />
                 ) : (
-                  <FaRegThumbsDown className="w-4 h-4" />
+                  <FaRegThumbsDown className="w-4 h-4 flex-shrink-0" />
                 )}
-                <span className="text-sm font-medium">{localDislikes.length}</span>
+                <span className="text-sm font-medium hidden sm:inline">{localDislikes.length}</span>
+                <span className="text-sm font-medium sm:hidden">{localDislikes.length}</span>
               </button>
 
               {/* Comentar */}
               <button
                 onClick={() => {
                   if (onCommentClick) {
-                    onCommentClick(post); // Pasar el objeto post completo
+                    onCommentClick(post);
                   }
                 }}
                 disabled={post.status !== 'active'}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition duration-200 ${
+                className={`flex items-center gap-1.5 md:gap-2 px-2 py-1.5 md:px-3 md:py-2 rounded-lg transition duration-200 ${
                   post.status === 'active' 
                     ? 'text-gray-600 hover:bg-gray-100 border border-transparent hover:border-gray-200' 
                     : 'opacity-50 cursor-not-allowed'
                 }`}
               >
-                <FaComment className="w-4 h-4" />
-                <span className="text-sm">Comentar ({post.stats?.commentCount || 0})</span>
+                <FaComment className="w-4 h-4 flex-shrink-0" />
+                <span className="text-sm hidden sm:inline">Comentar</span>
+                <span className="text-sm sm:hidden">Coment.</span>
               </button>
             </div>
           )}

@@ -120,7 +120,7 @@ function Main({ onShowPost, onShowUserProfile, onShowForum }) {
 
   return (
     <main className="flex-1 min-h-screen bg-gray-50 p-4 lg:p-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-2xl lg:max-w-4xl xl:max-w-6xl mx-auto">
         
         {/* Header */}
         <div className="mb-8">
