@@ -193,11 +193,11 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
   return (
     <>
       <div className="min-h-screen bg-gray-50 py-4 sm:py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
           <div className="flex flex-col lg:flex-row gap-6 sm:gap-8">
             
             {/* Contenido Principal */}
-            <main className="lg:w-3/4">
+            <main className="lg:w-3/4 w-full">
               <ProfileHeader 
                 userData={userData} 
                 onShowStats={() => setShowStatsModal(true)}

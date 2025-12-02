@@ -70,10 +70,6 @@ function ForumHeader({ forumDetails, userMembership, onBack }) {
           <FaUsers className="w-4 h-4" />
           <span className="whitespace-nowrap">{(forumDetails.memberCount || 0).toLocaleString()} miembros</span>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <FaEdit className="w-4 h-4" />
-          <span className="whitespace-nowrap">{(forumDetails.postCount || 0)} publicaciones</span>
-        </div>
         {userMembership.role && (
           <div className="flex items-center gap-2 flex-shrink-0">
             {getRoleBadge(userMembership.role)}

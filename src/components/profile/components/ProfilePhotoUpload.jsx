@@ -98,11 +98,11 @@ function ProfilePhotoUpload({ currentPhoto, onPhotoUpdate, isOwnProfile = true }
         {isOwnProfile && (
           <button
             onClick={handleOpenModal}
-            className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full shadow-lg hover:bg-blue-700 transition duration-200 group-hover:scale-110 border-2 border-white"
+            className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1.5 sm:p-2 rounded-full shadow-lg hover:bg-blue-700 transition duration-200 group-hover:scale-110 border-2 border-white"
             title="Cambiar foto de perfil"
             type="button"
           >
-            <FaCamera className="w-3 h-3" />
+            <FaCamera className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
           </button>
         )}
       </div>
