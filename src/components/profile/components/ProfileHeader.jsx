@@ -33,24 +33,24 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
         return (
           <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full border border-green-200">
             <FaCheckCircle className="w-3 h-3 flex-shrink-0" />
-            <span className="hidden xs:inline">Doctor Verificado</span>
-            <span className="xs:hidden">Verificado</span>
+            <span className="hidden sm:inline">Doctor Verificado</span>
+            <span className="sm:hidden">Verificado</span>
           </span>
         );
       case 'pending':
         return (
           <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full border border-yellow-200">
             <FaClock className="w-3 h-3 flex-shrink-0" />
-            <span className="hidden xs:inline">En verificación</span>
-            <span className="xs:hidden">Pendiente</span>
+            <span className="hidden sm:inline">En verificación</span>
+            <span className="sm:hidden">Pendiente</span>
           </span>
         );
       case 'rejected':
         return (
           <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full border border-red-200">
             <FaTimesCircle className="w-3 h-3 flex-shrink-0" />
-            <span className="hidden xs:inline">Verificación rechazada</span>
-            <span className="xs:hidden">Rechazado</span>
+            <span className="hidden sm:inline">Verificación rechazada</span>
+            <span className="sm:hidden">Rechazado</span>
           </span>
         );
       default:
@@ -58,16 +58,16 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
           return (
             <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full border border-green-200">
               <FaCertificate className="w-3 h-3 flex-shrink-0" />
-              <span className="hidden xs:inline">Doctor</span>
-              <span className="xs:hidden">Doc</span>
+              <span className="hidden sm:inline">Doctor</span>
+              <span className="sm:hidden">Doc</span>
             </span>
           );
         }
         return (
           <span className="inline-flex items-center gap-1 bg-gray-100 text-gray-800 text-xs px-2 py-1 rounded-full border border-gray-200">
             <FaUserCircle className="w-3 h-3 flex-shrink-0" />
-            <span className="hidden xs:inline">Usuario</span>
-            <span className="xs:hidden">User</span>
+            <span className="hidden sm:inline">Usuario</span>
+            <span className="sm:hidden">User</span>
           </span>
         );
     }
@@ -93,8 +93,8 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
 
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${roleColors[role] || 'bg-gray-100 text-gray-800'}`}>
-        <span className="hidden xs:inline">{label.full}</span>
-        <span className="xs:hidden">{label.short}</span>
+        <span className="hidden sm:inline">{label.full}</span>
+        <span className="sm:hidden">{label.short}</span>
       </span>
     );
   };
@@ -134,8 +134,8 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
                   title="Suspender usuario"
                 >
                   <FaBan className="w-3 h-3 flex-shrink-0" />
-                  <span className="hidden xs:inline">Suspender</span>
-                  <span className="xs:hidden">Sus</span>
+                  <span className="hidden sm:inline">Suspender</span>
+                  <span className="sm:hidden">Sus</span>
                 </button>
               )}
 
@@ -147,8 +147,9 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
                   title="Reportar este perfil"
                 >
                   <FaFlag className="w-3 h-3 flex-shrink-0" />
-                  <span className="hidden xs:inline">Reportar</span>
-                  <span className="xs:hidden">Rep</span>
+                  {/* CAMBIO: sm en lugar de xs */}
+                  <span className="hidden sm:inline">Reportar</span>
+                  <span className="sm:hidden">Rep</span>
                 </button>
               )}
             </div>
@@ -178,11 +179,12 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
             )}
           </div>
 
-          {/* Estadísticas rápidas - Versión mejorada para responsive */}
+          {/* Estadísticas rápidas */}
           <div className="mt-4 pt-3 sm:pt-4 border-t border-gray-200">
             <div className="flex justify-between items-center mb-2">
               <h3 className="text-sm font-medium text-gray-700">Estadísticas</h3>
-              {/* Botón Ver Estadísticas (Solo móvil) */}
+              
+              {/* Botón Ver Estadísticas */}
               <button
                 onClick={onShowStats}
                 className="lg:hidden flex-shrink-0 p-1.5 sm:p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition duration-200"
@@ -221,6 +223,7 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
                   {userData.estadisticas?.temasParticipacion || 0}
                 </div>
                 <div className="text-xs text-gray-500 truncate">
+                  {/* CAMBIO: Aquí ya estaba correcto con sm */}
                   <span className="hidden sm:inline">Comunidades</span>
                   <span className="sm:hidden">Comun.</span>
                 </div>
@@ -245,17 +248,6 @@ function ProfileHeader({ userData, onShowStats, onPhotoUpdate, isOwnProfile = tr
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Botón Ver Estadísticas (Solo desktop) */}
-        <div className="hidden lg:block flex-shrink-0">
-          <button
-            onClick={onShowStats}
-            className="p-3 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition duration-200"
-            title="Ver estadísticas completas"
-          >
-            <FaChartLine className="w-6 h-6" />
-          </button>
         </div>
       </div>
     </div>

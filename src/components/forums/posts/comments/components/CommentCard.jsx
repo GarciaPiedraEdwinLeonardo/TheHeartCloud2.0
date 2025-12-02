@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react'; 
 import { 
   FaHeart, 
   FaRegHeart, 
@@ -10,7 +10,9 @@ import {
   FaTrash, 
   FaBan,
   FaSpinner,
-  FaFlag
+  FaFlag,
+  FaChevronDown,
+  FaChevronUp
 } from 'react-icons/fa';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from './../../../../../config/firebase';
@@ -42,6 +44,9 @@ function CommentCard({
   const [forumDetails, setForumDetails] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [showModerateModal, setShowModerateModal] = useState(false);
+  const [showFullContent, setShowFullContent] = useState(false); // Estado para expandir
+  const [needsExpansion, setNeedsExpansion] = useState(false); // Si necesita expansión
+  const contentRef = useRef(null); // Referencia para medir altura
   
   const { likeComment } = useCommentActions();
   const { likeCount, userLiked, loading: likesLoading } = useCommentLikes(comment.id);
@@ -51,6 +56,18 @@ function CommentCard({
     loadAuthorData();
     loadForumDetails();
   }, [comment.authorId, forumData]);
+
+  useEffect(() => {
+    // Verificar si el contenido es muy largo
+    if (contentRef.current) {
+      const contentHeight = contentRef.current.scrollHeight;
+      const lineHeight = parseInt(getComputedStyle(contentRef.current).lineHeight);
+      const maxLines = 6; // Máximo de líneas antes de mostrar scroll
+      const maxHeight = lineHeight * maxLines;
+      
+      setNeedsExpansion(contentHeight > maxHeight);
+    }
+  }, [comment.content]);
 
   const loadAuthorData = async () => {
     try {
@@ -153,6 +170,10 @@ function CommentCard({
 
   const handleUserBanned = () => {
     setShowBanModal(false);
+  };
+
+  const toggleContent = () => {
+    setShowFullContent(!showFullContent);
   };
 
   // Verificar permisos
@@ -337,12 +358,41 @@ function CommentCard({
           )}
         </div>
 
-        {/* Contenido del Comentario */}
-        <div className="mb-4">
+        {/* Contenido del Comentario con scrollbar */}
+        <div className="mb-4 relative">
           <div 
-            className="text-gray-700 whitespace-pre-line break-words leading-relaxed text-sm"
+            ref={contentRef}
+            className={`text-gray-700 whitespace-pre-line break-words leading-relaxed text-sm transition-all duration-300 ${
+              showFullContent ? 'max-h-[500px]' : 'max-h-24'
+            } ${
+              needsExpansion ? 'overflow-y-auto pr-2' : 'overflow-hidden'
+            }`}
+            style={{
+              scrollbarWidth: 'thin',
+              scrollbarColor: '#cbd5e0 #f7fafc'
+            }}
             dangerouslySetInnerHTML={{ __html: renderFormattedContent(comment.content) }}
           />
+          
+          {/* Botón para expandir/colapsar si el contenido es muy largo */}
+          {needsExpansion && (
+            <button
+              onClick={toggleContent}
+              className="mt-2 flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium transition duration-200"
+            >
+              {showFullContent ? (
+                <>
+                  <FaChevronUp className="w-3 h-3" />
+                  Mostrar menos
+                </>
+              ) : (
+                <>
+                  <FaChevronDown className="w-3 h-3" />
+                  Mostrar más
+                </>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Acciones del Comentario */}

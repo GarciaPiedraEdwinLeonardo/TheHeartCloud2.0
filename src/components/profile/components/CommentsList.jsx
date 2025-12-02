@@ -1,4 +1,5 @@
-import { FaHeart, FaCalendar, FaUser, FaComment } from 'react-icons/fa';
+import { FaHeart, FaCalendar, FaUser, FaComment, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { useState, useRef, useEffect } from 'react';
 
 function CommentsList({ comentarios }) {
   const formatDate = (date) => {
@@ -26,10 +27,66 @@ function CommentsList({ comentarios }) {
     }
   };
 
-  const truncateContent = (content, maxLength = 120) => {
-    if (!content) return 'Sin contenido';
-    if (content.length <= maxLength) return content;
-    return content.substring(0, maxLength) + '...';
+  // Componente interno para manejar contenido expansible
+  const CommentContent = ({ content, comentarioId }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [needsExpansion, setNeedsExpansion] = useState(false);
+    const contentRef = useRef(null);
+    
+    useEffect(() => {
+      if (contentRef.current) {
+        const contentHeight = contentRef.current.scrollHeight;
+        const lineHeight = parseInt(getComputedStyle(contentRef.current).lineHeight);
+        const maxLines = 6; // Máximo de líneas antes de mostrar scroll
+        const maxHeight = lineHeight * maxLines;
+        
+        setNeedsExpansion(contentHeight > maxHeight);
+      }
+    }, [content]);
+
+    const toggleExpand = () => {
+      setIsExpanded(!isExpanded);
+    };
+
+    return (
+      <div className="mb-4">
+        <div 
+          ref={contentRef}
+          className={`bg-gray-50 rounded-lg p-3 border border-gray-200 transition-all duration-300 ${
+            isExpanded ? 'max-h-[500px]' : 'max-h-24'
+          } ${
+            needsExpansion ? 'overflow-y-auto pr-2' : 'overflow-hidden'
+          }`}
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#cbd5e0 #f7fafc'
+          }}
+        >
+          <p className="text-gray-700 text-sm sm:text-base leading-relaxed break-words whitespace-pre-wrap">
+            {content}
+          </p>
+        </div>
+        
+        {needsExpansion && (
+          <button
+            onClick={toggleExpand}
+            className="mt-2 flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium transition duration-200"
+          >
+            {isExpanded ? (
+              <>
+                <FaChevronUp className="w-3 h-3" />
+                Mostrar menos
+              </>
+            ) : (
+              <>
+                <FaChevronDown className="w-3 h-3" />
+                Mostrar más
+              </>
+            )}
+          </button>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -51,14 +108,11 @@ function CommentsList({ comentarios }) {
             </div>
           </div>
 
-          {/* Contenido del comentario - ARREGLADO */}
-          <div className="mb-4">
-            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-              <p className="text-gray-700 text-sm sm:text-base leading-relaxed break-words whitespace-pre-wrap max-w-full overflow-hidden">
-                {comentario.content || comentario.contenido}
-              </p>
-            </div>
-          </div>
+          {/* Contenido del comentario con scrollbar */}
+          <CommentContent 
+            content={comentario.content || comentario.contenido} 
+            comentarioId={comentario.id}
+          />
 
           {/* Metadata del comentario */}
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-500">
