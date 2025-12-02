@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import Header from './sections/Header';
 import Sidebar from './navegation/sidebars/Sidebar';
@@ -53,6 +53,57 @@ function Home() {
       setShowSuspendedScreen(false);
     }
   }, [userData]);
+
+  useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    setUser(user);
+    
+    if (user) {
+      const userDocUnsubscribe = onSnapshot(doc(db, 'users', user.uid), async (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const userData = docSnapshot.data();
+          setUserData(userData);
+          
+          if (userData.suspension?.isSuspended && userData.suspension.endDate) {
+            const endDate = userData.suspension.endDate.toDate();
+            const now = new Date();
+            
+            // Verificar si la suspensión expiró
+            if (now >= endDate) {
+              console.log("Suspensión expirada limpiando automáticamente");
+              
+              try {
+                // Limpiar suspensión
+                await updateDoc(doc(db, 'users', user.uid), {
+                  "suspension.isSuspended": false,
+                  "suspension.reason": null,
+                  "suspension.startDate": null,
+                  "suspension.endDate": null,
+                  "suspension.suspendedBy": null,
+                  "suspension.autoRemovedAt": serverTimestamp(),
+                });
+                
+                console.log("Suspensión limpiada exitosamente");
+                
+                // Forzar recarga de datos
+                const updatedDoc = await getDoc(doc(db, 'users', user.uid));
+                if (updatedDoc.exists()) {
+                  setUserData(updatedDoc.data());
+                }
+              } catch (error) {
+                console.error("Error limpiando suspensión:", error);
+              }
+            }
+          }
+        }
+      });
+      return () => userDocUnsubscribe();
+    } else {
+      setUserData(null);
+    }
+  });
+  return unsubscribe;
+}, []);
 
   const handleLogout = async () => {
     try {
