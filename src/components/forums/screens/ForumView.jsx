@@ -182,7 +182,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
         const result = await joinForum(forumData.id);
         if (result.success) {
           if (result.requiresApproval) {
-            toast.succes(result.message);
+            toast.success(result.message);
             setHasPendingRequest(true);
             await reloadForumData();
           } else {
@@ -195,6 +195,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
       }
     } catch (error) {
       toast.error('Error al procesar la acción');
+      console.error('Error al unirse ' + error);
     } finally {
       setActionLoading(false);
     }

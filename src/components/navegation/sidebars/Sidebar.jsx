@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FaAngleDown, FaAngleUp, FaCrown, FaUserShield, FaUser, FaUsers, FaFlag } from "react-icons/fa";
+import { useState, useEffect } from 'react';
+import { FaAngleDown, FaAngleUp, FaCrown, FaUserShield, FaUser, FaUsers, FaFlag, FaCheck, FaClock, FaTimes } from "react-icons/fa";
 import { IoIosAddCircleOutline } from "react-icons/io";
 import { useForums } from './../../forums/hooks/useForums';
 import { useUserForums } from './../../forums/hooks/useUserForums';
@@ -9,6 +9,7 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, o
   const [isForumsOpen, setIsForumsOpen] = useState(true);
   const [isMyForumsOpen, setIsMyForumsOpen] = useState(false);
   const [showCreateForumModal, setShowCreateForumModal] = useState(false);
+  const [forumMemberships, setForumMemberships] = useState({});
   
   const { forums, loading: forumsLoading } = useForums();
   const { userForums, loading: userForumsLoading } = useUserForums();
@@ -17,6 +18,31 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, o
   const showCreateForum = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
   const showMyForums = userRole === 'doctor' || userRole === 'moderator' || userRole === 'admin';
   const showReviewVerifications = userRole === 'admin';
+
+  // Determinar estado de membresía para cada foro
+  useEffect(() => {
+    if (forums.length > 0 && userForums.length > 0) {
+      const memberships = {};
+      
+      forums.forEach(forum => {
+        const userForum = userForums.find(uf => uf.id === forum.id);
+        
+        if (userForum) {
+          memberships[forum.id] = {
+            status: 'member',
+            role: userForum.userRole
+          };
+        } else {
+          memberships[forum.id] = {
+            status: 'not_member',
+            role: null
+          };
+        }
+      });
+      
+      setForumMemberships(memberships);
+    }
+  }, [forums, userForums]);
 
   const handleCreateForum = () => {
     setShowCreateForumModal(true);
@@ -43,6 +69,41 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, o
         return <FaUserShield className="w-3 h-3 text-blue-500" />;
       default:
         return <FaUser className="w-3 h-3 text-gray-500" />;
+    }
+  };
+
+  const getMembershipIcon = (forumId) => {
+    const membership = forumMemberships[forumId];
+    
+    if (!membership) return null;
+
+    switch (membership.status) {
+      case 'member':
+        return <FaCheck className="w-3 h-3 text-green-500" title="Ya estás unido" />;
+      case 'pending':
+        return <FaClock className="w-3 h-3 text-yellow-500" title="Solicitud pendiente" />;
+      case 'rejected':
+        return <FaTimes className="w-3 h-3 text-red-500" title="Solicitud rechazada" />;
+      default:
+        return null;
+    }
+  };
+
+  // Función para determinar el color del texto según el estado
+  const getForumTextColor = (forumId) => {
+    const membership = forumMemberships[forumId];
+    
+    if (!membership) return 'text-gray-600';
+    
+    switch (membership.status) {
+      case 'member':
+        return 'text-green-700 font-medium';
+      case 'pending':
+        return 'text-yellow-700';
+      case 'rejected':
+        return 'text-red-700';
+      default:
+        return 'text-gray-600';
     }
   };
 
@@ -94,24 +155,44 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, o
                     )}
                   </div>
                 ) : (
-                  forums.map((forum) => (
-                    <button
-                      key={forum.id}
-                      onClick={() => handleForumClick(forum)}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-900 transition duration-200 group w-full text-left"
-                      title={forum.description}
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <FaUsers className="w-3 h-3 text-green-500" />
-                        <span className="text-sm flex-1 truncate">{forum.name}</span>
-                      </div>
-                      <div className="opacity-70 group-hover:opacity-100 transition-opacity">
-                        <span className="text-xs text-gray-500">
-                          {forum.memberCount || 0}
-                        </span>
-                      </div>
-                    </button>
-                  ))
+                  forums.map((forum) => {
+                    const membership = forumMemberships[forum.id];
+                    const isMember = membership && membership.status === 'member';
+                    
+                    return (
+                      <button
+                        key={forum.id}
+                        onClick={() => handleForumClick(forum)}
+                        className={`flex items-center justify-between p-2 rounded-lg hover:bg-gray-100 transition duration-200 group w-full text-left ${
+                          isMember ? 'hover:bg-green-50' : ''
+                        }`}
+                        title={forum.description}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <FaUsers className={`w-3 h-3 ${
+                            isMember ? 'text-green-500' : 'text-gray-400'
+                          }`} />
+                          <span className={`text-sm flex-1 truncate ${getForumTextColor(forum.id)}`}>
+                            {forum.name}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          {/* Ícono de estado de membresía */}
+                          {getMembershipIcon(forum.id)}
+                          
+                          {/* Contador de miembros */}
+                          <div className={`opacity-70 group-hover:opacity-100 transition-opacity ${
+                            isMember ? 'text-green-500' : 'text-gray-500'
+                          }`}>
+                            <span className="text-xs">
+                              {forum.memberCount || 0}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             )}
@@ -174,7 +255,7 @@ function Sidebar({ onInicioClick, onThemeClick, userData, onVerificationClick, o
                       >
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <FaUsers className="w-3 h-3 text-green-500" />
-                          <span className="text-sm flex-1 truncate">{forum.name}</span>
+                          <span className="text-sm flex-1 truncate text-green-700 font-medium">{forum.name}</span>
                         </div>
                         <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
                           {getRoleIcon(forum.userRole)}
