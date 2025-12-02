@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  limit,
+  getDoc,
+  doc,
+} from "firebase/firestore";
 import { db } from "./../../../../config/firebase";
 
 export const useSearch = (searchQuery) => {
