@@ -429,32 +429,39 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
           </div>
 
           {/* Footer con botones */}
-          <div className="p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0 rounded-b-2xl">
-            <div className="flex justify-between items-center">
-              <p className="text-sm text-gray-500">
+          <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0 rounded-b-lg sm:rounded-b-2xl">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+              <p className="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
                 {requiresPostApproval && !canPostWithoutApproval 
                   ? 'Tu publicación será revisada antes de ser visible'
-                  : 'Tu publicación será visible para todos los miembros de la comunidad'
+                  : 'Visible para todos los miembros'
                 }
               </p>
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={onClose}
                   disabled={loading}
-                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm sm:text-base bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium disabled:opacity-50"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={loading || imageUploading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center gap-2 disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm sm:text-base bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  {(loading || imageUploading) && <FaSpinner className="w-4 h-4 animate-spin" />}
-                  {loading ? 'Publicando...' : imageUploading ? 'Subiendo...' : (
-                    requiresPostApproval && !canPostWithoutApproval ? 'Enviar para Aprobación' : 'Publicar'
-                  )}
+                  {(loading || imageUploading) && <FaSpinner className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />}
+                  <span className="hidden sm:inline">
+                    {loading ? 'Publicando...' : imageUploading ? 'Subiendo...' : (
+                      requiresPostApproval && !canPostWithoutApproval ? 'Enviar para Aprobación' : 'Publicar'
+                    )}
+                  </span>
+                  <span className="sm:hidden">
+                    {loading ? 'Publicando...' : imageUploading ? 'Subiendo...' : (
+                      requiresPostApproval && !canPostWithoutApproval ? 'Enviar' : 'Publicar'
+                    )}
+                  </span>
                 </button>
               </div>
             </div>
