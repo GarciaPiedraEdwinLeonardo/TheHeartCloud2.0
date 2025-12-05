@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FaTimes, FaSpinner, FaExclamationTriangle, FaTrash, FaUserShield } from 'react-icons/fa';
 import { useCommentModeration } from './../hooks/useCommentModeration';
 import { toast } from 'react-hot-toast';
@@ -7,20 +7,65 @@ function ModerateCommentModal({ isOpen, onClose, comment, forumData, onCommentMo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [reason, setReason] = useState('');
+  const [charError, setCharError] = useState('');
   const [deleteReplies, setDeleteReplies] = useState(true);
   
   const { deleteComment } = useCommentModeration();
+  const textareaRef = useRef(null);
+
+  const MIN_CHARS = 10;
+  const MAX_CHARS = 100;
+
+  // Validación en tiempo real
+  const handleReasonChange = (e) => {
+    const value = e.target.value;
+    const length = value.length;
+
+    // Permitir escritura solo hasta MAX_CHARS
+    if (length <= MAX_CHARS) {
+      setReason(value);
+      
+      // Validación en tiempo real
+      if (length === 0) {
+        setCharError('');
+      } else if (length < MIN_CHARS) {
+        setCharError(`Faltan ${MIN_CHARS - length} caracteres (mínimo ${MIN_CHARS})`);
+      } else if (length === MAX_CHARS) {
+        setCharError('Has alcanzado el límite máximo de caracteres');
+      } else {
+        setCharError('');
+      }
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validaciones
     if (!reason.trim()) {
       setError('Debes proporcionar una razón para la eliminación');
+      setCharError('El campo de razón es obligatorio');
+      textareaRef.current?.focus();
+      return;
+    }
+
+    if (reason.length < MIN_CHARS) {
+      setError(`La razón debe tener al menos ${MIN_CHARS} caracteres`);
+      setCharError(`Faltan ${MIN_CHARS - reason.length} caracteres (mínimo ${MIN_CHARS})`);
+      textareaRef.current?.focus();
+      return;
+    }
+
+    if (reason.length > MAX_CHARS) {
+      setError(`La razón no puede exceder los ${MAX_CHARS} caracteres`);
+      setCharError(`Excede por ${reason.length - MAX_CHARS} caracteres (máximo ${MAX_CHARS})`);
+      textareaRef.current?.focus();
       return;
     }
 
     setLoading(true);
     setError('');
+    setCharError('');
 
     try {
       const result = await deleteComment(
@@ -36,6 +81,7 @@ function ModerateCommentModal({ isOpen, onClose, comment, forumData, onCommentMo
           onCommentModerated(result.deletedCount);
         }
         onClose();
+        setReason('');
         
         // Mostrar mensaje con información
         if (result.deletedCount > 1) {
@@ -53,7 +99,39 @@ function ModerateCommentModal({ isOpen, onClose, comment, forumData, onCommentMo
     }
   };
 
+  // Prevenir scroll del body cuando el modal está abierto
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  // Reset de errores al cerrar
+  useEffect(() => {
+    if (!isOpen) {
+      setError('');
+      setCharError('');
+      setReason('');
+      setDeleteReplies(true);
+    }
+  }, [isOpen]);
+
   if (!isOpen || !comment) return null;
+
+  // Determinar el color del contador
+  const getCharCountColor = () => {
+    const length = reason.length;
+    if (length === 0) return 'text-gray-500';
+    if (length < MIN_CHARS) return 'text-orange-600';
+    if (length >= MAX_CHARS) return 'text-red-600 font-semibold';
+    return 'text-green-600';
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -85,7 +163,7 @@ function ModerateCommentModal({ isOpen, onClose, comment, forumData, onCommentMo
 
         {/* Contenido */}
         <div className="max-h-[calc(80vh-120px)] overflow-y-auto">
-          <form onSubmit={handleSubmit} className="p-6">
+          <div className="p-6">
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-700 text-sm">{error}</p>
@@ -112,35 +190,36 @@ function ModerateCommentModal({ isOpen, onClose, comment, forumData, onCommentMo
               </label>
               <textarea
                 id="reason"
+                ref={textareaRef}
                 value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                onChange={handleReasonChange}
                 disabled={loading}
                 rows={3}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition duration-200 resize-none disabled:opacity-50"
+                minLength={MIN_CHARS}
+                maxLength={MAX_CHARS}
+                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition duration-200 resize-none disabled:opacity-50 ${
+                  charError 
+                    ? 'border-red-300 focus:ring-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 placeholder="Explica por qué este comentario debe ser eliminado..."
                 required
               />
-            </div>
-
-            {/* Opción para eliminar respuestas */}
-            <div className="mb-6">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={deleteReplies}
-                  onChange={(e) => setDeleteReplies(e.target.checked)}
-                  disabled={loading}
-                  className="w-4 h-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
-                />
-                <div>
-                  <span className="text-sm font-medium text-gray-900">
-                    Eliminar también las respuestas
-                  </span>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Si está marcado, todas las respuestas a este comentario también serán eliminadas
+              
+              {/* Contador de caracteres y mensajes de error */}
+              <div className="flex items-center justify-between mt-1">
+                <p className={`text-xs ${getCharCountColor()}`}>
+                  {reason.length} / {MAX_CHARS} caracteres
+                  {reason.length > 0 && reason.length < MIN_CHARS && (
+                    <span className="ml-1">(mínimo {MIN_CHARS})</span>
+                  )}
+                </p>
+                {charError && (
+                  <p className="text-xs text-red-600 font-medium">
+                    {charError}
                   </p>
-                </div>
-              </label>
+                )}
+              </div>
             </div>
 
             {/* Advertencia */}
@@ -151,17 +230,14 @@ function ModerateCommentModal({ isOpen, onClose, comment, forumData, onCommentMo
                   <h4 className="text-sm font-medium text-red-800 mb-1">
                     Acción de moderación
                   </h4>
-                  <ul className="text-xs text-red-700 space-y-1">
-                    <li>• El comentario se marcará como eliminado por moderación</li>
-                    <li>• El autor será notificado sobre la eliminación</li>
+                  <ul className="text-xs text-red-700 space-y-1"> 
                     <li>• La acción quedará registrada en el sistema de auditoría</li>
                     <li>• Puede conllevar sanciones para el autor</li>
-                    <li>• Se reportará a moderación global</li>
                   </ul>
                 </div>
               </div>
             </div>
-          </form>
+          </div>
         </div>
 
         {/* Footer con botones */}
@@ -176,9 +252,9 @@ function ModerateCommentModal({ isOpen, onClose, comment, forumData, onCommentMo
               Cancelar
             </button>
             <button
-              type="submit"
+              type="button"
               onClick={handleSubmit}
-              disabled={loading || !reason.trim()}
+              disabled={loading || reason.length < MIN_CHARS || reason.length > MAX_CHARS}
               className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
             >
               {loading && <FaSpinner className="w-4 h-4 animate-spin" />}
