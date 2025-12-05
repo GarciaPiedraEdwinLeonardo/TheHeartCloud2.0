@@ -4,8 +4,11 @@ import {
   updateDoc,
   serverTimestamp,
   getDoc,
-  increment,
+  getDocs,
+  query,
+  where,
   collection,
+  increment,
   deleteField,
   arrayUnion,
   arrayRemove,
@@ -109,11 +112,52 @@ export const useForumActions = () => {
     }
   };
 
+  // Función para verificar si el nombre de foro ya existe
+  const checkForumNameExists = async (forumName) => {
+    try {
+      // Limpiar el nombre para la búsqueda
+      const cleanedName = forumName.trim().toLowerCase();
+      const originalName = forumName.trim();
+
+      // Buscar foros activos (sin filtrar por nombre en la consulta)
+      const forumsRef = collection(db, "forums");
+      const q = query(forumsRef, where("isDeleted", "==", false));
+
+      const querySnapshot = await getDocs(q);
+
+      // Verificar si existe algún foro con nombre similar (ignorando mayúsculas)
+      let exists = false;
+      let existingForumName = "";
+
+      querySnapshot.forEach((doc) => {
+        const forumData = doc.data();
+        // Solo considerar foros activos (no eliminados) y comparar nombres en minúsculas
+        if (forumData.name && forumData.name.toLowerCase() === cleanedName) {
+          exists = true;
+          existingForumName = forumData.name;
+        }
+      });
+
+      return { exists, existingForumName };
+    } catch (error) {
+      console.error("Error verificando nombre de foro:", error);
+      return { exists: false, existingForumName: "" };
+    }
+  };
+
   // Crear nueva comunidad
   const createForum = async (forumData) => {
     try {
       if (!user)
         throw new Error("Debes iniciar sesión para crear una comunidad");
+
+      // Verificar si el nombre ya existe
+      const nameCheck = await checkForumNameExists(forumData.name);
+      if (nameCheck.exists) {
+        throw new Error(
+          `Ya existe una comunidad llamada "${nameCheck.existingForumName}"`
+        );
+      }
 
       const forumRef = doc(collection(db, "forums"));
       const forumId = forumRef.id;
@@ -529,5 +573,6 @@ export const useForumActions = () => {
     rejectMember,
     updateMembershipSettings,
     isUserBannedFromForum,
+    checkForumNameExists, // Exportar la nueva función
   };
 };

@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
-import { FaTimes, FaSpinner, FaUsers, FaInfoCircle, FaLock, FaUnlock, FaExclamationCircle } from 'react-icons/fa';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { FaTimes, FaSpinner, FaUsers, FaInfoCircle, FaLock, FaUnlock, FaExclamationCircle, FaCheck, FaSync } from 'react-icons/fa';
 import { useForumActions } from './../hooks/useForumsActions';
 import { toast } from 'react-hot-toast';
+import debounce from 'lodash/debounce';
 
 function CreateForumModal({ isOpen, onClose, onForumCreated }) {
   const [formData, setFormData] = useState({
@@ -14,8 +15,10 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [showGeneralError, setShowGeneralError] = useState(false);
+  const [checkingName, setCheckingName] = useState(false);
+  const [nameExistsError, setNameExistsError] = useState('');
   
-  const { createForum } = useForumActions();
+  const { createForum, checkForumNameExists } = useForumActions();
 
   const nameRef = useRef(null);
   const descriptionRef = useRef(null);
@@ -25,6 +28,7 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
       setErrors({});
       setTouched({});
       setShowGeneralError(false);
+      setNameExistsError('');
       setTimeout(() => {
         nameRef.current?.focus();
       }, 100);
@@ -37,6 +41,46 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
       });
     }
   }, [isOpen]);
+
+  // Función debounced para verificar nombre en tiempo real
+  const debouncedCheckName = useCallback(
+  debounce(async (name) => {
+    const trimmedName = name.trim();
+    
+    if (trimmedName.length < 3) {
+      setNameExistsError('');
+      return;
+    }
+
+    const nameError = validateField('name', trimmedName);
+    if (nameError) {
+      setNameExistsError('');
+      return;
+    }
+
+    setCheckingName(true);
+    try {
+      const result = await checkForumNameExists(trimmedName);
+      if (result.exists) {
+        setNameExistsError(`Ya existe una comunidad llamada "${result.existingForumName}"`);
+      } else {
+        setNameExistsError('');
+      }
+    } catch (error) {
+      console.error('Error verificando nombre:', error);
+      setNameExistsError('');
+    } finally {
+      setCheckingName(false);
+    }
+  }, 700),
+  []
+);
+
+  useEffect(() => {
+    return () => {
+      debouncedCheckName.cancel();
+    };
+  }, [debouncedCheckName]);
 
   const validateField = (name, value) => {
     switch (name) {
@@ -73,7 +117,7 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
     
     setErrors(newErrors);
     
-    return !newErrors.name && !newErrors.description && !newErrors.rules;
+    return !newErrors.name && !newErrors.description && !newErrors.rules && !nameExistsError;
   };
 
   const handleInputChange = (e) => {
@@ -99,6 +143,16 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
         setShowGeneralError(false);
       }
     }
+
+    // Verificar nombre en tiempo real
+    if (name === 'name') {
+      // Limpiar error de nombre existente si el usuario está editando
+      if (nameExistsError) {
+        setNameExistsError('');
+      }
+      // Verificar con debounce
+      debouncedCheckName(newValue);
+    }
   };
 
   const handleBlur = (e) => {
@@ -113,6 +167,11 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
       ...prev,
       [name]: error
     }));
+
+    // Verificar nombre al perder el foco (última verificación)
+    if (name === 'name' && value.trim().length >= 3 && !error) {
+      debouncedCheckName(value);
+    }
   };
 
   const handleSubmit = async () => {
@@ -123,10 +182,32 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
     };
     setTouched(allTouched);
     
+    // Verificar nombre una última vez antes de enviar
+    if (formData.name.trim().length >= 3) {
+      setCheckingName(true);
+      try {
+        const result = await checkForumNameExists(formData.name);
+        if (result.exists) {
+          setNameExistsError(`Ya existe una comunidad llamada "${result.existingForumName}"`);
+          setShowGeneralError(true);
+          nameRef.current?.focus();
+          setCheckingName(false);
+          return;
+        }
+      } catch (error) {
+        console.error('Error en verificación final:', error);
+      } finally {
+        setCheckingName(false);
+      }
+    }
+    
     if (!validateForm()) {
       setShowGeneralError(true);
       
-      if (errors.name) {
+      // Enfocar en el primer campo con error
+      if (nameExistsError) {
+        nameRef.current?.focus();
+      } else if (errors.name) {
         nameRef.current?.focus();
       } else if (errors.description) {
         descriptionRef.current?.focus();
@@ -155,6 +236,11 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
         }
         onClose();
       } else {
+        // Si el error es por nombre duplicado (por si acaso)
+        if (result.error && result.error.includes('Ya existe')) {
+          setNameExistsError(result.error);
+          nameRef.current?.focus();
+        }
         toast.error(result.error || 'Error al crear la comunidad');
       }
     } catch (error) {
@@ -188,13 +274,14 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
         <div className="flex flex-col h-[calc(95vh-64px)] sm:h-[calc(90vh-80px)]">
           <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {/* Mensaje de error general */}
-            {showGeneralError && (errors.name || errors.description || errors.rules) && (
+            {showGeneralError && (errors.name || errors.description || errors.rules || nameExistsError) && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
                 <div className="flex items-center gap-2 mb-2">
                   <FaExclamationCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
                   <span className="text-red-800 font-medium text-sm">Completa los campos requeridos</span>
                 </div>
                 <ul className="text-red-700 text-xs sm:text-sm space-y-1">
+                  {nameExistsError && <li>• {nameExistsError}</li>}
                   {errors.name && <li>• {errors.name}</li>}
                   {errors.description && <li>• {errors.description}</li>}
                   {errors.rules && <li>• {errors.rules}</li>}
@@ -207,30 +294,52 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
                 Nombre de la Comunidad *
               </label>
-              <input
-                ref={nameRef}
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                onBlur={handleBlur}
-                disabled={loading}
-                className={`block w-full px-3 py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 transition duration-200 disabled:opacity-50 ${
-                  errors.name && touched.name 
-                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
-                    : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
-                }`}
-                placeholder="Ej: Cardiología Avanzada..."
-                maxLength={50}
-              />
+              <div className="relative">
+                <input
+                  ref={nameRef}
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  onBlur={handleBlur}
+                  disabled={loading}
+                  className={`block w-full pl-3 pr-10 py-2 text-sm sm:text-base border rounded-lg focus:outline-none focus:ring-2 transition duration-200 disabled:opacity-50 ${
+                    (errors.name && touched.name) || nameExistsError
+                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
+                      : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
+                  placeholder="Ej: Cardiología Avanzada..."
+                  maxLength={50}
+                />
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  {checkingName && (
+                    <FaSync className="w-4 h-4 text-gray-400 animate-spin" />
+                  )}
+                  {!checkingName && formData.name.trim().length >= 3 && !nameExistsError && !errors.name && (
+                    <FaCheck className="w-4 h-4 text-green-500" />
+                  )}
+                </div>
+              </div>
               <div className="flex justify-between items-center mt-1">
                 <div className="flex items-center gap-1">
-                  {errors.name && touched.name && (
+                  {nameExistsError && (
+                    <>
+                      <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                      <p className="text-red-600 text-xs">{nameExistsError}</p>
+                    </>
+                  )}
+                  {!nameExistsError && errors.name && touched.name && (
                     <>
                       <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
                       <p className="text-red-600 text-xs">{errors.name}</p>
                     </>
+                  )}
+                  {!nameExistsError && !errors.name && formData.name.trim().length >= 3 && (
+                    <div className="flex items-center gap-1">
+                      <FaCheck className="w-3 h-3 text-green-500" />
+                      <p className="text-green-600 text-xs">Nombre disponible</p>
+                    </div>
                   )}
                 </div>
                 <p className={`text-xs ${
@@ -432,8 +541,8 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={loading}
-                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                  disabled={loading || checkingName || nameExistsError}
+                  className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm sm:text-base bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <>
