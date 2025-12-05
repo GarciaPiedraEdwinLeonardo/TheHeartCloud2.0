@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FaTimes, FaSpinner, FaExclamationTriangle, FaTrash, FaUsers } from 'react-icons/fa';
 import { useCommunityDeletion } from './../hooks/useCommunityDeletion';
 import { auth } from '../../../config/firebase';
@@ -6,18 +6,57 @@ import { toast } from 'react-hot-toast';
 
 function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityName, forumId }) {
   const [reason, setReason] = useState('');
+  const [charError, setCharError] = useState('');
   const { deleteCommunity, loading, error } = useCommunityDeletion();
+  const textareaRef = useRef(null);
+
+  const MIN_CHARS = 10;
+  const MAX_CHARS = 100;
+
+  // Validación en tiempo real
+  const handleReasonChange = (e) => {
+    const value = e.target.value;
+    const length = value.length;
+
+    // Permitir escritura solo hasta MAX_CHARS
+    if (length <= MAX_CHARS) {
+      setReason(value);
+      
+      // Validación en tiempo real
+      if (length === 0) {
+        setCharError('');
+      } else if (length < MIN_CHARS) {
+        setCharError(`Faltan ${MIN_CHARS - length} caracteres (mínimo ${MIN_CHARS})`);
+      } else if (length === MAX_CHARS) {
+        setCharError('Has alcanzado el límite máximo de caracteres');
+      } else {
+        setCharError('');
+      }
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validaciones
     if (!reason.trim()) {
       toast.error('Debes proporcionar un motivo para la eliminación');
+      setCharError('El campo de motivo es obligatorio');
+      textareaRef.current?.focus();
       return;
     }
 
-    if (reason.length < 10) {
-      toast.error('El motivo debe tener al menos 10 caracteres');
+    if (reason.length < MIN_CHARS) {
+      toast.error(`El motivo debe tener al menos ${MIN_CHARS} caracteres`);
+      setCharError(`Faltan ${MIN_CHARS - reason.length} caracteres (mínimo ${MIN_CHARS})`);
+      textareaRef.current?.focus();
+      return;
+    }
+
+    if (reason.length > MAX_CHARS) {
+      toast.error(`El motivo no puede exceder los ${MAX_CHARS} caracteres`);
+      setCharError(`Excede por ${reason.length - MAX_CHARS} caracteres (máximo ${MAX_CHARS})`);
+      textareaRef.current?.focus();
       return;
     }
 
@@ -30,6 +69,8 @@ function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityNam
           stats: result.stats 
         });
         onClose();
+        setReason('');
+        setCharError('');
       } else {
         toast.error(`Error`);
         console.error("Error " + result.error);
@@ -41,13 +82,36 @@ function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityNam
   };
 
   // Prevenir scroll cuando el modal está abierto
-  if (isOpen) {
-    document.body.style.overflow = 'hidden';
-  } else {
-    document.body.style.overflow = 'unset';
-  }
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  // Reset de errores al cerrar
+  useEffect(() => {
+    if (!isOpen) {
+      setCharError('');
+      setReason('');
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // Determinar el color del contador
+  const getCharCountColor = () => {
+    const length = reason.length;
+    if (length === 0) return 'text-gray-500';
+    if (length < MIN_CHARS) return 'text-orange-600';
+    if (length >= MAX_CHARS) return 'text-red-600 font-semibold';
+    return 'text-green-600';
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-y-auto">
@@ -81,7 +145,7 @@ function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityNam
 
         {/* Contenido - Scroll en móvil */}
         <div className="max-h-[60vh] sm:max-h-[70vh] overflow-y-auto">
-          <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+          <div className="p-4 sm:p-6">
             {error && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-700 text-sm">{error}</p>
@@ -108,17 +172,36 @@ function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityNam
               </label>
               <textarea
                 id="reason"
+                ref={textareaRef}
                 value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                onChange={handleReasonChange}
                 disabled={loading}
                 rows={4}
-                className="w-full px-3 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition duration-200 disabled:opacity-50 resize-none"
+                minLength={MIN_CHARS}
+                maxLength={MAX_CHARS}
+                className={`w-full px-3 py-2 text-sm sm:text-base border rounded-lg focus:ring-2 focus:border-transparent transition duration-200 disabled:opacity-50 resize-none ${
+                  charError 
+                    ? 'border-red-300 focus:ring-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
                 placeholder="Explica detalladamente por qué eliminas esta comunidad..."
                 required
               />
-              <p className="text-xs text-gray-500 mt-1">
-                {reason.length} caracteres (mínimo 10)
-              </p>
+              
+              {/* Contador de caracteres y mensajes de error */}
+              <div className="flex items-center justify-between mt-1">
+                <p className={`text-xs ${getCharCountColor()}`}>
+                  {reason.length} / {MAX_CHARS} caracteres
+                  {reason.length > 0 && reason.length < MIN_CHARS && (
+                    <span className="ml-1">(mínimo {MIN_CHARS})</span>
+                  )}
+                </p>
+                {charError && (
+                  <p className="text-xs text-red-600 font-medium">
+                    {charError}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Advertencia */}
@@ -138,7 +221,7 @@ function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityNam
                 </div>
               </div>
             </div>
-          </form>
+          </div>
         </div>
 
         {/* Footer - Botones responsive */}
@@ -153,9 +236,9 @@ function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityNam
               Cancelar
             </button>
             <button
-              type="submit"
+              type="button"
               onClick={handleSubmit}
-              disabled={loading || reason.length < 10}
+              disabled={loading || reason.length < MIN_CHARS || reason.length > MAX_CHARS}
               className="px-4 sm:px-6 py-2.5 sm:py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base order-1 sm:order-2"
             >
               {loading ? (
