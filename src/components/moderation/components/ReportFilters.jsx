@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { FaFilter, FaCalendar, FaSearch, FaTimes } from 'react-icons/fa';
+import { FaFilter, FaCalendar, FaSearch, FaTimes, FaExclamationTriangle } from 'react-icons/fa';
 
 function ReportFilters({ filters, onFiltersChange, activeTab }) {
   const [showFilters, setShowFilters] = useState(false);
+  const [searchError, setSearchError] = useState('');
 
   const reportTypes = [
     { value: 'all', label: 'Todos los tipos' },
@@ -29,6 +30,34 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
     { value: 'year', label: 'Este año' }
   ];
 
+  const validateSearch = (value) => {
+    const trimmedValue = value.trim();
+    
+    if (trimmedValue.length === 0 && value.length > 0) {
+      return 'La búsqueda no puede contener solo espacios en blanco';
+    }
+    
+    if (trimmedValue.length < 1 && value.length > 0) {
+      return 'Mínimo 1 carácter válido';
+    }
+    
+    if (value.length > 50) {
+      return 'Máximo 50 caracteres';
+    }
+    
+    return '';
+  };
+
+  const handleSearchChange = (value) => {
+    const error = validateSearch(value);
+    setSearchError(error);
+    
+    // Solo actualizar si no hay error o si el usuario está borrando
+    if (!error || value.length < filters.search?.length) {
+      handleFilterChange('search', value);
+    }
+  };
+
   const handleFilterChange = (filterName, value) => {
     onFiltersChange({
       ...filters,
@@ -43,6 +72,7 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
       dateRange: 'all',
       search: ''
     });
+    setSearchError('');
   };
 
   const getActiveFiltersCount = () => {
@@ -50,7 +80,7 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
     if (filters.type !== 'all') count++;
     if (filters.urgency !== 'all') count++;
     if (filters.dateRange !== 'all') count++;
-    if (filters.search) count++;
+    if (filters.search && filters.search.trim().length >= 1) count++;
     return count;
   };
 
@@ -98,18 +128,43 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
         </div>
       </div>
 
-      {/* Búsqueda siempre visible */}
+      {/* Búsqueda siempre visible - Móvil */}
       <div className="mb-3 sm:hidden">
         <div className="relative">
           <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
             type="text"
             value={filters.search || ''}
-            onChange={(e) => handleFilterChange('search', e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onBlur={() => {
+              // Trimear al salir del campo
+              if (filters.search) {
+                const trimmed = filters.search.trim();
+                if (trimmed !== filters.search) {
+                  handleFilterChange('search', trimmed);
+                }
+              }
+            }}
             placeholder="Buscar reportes..."
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            maxLength={50}
+            className={`block w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm ${
+              searchError 
+                ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+            }`}
           />
+          {filters.search && (
+            <div className="absolute right-10 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
+              {filters.search.length}/50
+            </div>
+          )}
         </div>
+        {searchError && (
+          <div className="mt-1 flex items-center gap-1 text-xs text-red-600">
+            <FaExclamationTriangle className="w-3 h-3" />
+            <span>{searchError}</span>
+          </div>
+        )}
       </div>
 
       {/* Filtros expandibles */}
@@ -117,19 +172,46 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {/* Búsqueda (solo desktop) */}
           <div className="hidden sm:block">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Buscar
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-gray-700">
+                Buscar
+              </label>
+              {filters.search && (
+                <span className="text-xs text-gray-500">
+                  {filters.search.length}/50
+                </span>
+              )}
+            </div>
             <div className="relative">
               <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 value={filters.search || ''}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                onBlur={() => {
+                  // Trimear al salir del campo
+                  if (filters.search) {
+                    const trimmed = filters.search.trim();
+                    if (trimmed !== filters.search) {
+                      handleFilterChange('search', trimmed);
+                    }
+                  }
+                }}
                 placeholder="Buscar en reportes..."
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                maxLength={50}
+                className={`block w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm ${
+                  searchError 
+                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                }`}
               />
             </div>
+            {searchError && (
+              <div className="mt-1 flex items-center gap-1 text-xs text-red-600">
+                <FaExclamationTriangle className="w-3 h-3" />
+                <span>{searchError}</span>
+              </div>
+            )}
           </div>
 
           {/* Tipo de contenido */}
