@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { 
-  FaCheck, FaTimes, FaTrash, FaSpinner,
+  FaCheck, FaTimes, FaTrash, FaSpinner, FaExclamationTriangle 
 } from 'react-icons/fa';
 import { useModerationActions } from './../hooks/useModerationActions';
 import { toast } from 'react-hot-toast';
@@ -9,6 +9,9 @@ function ModerationActions({ report, onClose }) {
   const [showModal, setShowModal] = useState(false);
   const [modalData, setModalData] = useState({ reason: '' });
   const [selectedAction, setSelectedAction] = useState('');
+  const [validationError, setValidationError] = useState('');
+  
+  const reasonTextareaRef = useRef(null);
   
   const { 
     resolveReport, 
@@ -17,6 +20,42 @@ function ModerationActions({ report, onClose }) {
     loading,
     error 
   } = useModerationActions();
+
+  // Validar el campo de razón en tiempo real
+  const validateReason = (value) => {
+    const trimmedValue = value.trim();
+    
+    if (trimmedValue.length === 0 && value.length > 0) {
+      return 'La razón no puede contener solo espacios en blanco';
+    }
+    
+    if (trimmedValue.length < 10) {
+      return `Mínimo 10 caracteres (actual: ${trimmedValue.length})`;
+    }
+    
+    if (value.length > 100) {
+      return `Máximo 100 caracteres (actual: ${value.length})`;
+    }
+    
+    return '';
+  };
+
+  const handleReasonChange = (value) => {
+    setModalData(prev => ({ ...prev, reason: value }));
+    
+    // Validación en tiempo real
+    const error = validateReason(value);
+    setValidationError(error);
+  };
+
+  // Enfocar el textarea cuando se abre el modal
+  useEffect(() => {
+    if (showModal && reasonTextareaRef.current) {
+      setTimeout(() => {
+        reasonTextareaRef.current.focus();
+      }, 100);
+    }
+  }, [showModal]);
 
   // Obtener acciones disponibles - SOLO para reportes pendientes de usuarios
   const getAvailableActions = () => {
@@ -58,12 +97,26 @@ function ModerationActions({ report, onClose }) {
 
   const handleAction = async (action) => {
     setSelectedAction(action);
+    setModalData({ reason: '' });
+    setValidationError('');
     setShowModal(true);
   };
 
   const confirmAction = async () => {
-    if (!modalData.reason.trim()) {
-      toast.error("Debes proporcionar una razón para esta acción");
+    const trimmedReason = modalData.reason.trim();
+    
+    // Validación final antes de enviar
+    const error = validateReason(modalData.reason);
+    
+    if (error) {
+      setValidationError(error);
+      
+      // Hacer focus en el textarea si hay error
+      if (reasonTextareaRef.current) {
+        reasonTextareaRef.current.focus();
+      }
+      
+      toast.error("Por favor corrige los errores antes de continuar");
       return;
     }
 
@@ -72,13 +125,13 @@ function ModerationActions({ report, onClose }) {
 
       switch (selectedAction) {
         case 'resolve':
-          result = await resolveReport(report.id, modalData.reason);
+          result = await resolveReport(report.id, trimmedReason);
           break;
         case 'dismiss':
-          result = await dismissReport(report.id, modalData.reason);
+          result = await dismissReport(report.id, trimmedReason);
           break;
         case 'delete_content':
-          result = await deleteContent(report.type, report.targetId, modalData.reason, report.forumId);
+          result = await deleteContent(report.type, report.targetId, trimmedReason, report.forumId);
           break;
         default:
           break;
@@ -108,6 +161,12 @@ function ModerationActions({ report, onClose }) {
       case 'delete_content': return `Eliminar ${report.type === 'post' ? 'Publicación' : 'Comentario'}`;
       default: return 'Confirmar Acción';
     }
+  };
+
+  // Calcular si el botón debe estar deshabilitado
+  const isConfirmDisabled = () => {
+    const trimmedReason = modalData.reason.trim();
+    return trimmedReason.length < 10 || trimmedReason.length > 100 || loading;
   };
 
   const actions = getAvailableActions();
@@ -160,17 +219,41 @@ function ModerationActions({ report, onClose }) {
             </h3>
             
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Razón de la acción
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Razón de la acción
+                </label>
+                <span className={`text-xs ${modalData.reason.length > 100 ? 'text-red-600' : 'text-gray-500'}`}>
+                  {modalData.reason.length}/100
+                </span>
+              </div>
               <textarea
+                ref={reasonTextareaRef}
                 value={modalData.reason}
-                onChange={(e) => setModalData(prev => ({ ...prev, reason: e.target.value }))}
+                onChange={(e) => handleReasonChange(e.target.value)}
                 rows={4}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Describe la razón de esta acción..."
+                maxLength={100}
+                className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:border-blue-500 ${
+                  validationError 
+                    ? 'border-red-300 focus:ring-red-500' 
+                    : 'border-gray-300 focus:ring-blue-500'
+                }`}
+                placeholder="Describe la razón de esta acción (mínimo 10 caracteres)..."
                 required
               />
+              
+              {validationError && (
+                <div className="mt-2 flex items-start gap-2 text-xs text-red-600 bg-red-50 p-2 rounded">
+                  <FaExclamationTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  <span>{validationError}</span>
+                </div>
+              )}
+              
+              {modalData.reason.trim().length >= 10 && modalData.reason.trim().length <= 100 && (
+                <div className="mt-2 text-xs text-green-600">
+                  ✓ La razón tiene la longitud adecuada
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 justify-end">
@@ -178,14 +261,16 @@ function ModerationActions({ report, onClose }) {
                 onClick={() => {
                   setShowModal(false);
                   setModalData({ reason: '' });
+                  setValidationError('');
                 }}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200"
+                disabled={loading}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200 disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={confirmAction}
-                disabled={!modalData.reason.trim() || loading}
+                disabled={isConfirmDisabled()}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {loading && (
