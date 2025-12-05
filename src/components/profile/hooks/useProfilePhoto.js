@@ -1,4 +1,3 @@
-// hooks/useProfilePhoto.js
 import { useState } from "react";
 import { doc, updateDoc } from "firebase/firestore";
 import { db, auth } from "./../../../config/firebase";

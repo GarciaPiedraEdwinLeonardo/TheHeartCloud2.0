@@ -247,7 +247,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
       
       // Mostrar mensaje de éxito
       setTimeout(() => {
-        toast.succes(`Comunidad "${forumDetails.name}" eliminada exitosamente`);
+        toast.success(`Comunidad "${forumDetails.name}" eliminada exitosamente`);
       }, 100);
     } else {
       // Solo mostrar error si realmente falló

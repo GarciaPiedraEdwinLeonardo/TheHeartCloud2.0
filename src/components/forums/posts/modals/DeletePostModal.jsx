@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FaTimes, FaSpinner, FaExclamationTriangle, FaTrash, FaUserShield } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
 import { auth, db } from './../../../../config/firebase';
@@ -8,26 +8,69 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorActi
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [charError, setCharError] = useState('');
   
   const { deletePost } = usePostActions();
   const user = auth.currentUser;
+  const textareaRef = useRef(null);
+
+  const MIN_CHARS = 10;
+  const MAX_CHARS = 100;
+
+  // Validación en tiempo real
+  const handleReasonChange = (e) => {
+    const value = e.target.value;
+    const length = value.length;
+
+    // Permitir escritura solo hasta MAX_CHARS
+    if (length <= MAX_CHARS) {
+      setReason(value);
+      
+      // Validación en tiempo real
+      if (isModeratorAction) {
+        if (length === 0) {
+          setCharError('');
+        } else if (length < MIN_CHARS) {
+          setCharError(`Faltan ${MIN_CHARS - length} caracteres (mínimo ${MIN_CHARS})`);
+        } else if (length === MAX_CHARS) {
+          setCharError('Has alcanzado el límite máximo de caracteres');
+        } else {
+          setCharError('');
+        }
+      }
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validaciones diferentes según quién elimina
-    if (isModeratorAction && !reason.trim()) {
-      setError('Como moderador, debes proporcionar un motivo para la eliminación');
-      return;
-    }
+    if (isModeratorAction) {
+      if (!reason.trim()) {
+        setError('Como moderador, debes proporcionar un motivo para la eliminación');
+        setCharError('El campo de motivo es obligatorio');
+        textareaRef.current?.focus();
+        return;
+      }
 
-    if (isModeratorAction && reason.length < 10) {
-      setError('El motivo debe tener al menos 10 caracteres para acciones de moderación');
-      return;
+      if (reason.length < MIN_CHARS) {
+        setError(`El motivo debe tener al menos ${MIN_CHARS} caracteres para acciones de moderación`);
+        setCharError(`Faltan ${MIN_CHARS - reason.length} caracteres (mínimo ${MIN_CHARS})`);
+        textareaRef.current?.focus();
+        return;
+      }
+
+      if (reason.length > MAX_CHARS) {
+        setError(`El motivo no puede exceder los ${MAX_CHARS} caracteres`);
+        setCharError(`Excede por ${reason.length - MAX_CHARS} caracteres (máximo ${MAX_CHARS})`);
+        textareaRef.current?.focus();
+        return;
+      }
     }
 
     setLoading(true);
     setError('');
+    setCharError('');
 
     try {
       let result;
@@ -46,6 +89,7 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorActi
         }
         onClose();
         setReason('');
+        setCharError('');
         
         // Mostrar mensaje diferente según el tipo de eliminación
         if (isModeratorAction) {
@@ -64,11 +108,26 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorActi
   };
 
   // Prevenir scroll del body cuando el modal está abierto
-  if (isOpen) {
-    document.body.style.overflow = 'hidden';
-  } else {
-    document.body.style.overflow = 'unset';
-  }
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  // Reset de errores al cerrar
+  useEffect(() => {
+    if (!isOpen) {
+      setError('');
+      setCharError('');
+      setReason('');
+    }
+  }, [isOpen]);
 
   if (!isOpen || !post) return null;
 
@@ -84,6 +143,15 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorActi
       return 'Esta acción se registrará para auditoría del sistema';
     }
     return '¿Estás seguro de que quieres eliminar esta publicación?';
+  };
+
+  // Determinar el color del contador
+  const getCharCountColor = () => {
+    const length = reason.length;
+    if (length === 0) return 'text-gray-500';
+    if (length < MIN_CHARS) return 'text-orange-600';
+    if (length >= MAX_CHARS) return 'text-red-600 font-semibold';
+    return 'text-green-600';
   };
 
   return (
@@ -149,17 +217,36 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorActi
                 </label>
                 <textarea
                   id="reason"
+                  ref={textareaRef}
                   value={reason}
-                  onChange={(e) => setReason(e.target.value)}
+                  onChange={handleReasonChange}
                   disabled={loading}
                   rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 transition duration-200 disabled:opacity-50 resize-none"
+                  minLength={MIN_CHARS}
+                  maxLength={MAX_CHARS}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-transparent transition duration-200 disabled:opacity-50 resize-none ${
+                    charError 
+                      ? 'border-red-300 focus:ring-red-500' 
+                      : 'border-gray-300 focus:ring-blue-500'
+                  }`}
                   placeholder="Explica detalladamente por qué eliminas esta publicación. Este motivo será revisado por la moderación global."
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">
-                  {reason.length} caracteres (mínimo 10)
-                </p>
+                
+                {/* Contador de caracteres y mensajes de error */}
+                <div className="flex items-center justify-between mt-1">
+                  <p className={`text-xs ${getCharCountColor()}`}>
+                    {reason.length} / {MAX_CHARS} caracteres
+                    {reason.length > 0 && reason.length < MIN_CHARS && (
+                      <span className="ml-1">(mínimo {MIN_CHARS})</span>
+                    )}
+                  </p>
+                  {charError && (
+                    <p className="text-xs text-red-600 font-medium">
+                      {charError}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
@@ -184,9 +271,6 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorActi
                   }`}>
                     {isModeratorAction ? (
                       <>
-                        <li>• La publicación se guardará en registros de moderación</li>
-                        <li>• El autor será notificado sobre la eliminación</li>
-                        <li>• El motivo será revisado por moderación global</li>
                         <li>• Puede conllevar sanciones para el autor</li>
                         <li>• ⚠️ Esta acción queda registrada en el sistema</li>
                       </>
@@ -219,7 +303,7 @@ function DeletePostModal({ isOpen, onClose, post, onPostDeleted, isModeratorActi
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={loading || (isModeratorAction && reason.length < 10)}
+              disabled={loading || (isModeratorAction && (reason.length < MIN_CHARS || reason.length > MAX_CHARS))}
               className={`px-6 py-3 rounded-lg transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2 ${
                 isModeratorAction
                   ? 'bg-red-600 text-white hover:bg-red-700'
