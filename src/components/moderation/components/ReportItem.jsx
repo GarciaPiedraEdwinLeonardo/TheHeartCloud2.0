@@ -228,15 +228,15 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
               </div>
 
               {/* Información adicional */}
-              <div className="mt-3 space-y-1">
+              <div className="mt-3 space-y-1 overflow-hidden">
                 {reportInfo.reason && (
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-gray-700 break-all overflow-wrap-anywhere">
                     <strong className="text-gray-900">Motivo:</strong> {reportInfo.reason}
                   </p>
                 )}
 
                 {reportInfo.description && (
-                  <p className="text-sm text-gray-700 line-clamp-2">
+                  <p className="text-sm text-gray-700 break-all overflow-wrap-anywhere">
                     <strong className="text-gray-900">Descripción:</strong> {reportInfo.description}
                   </p>
                 )}
