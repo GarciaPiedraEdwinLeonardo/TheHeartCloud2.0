@@ -222,14 +222,36 @@ export const useCommentModeration = () => {
             deletionReason: reason,
           });
 
-          // Actualizar estadísticas del autor
+          // Actualizar estadísticas del autor (SOLO si existe)
           if (currentAuthorId) {
-            const authorRef = doc(db, "users", currentAuthorId);
-            currentBatch.update(authorRef, {
-              "stats.commentCount": increment(-1),
-              "stats.contributionCount": increment(-1),
-              ...(isModeratorAction && { "stats.warnings": increment(1) }),
-            });
+            try {
+              const authorRef = doc(db, "users", currentAuthorId);
+              const authorDoc = await getDoc(authorRef);
+
+              if (authorDoc.exists()) {
+                currentBatch.update(authorRef, {
+                  "stats.commentCount": increment(-1),
+                  "stats.contributionCount": increment(-1),
+                  ...(isModeratorAction && { "stats.warnings": increment(1) }),
+                });
+              } else {
+                // Si el autor no existe, solo marcamos el comentario como de autor eliminado
+                console.log(
+                  `Usuario ${currentAuthorId} no encontrado, omitiendo actualización de estadísticas`
+                );
+
+                // Opcional: Actualizar el comentario para indicar que el autor fue eliminado
+                if (isModeratorAction) {
+                  currentBatch.update(currentCommentRef, {
+                    authorStatus: "deleted",
+                    authorName: "Usuario Eliminado",
+                  });
+                }
+              }
+            } catch (err) {
+              console.warn(`Error verificando/autor ${currentAuthorId}:`, err);
+              // Continuamos sin interrumpir la eliminación aunque haya error
+            }
           }
         }
       };

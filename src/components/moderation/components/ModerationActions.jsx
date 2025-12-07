@@ -90,57 +90,69 @@ function ModerationActions({ report, onClose }) {
     setShowModal(true);
   };
 
-  const confirmAction = async () => {
-    const trimmedReason = modalData.reason.trim();
+// En la función confirmAction, después del try-catch, agrega:
+const confirmAction = async () => {
+  const trimmedReason = modalData.reason.trim();
+  
+  // Validación final antes de enviar
+  const error = validateReason(modalData.reason);
+  
+  if (error) {
+    setValidationError(error);
     
-    // Validación final antes de enviar
-    const error = validateReason(modalData.reason);
+    // Hacer focus en el textarea si hay error
+    if (reasonTextareaRef.current) {
+      reasonTextareaRef.current.focus();
+    }
     
-    if (error) {
-      setValidationError(error);
-      
-      // Hacer focus en el textarea si hay error
-      if (reasonTextareaRef.current) {
-        reasonTextareaRef.current.focus();
-      }
-      
-      toast.error("Por favor corrige los errores antes de continuar");
-      return;
+    toast.error("Por favor corrige los errores antes de continuar");
+    return;
+  }
+
+  try {
+    let result;
+
+    switch (selectedAction) {
+      case 'resolve':
+        result = await resolveReport(report.id, trimmedReason);
+        break;
+      case 'dismiss':
+        result = await dismissReport(report.id, trimmedReason);
+        break;
+      case 'delete_content':
+        // Pasar el forumId si está disponible
+        result = await deleteContent(
+          report.type, 
+          report.targetId, 
+          trimmedReason, 
+          report.forumId || null
+        );
+        break;
+      default:
+        break;
     }
 
-    try {
-      let result;
-
-      switch (selectedAction) {
-        case 'resolve':
-          result = await resolveReport(report.id, trimmedReason);
-          break;
-        case 'dismiss':
-          result = await dismissReport(report.id, trimmedReason);
-          break;
-        case 'delete_content':
-          result = await deleteContent(report.type, report.targetId, trimmedReason, report.forumId);
-          break;
-        default:
-          break;
-      }
-
-      if (result?.success) {
-        toast.success('Acción ejecutada correctamente');
-        onClose();
-        setShowModal(false);
+    if (result?.success) {
+      toast.success('Acción ejecutada correctamente');
+      onClose();
+      setShowModal(false);
+      
+      // Recargar después de un breve delay
+      setTimeout(() => {
         window.location.reload();
-      } else {
-        toast.error("Error, acción fallida");
-        console.error("Error acción fallida " + error);        
-      }
-    } catch (error) {
-      console.error('Error ejecutando acción:', error);
-      toast.error('Error ejecutando la acción');
-    } finally {
-      setSelectedAction('');
+      }, 1000);
+    } else {
+      const errorMsg = result?.error || 'Error desconocido';
+      toast.error(`Error: ${errorMsg}`);
+      console.error("Error acción fallida:", errorMsg);        
     }
-  };
+  } catch (error) {
+    console.error('Error ejecutando acción:', error);
+    toast.error('Error ejecutando la acción: ' + error.message);
+  } finally {
+    setSelectedAction('');
+  }
+};
 
   const getModalTitle = () => {
     switch (selectedAction) {

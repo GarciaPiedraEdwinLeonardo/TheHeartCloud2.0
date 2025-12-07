@@ -493,15 +493,6 @@ function PostCard({
 
         {/* Stats y Acciones */}
         <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-          {/* Estadísticas */}
-          <div className="flex items-center gap-4 text-sm text-gray-500">
-            <div className="flex items-center gap-1">
-              <FaComment className="w-4 h-4 flex-shrink-0" />
-              <span className="hidden sm:inline">{post.stats?.commentCount || 0} comentarios</span>
-              <span className="sm:hidden">{post.stats?.commentCount || 0}</span>
-            </div>
-          </div>
-
           {/* Acciones - Solo mostrar si el post está activo o el usuario es moderador */}
           {(post.status === 'active' || canModerate) && (
             <div className="flex items-center gap-2">

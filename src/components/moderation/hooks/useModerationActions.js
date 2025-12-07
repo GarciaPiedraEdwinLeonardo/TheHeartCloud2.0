@@ -87,41 +87,74 @@ export const useModerationActions = () => {
       let result;
 
       if (contentType === "post") {
+        // Primero verificar si el post existe
+        const postDoc = await getDoc(doc(db, "posts", contentId));
+        if (!postDoc.exists()) {
+          return { success: false, error: "La publicación ya no existe" };
+        }
+
         // Usar el forumId del reporte o intentar obtenerlo del post
         let targetForumId = forumId;
         if (!targetForumId) {
-          // Intentar obtener el forumId del post
-          const postDoc = await getDoc(doc(db, "posts", contentId));
-          if (postDoc.exists()) {
-            targetForumId = postDoc.data().forumId;
-          }
+          targetForumId = postDoc.data().forumId || "global-forum";
         }
+
         result = await deletePost(
           contentId,
           reason,
-          targetForumId || "global-forum",
-          true
+          targetForumId,
+          true // moderatorAction
         );
       } else if (contentType === "comment") {
+        // Primero verificar si el comentario existe
+        const commentDoc = await getDoc(doc(db, "comments", contentId));
+        if (!commentDoc.exists()) {
+          return { success: false, error: "El comentario ya no existe" };
+        }
+
         let targetForumId = forumId;
         if (!targetForumId) {
           // Intentar obtener el forumId del comentario a través del post
-          const commentDoc = await getDoc(doc(db, "comments", contentId));
-          if (commentDoc.exists()) {
+          try {
             const postDoc = await getDoc(
               doc(db, "posts", commentDoc.data().postId)
             );
             if (postDoc.exists()) {
               targetForumId = postDoc.data().forumId;
             }
+          } catch (err) {
+            console.warn("No se pudo obtener el forumId:", err);
           }
         }
+
+        // Verificar si el autor del comentario existe
+        const authorId = commentDoc.data().authorId;
+        let authorExists = false;
+
+        if (authorId) {
+          try {
+            const authorDoc = await getDoc(doc(db, "users", authorId));
+            authorExists = authorDoc.exists();
+
+            if (!authorExists) {
+              // Si el usuario no existe, marcar el comentario como de autor eliminado
+              const commentRef = doc(db, "comments", contentId);
+              await updateDoc(commentRef, {
+                authorStatus: "deleted",
+                authorName: "Usuario Eliminado",
+              });
+            }
+          } catch (err) {
+            console.warn("Error verificando autor:", err);
+          }
+        }
+
         result = await deleteComment(
           contentId,
           reason,
           targetForumId || "global-forum",
-          true,
-          true
+          true, // moderatorAction
+          true // isGlobal
         );
       } else {
         return { success: false, error: "Tipo de contenido no soportado" };
@@ -129,6 +162,7 @@ export const useModerationActions = () => {
 
       return result;
     } catch (error) {
+      console.error("Error en deleteContent:", error);
       setError(error.message);
       return { success: false, error: error.message };
     } finally {

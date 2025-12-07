@@ -186,7 +186,7 @@ function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserP
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-900">
-                Comentarios ({comments.length})
+                Comentarios
               </h2>
               
               {canComment && (
