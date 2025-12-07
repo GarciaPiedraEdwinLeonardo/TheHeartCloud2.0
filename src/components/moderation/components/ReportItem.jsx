@@ -20,7 +20,6 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
   const [showActions, setShowActions] = useState(false);
   const [showContentPreview, setShowContentPreview] = useState(false);
 
-  // Determinar tipo de contenido - SOLO reportes de usuarios
   const getContentType = () => {
     switch (report.type) {
       case 'user':
@@ -42,15 +41,15 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
   const getReportIcon = () => {
     switch (contentType.type) {
       case 'user':
-        return <FaUser className="w-5 h-5 text-purple-600" />;
+        return <FaUser className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />;
       case 'post':
-        return <FaFileAlt className="w-5 h-5 text-blue-600" />;
+        return <FaFileAlt className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />;
       case 'comment':
-        return <FaComment className="w-5 h-5 text-green-600" />;
+        return <FaComment className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />;
       case 'forum':
-        return <FaUsers className="w-5 h-5 text-orange-600" />;
+        return <FaUsers className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />;
       default:
-        return <FaFlag className="w-5 h-5 text-gray-600" />;
+        return <FaFlag className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />;
     }
   };
 
@@ -91,13 +90,24 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
     if (!timestamp) return 'Fecha no disponible';
     try {
       if (timestamp.toDate) {
-        return timestamp.toDate().toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+        const date = timestamp.toDate();
+        const now = new Date();
+        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 0) {
+          return 'Hoy ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        } else if (diffDays === 1) {
+          return 'Ayer ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        } else if (diffDays < 7) {
+          return date.toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+        } else {
+          return date.toLocaleDateString('es-ES', { 
+            month: 'short', 
+            day: 'numeric',
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+        }
       }
       return new Date(timestamp).toLocaleDateString('es-ES');
     } catch {
@@ -105,7 +115,6 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
     }
   };
 
-  // Obtener información del reporte
   const getReportInfo = () => {
     return {
       title: report.targetName || 'Contenido reportado',
@@ -118,10 +127,8 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
 
   const reportInfo = getReportInfo();
 
-  // Navegación directa para usuarios y foros
   const handleNavigateToContent = () => {
     if (contentType.type === 'user' && onNavigateToProfile) {
-      // Para usuarios, crear objeto userData con la información disponible
       const userData = {
         id: report.targetId,
         name: {
@@ -133,7 +140,6 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
       };
       onNavigateToProfile(userData);
     } else if (contentType.type === 'forum' && onNavigateToForum) {
-      // Para foros, crear objeto forumData con la información disponible
       const forumData = {
         id: report.targetId,
         name: report.targetName || 'Comunidad',
@@ -141,7 +147,6 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
       };
       onNavigateToForum(forumData);
     } else if (['post', 'comment'].includes(contentType.type)) {
-      // Para posts y comentarios, abrir preview
       setShowContentPreview(true);
     }
   };
@@ -151,30 +156,30 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
       return (
         <button
           onClick={handleNavigateToContent}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-lg transition duration-200"
+          className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-lg transition duration-200 w-full sm:w-auto"
         >
-          <FaExternalLinkAlt className="w-4 h-4" />
-          Ver perfil del usuario
+          <FaExternalLinkAlt className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+          <span className="truncate">Ver perfil</span>
         </button>
       );
     } else if (contentType.type === 'forum') {
       return (
         <button
           onClick={handleNavigateToContent}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 rounded-lg transition duration-200"
+          className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 rounded-lg transition duration-200 w-full sm:w-auto"
         >
-          <FaExternalLinkAlt className="w-4 h-4" />
-          Ver comunidad
+          <FaExternalLinkAlt className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+          <span className="truncate">Ver comunidad</span>
         </button>
       );
     } else if (['post', 'comment'].includes(contentType.type)) {
       return (
         <button
           onClick={() => setShowContentPreview(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition duration-200"
+          className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg transition duration-200 w-full sm:w-auto"
         >
-          <FaEye className="w-4 h-4" />
-          Ver contenido
+          <FaEye className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+          <span className="truncate">Ver contenido</span>
         </button>
       );
     }
@@ -183,77 +188,80 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
 
   return (
     <>
-      <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 hover:shadow-md transition-shadow duration-200">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start gap-3 sm:gap-4 flex-1">
+      <div className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 md:p-6 hover:shadow-md transition-shadow duration-200">
+        <div className="flex items-start justify-between mb-3 sm:mb-4">
+          <div className="flex items-start gap-2 sm:gap-3 md:gap-4 flex-1 min-w-0">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gray-100 flex items-center justify-center">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full bg-gray-100 flex items-center justify-center">
                 {getReportIcon()}
               </div>
             </div>
             
             <div className="flex-1 min-w-0">
-              {/* Header móvil compacto */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 truncate">
+              {/* Header compacto para móvil */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2 md:gap-3 mb-1.5 sm:mb-2">
+                <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 truncate">
                   {reportInfo.title}
                 </h3>
                 
-                <div className="flex flex-wrap gap-2">
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${getUrgencyColor()}`}>
-                    <FaExclamationTriangle className="w-3 h-3" />
-                    <span className="hidden sm:inline">
+                <div className="flex flex-wrap gap-1 sm:gap-2">
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-xs font-medium rounded-full border ${getUrgencyColor()}`}>
+                    <FaExclamationTriangle className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
+                    <span className="hidden xs:inline capitalize">
                       {report.urgency || 'media'}
                     </span>
-                    <span className="sm:hidden">
+                    <span className="xs:hidden capitalize">
                       {report.urgency ? report.urgency.charAt(0).toUpperCase() : 'M'}
                     </span>
                   </span>
                   
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${statusInfo.color}`}>
-                    <StatusIcon className="w-3 h-3" />
-                    <span className="hidden sm:inline">{statusInfo.label}</span>
-                    <span className="sm:hidden">{statusInfo.label.charAt(0)}</span>
+                  <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 sm:px-2 sm:py-1 text-xs font-medium rounded-full ${statusInfo.color}`}>
+                    <StatusIcon className="w-2.5 h-2.5 sm:w-3 sm:h-3 flex-shrink-0" />
+                    <span className="hidden xs:inline">{statusInfo.label}</span>
+                    <span className="xs:hidden">{statusInfo.label.charAt(0)}</span>
                   </span>
                 </div>
               </div>
               
               {/* Información del reporte */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-gray-600">
-                <span className="font-medium">{contentType.label}</span>
-                <span className="hidden sm:inline">•</span>
-                <span>Por: {reportInfo.reporter}</span>
-                <span className="hidden sm:inline">•</span>
-                <span className="text-xs sm:text-sm">{formatDate(reportInfo.date)}</span>
+              <div className="flex flex-col xs:flex-row xs:items-center gap-0.5 xs:gap-1.5 sm:gap-2 md:gap-4 text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3">
+                <span className="font-medium truncate">{contentType.label}</span>
+                <span className="hidden xs:inline">•</span>
+                <span className="truncate">Por: {reportInfo.reporter}</span>
+                <span className="hidden xs:inline">•</span>
+                <span className="text-xs truncate">{formatDate(reportInfo.date)}</span>
               </div>
 
               {/* Información adicional */}
-              <div className="mt-3 space-y-1 overflow-hidden">
+              <div className="space-y-1.5 mb-3 sm:mb-4">
                 {reportInfo.reason && (
-                  <p className="text-sm text-gray-700 break-all overflow-wrap-anywhere">
+                  <p className="text-xs sm:text-sm text-gray-700 break-words overflow-wrap-anywhere line-clamp-2">
                     <strong className="text-gray-900">Motivo:</strong> {reportInfo.reason}
                   </p>
                 )}
 
                 {reportInfo.description && (
-                  <p className="text-sm text-gray-700 break-all overflow-wrap-anywhere">
+                  <p className="text-xs sm:text-sm text-gray-700 break-words overflow-wrap-anywhere line-clamp-2">
                     <strong className="text-gray-900">Descripción:</strong> {reportInfo.description}
                   </p>
                 )}
               </div>
 
               {/* Botón de acción según tipo de contenido */}
-              <div className="mt-3">
-                {getActionButton()}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="w-full sm:w-auto">
+                  {getActionButton()}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Botón de acciones */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 ml-2">
             <button
               onClick={() => setShowActions(!showActions)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition duration-200"
+              className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition duration-200"
+              aria-label="Más acciones"
             >
               <FaEllipsisH className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
             </button>
@@ -271,35 +279,36 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
 
       {/* Modal de preview solo para posts y comentarios */}
       {showContentPreview && ['post', 'comment'].includes(contentType.type) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200">
-              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden mx-auto">
+            <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-gray-200">
+              <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 truncate">
                 Vista previa - {contentType.label}
               </h3>
               <button
                 onClick={() => setShowContentPreview(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition duration-200"
+                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition duration-200 ml-2"
+                aria-label="Cerrar"
               >
-                <FaTimes className="w-5 h-5 text-gray-500" />
+                <FaTimes className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
               </button>
             </div>
             
-            <div className="p-4 sm:p-6 overflow-y-auto max-h-[70vh]">
+            <div className="p-3 sm:p-4 md:p-6 overflow-y-auto max-h-[60vh] sm:max-h-[70vh]">
               <ContentPreview 
                 report={report}
                 contentType={contentType.type}
                 onContentDeleted={() => {
                   setShowContentPreview(false);
-                  window.location.reload(); // Recargar para actualizar la lista
+                  window.location.reload();
                 }}
               />
             </div>
             
-            <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
+            <div className="p-3 sm:p-4 md:p-6 border-t border-gray-200 bg-gray-50">
               <button
                 onClick={() => setShowContentPreview(false)}
-                className="w-full sm:w-auto px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium"
+                className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium text-sm sm:text-base"
               >
                 Cerrar
               </button>

@@ -52,7 +52,6 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
     const error = validateSearch(value);
     setSearchError(error);
     
-    // Solo actualizar si no hay error o si el usuario está borrando
     if (!error || value.length < filters.search?.length) {
       handleFilterChange('search', value);
     }
@@ -86,14 +85,14 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
 
   return (
     <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-      {/* Header de filtros - Mejorado para móvil */}
-      <div className="flex items-center justify-between mb-3 sm:mb-4">
+      {/* Header de filtros */}
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <FaFilter className="w-4 h-4 text-gray-600" />
-          <span className="text-sm font-medium text-gray-700 hidden sm:inline">Filtros</span>
-          <span className="text-sm font-medium text-gray-700 sm:hidden">Filtrar</span>
+          <FaFilter className="w-4 h-4 text-gray-600 flex-shrink-0" />
+          <span className="text-sm font-medium text-gray-700 hidden xs:inline">Filtros</span>
+          <span className="text-sm font-medium text-gray-700 xs:hidden">Filtrar</span>
           {getActiveFiltersCount() > 0 && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
               {getActiveFiltersCount()}
             </span>
           )}
@@ -103,14 +102,14 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
           {getActiveFiltersCount() > 0 && (
             <button
               onClick={clearFilters}
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium hidden sm:block"
+              className="text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium hidden sm:block whitespace-nowrap"
             >
               Limpiar filtros
             </button>
           )}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="text-sm text-gray-600 hover:text-gray-800 font-medium flex items-center gap-1"
+            className="text-xs sm:text-sm text-gray-600 hover:text-gray-800 font-medium flex items-center gap-1 whitespace-nowrap"
           >
             {showFilters ? (
               <>
@@ -131,13 +130,12 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
       {/* Búsqueda siempre visible - Móvil */}
       <div className="mb-3 sm:hidden">
         <div className="relative">
-          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 text-gray-400" />
           <input
             type="text"
             value={filters.search || ''}
             onChange={(e) => handleSearchChange(e.target.value)}
             onBlur={() => {
-              // Trimear al salir del campo
               if (filters.search) {
                 const trimmed = filters.search.trim();
                 if (trimmed !== filters.search) {
@@ -147,31 +145,31 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
             }}
             placeholder="Buscar reportes..."
             maxLength={50}
-            className={`block w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm ${
+            className={`block w-full pl-9 pr-8 py-2 border rounded-lg focus:outline-none focus:ring-1 text-sm ${
               searchError 
                 ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
                 : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
             }`}
           />
           {filters.search && (
-            <div className="absolute right-10 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
+            <div className="absolute right-8 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">
               {filters.search.length}/50
             </div>
           )}
         </div>
         {searchError && (
           <div className="mt-1 flex items-center gap-1 text-xs text-red-600">
-            <FaExclamationTriangle className="w-3 h-3" />
-            <span>{searchError}</span>
+            <FaExclamationTriangle className="w-3 h-3 flex-shrink-0" />
+            <span className="break-words">{searchError}</span>
           </div>
         )}
       </div>
 
       {/* Filtros expandibles */}
       {showFilters && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 animate-slideDown">
           {/* Búsqueda (solo desktop) */}
-          <div className="hidden sm:block">
+          <div className="hidden sm:block md:col-span-1">
             <div className="flex justify-between items-center mb-1">
               <label className="block text-sm font-medium text-gray-700">
                 Buscar
@@ -183,13 +181,12 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
               )}
             </div>
             <div className="relative">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
               <input
                 type="text"
                 value={filters.search || ''}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onBlur={() => {
-                  // Trimear al salir del campo
                   if (filters.search) {
                     const trimmed = filters.search.trim();
                     if (trimmed !== filters.search) {
@@ -199,7 +196,7 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
                 }}
                 placeholder="Buscar en reportes..."
                 maxLength={50}
-                className={`block w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 text-sm ${
+                className={`block w-full pl-9 sm:pl-10 pr-8 py-2 border rounded-lg focus:outline-none focus:ring-1 text-sm ${
                   searchError 
                     ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
                     : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
@@ -208,7 +205,7 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
             </div>
             {searchError && (
               <div className="mt-1 flex items-center gap-1 text-xs text-red-600">
-                <FaExclamationTriangle className="w-3 h-3" />
+                <FaExclamationTriangle className="w-3 h-3 flex-shrink-0" />
                 <span>{searchError}</span>
               </div>
             )}
@@ -216,13 +213,13 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
 
           {/* Tipo de contenido */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
               Tipo de contenido
             </label>
             <select
               value={filters.type}
               onChange={(e) => handleFilterChange('type', e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="block w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
             >
               {reportTypes.map((type) => (
                 <option key={type.value} value={type.value}>
@@ -234,13 +231,13 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
 
           {/* Nivel de urgencia */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
               Urgencia
             </label>
             <select
               value={filters.urgency}
               onChange={(e) => handleFilterChange('urgency', e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="block w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
             >
               {urgencyLevels.map((level) => (
                 <option key={level.value} value={level.value}>
@@ -252,8 +249,8 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
 
           {/* Rango de fechas */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <div className="flex items-center gap-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <FaCalendar className="w-3 h-3" />
                 <span>Fecha</span>
               </div>
@@ -261,7 +258,7 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
             <select
               value={filters.dateRange}
               onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="block w-full px-2 sm:px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-xs sm:text-sm"
             >
               {dateRanges.map((range) => (
                 <option key={range.value} value={range.value}>
@@ -278,7 +275,7 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
         <div className="sm:hidden mt-3">
           <button
             onClick={clearFilters}
-            className="w-full text-center py-2 text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-200 rounded-lg hover:bg-blue-50"
+            className="w-full text-center py-2 text-xs sm:text-sm text-blue-600 hover:text-blue-800 font-medium border border-blue-200 rounded-lg hover:bg-blue-50"
           >
             Limpiar todos los filtros
           </button>

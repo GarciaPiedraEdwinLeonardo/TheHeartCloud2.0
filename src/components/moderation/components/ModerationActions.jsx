@@ -80,19 +80,7 @@ function ModerationActions({ report, onClose }) {
         }
       );
     }
-
-    // Para contenido que se puede eliminar (solo posts y comentarios)
-    if (report.status === 'pending' && (report.type === 'post' || report.type === 'comment')) {
-      actions.push({
-        id: 'delete_content',
-        label: `Eliminar ${report.type === 'post' ? 'publicación' : 'comentario'}`,
-        icon: FaTrash,
-        color: 'text-red-600',
-        bgColor: 'bg-red-50 hover:bg-red-100',
-      });
-    }
-
-    return actions;
+      return actions;
   };
 
   const handleAction = async (action) => {

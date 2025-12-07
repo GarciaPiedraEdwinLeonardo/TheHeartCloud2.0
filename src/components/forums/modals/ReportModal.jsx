@@ -15,7 +15,8 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
   const [targetData, setTargetData] = useState(null);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
-  const [showGeneralError, setShowGeneralError] = useState(false); // Nuevo estado
+  const [showGeneralError, setShowGeneralError] = useState(false);
+  const [isFormValid, setIsFormValid] = useState(false); // Nuevo estado para controlar validez del formulario
   
   const { createReport, loading } = useReportActions();
 
@@ -81,7 +82,8 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       // Resetear errores y touched al abrir
       setErrors({});
       setTouched({});
-      setShowGeneralError(false); // Resetear también el error general
+      setShowGeneralError(false);
+      setIsFormValid(false); // Resetear validez al abrir
     }
   }, [isOpen, targetId, reportType]);
 
@@ -154,7 +156,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       case 'description':
         if (!value.trim()) return 'La descripción es requerida';
         if (value.trim().length < 10) return 'La descripción debe tener al menos 10 caracteres';
-        if (value.trim().length > 1000) return 'La descripción no puede exceder 1000 caracteres';
+        if (value.trim().length > 100) return 'La descripción no puede exceder 100 caracteres';
         return '';
       
       default:
@@ -171,8 +173,17 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
     setErrors(newErrors);
     
     // Retornar si hay errores
-    return !newErrors.reason && !newErrors.description;
+    const isValid = !newErrors.reason && !newErrors.description;
+    setIsFormValid(isValid); // Actualizar estado de validez
+    return isValid;
   };
+
+  // Validar formulario cada vez que cambien los datos
+  useEffect(() => {
+    if (touched.reason || touched.description) {
+      validateForm();
+    }
+  }, [formData.reason, formData.description]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -193,6 +204,11 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
         ...prev,
         [name]: error
       }));
+      
+      // Validar formulario completo
+      const newErrors = { ...errors, [name]: error };
+      const isValid = !newErrors.reason && !newErrors.description;
+      setIsFormValid(isValid);
     }
   };
 
@@ -208,6 +224,11 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       ...prev,
       [name]: error
     }));
+    
+    // Validar formulario completo después del blur
+    const newErrors = { ...errors, [name]: error };
+    const isValid = !newErrors.reason && !newErrors.description;
+    setIsFormValid(isValid);
   };
 
   const getReportTitle = () => {
@@ -384,6 +405,12 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       return;
     }
 
+    // Verificar nuevamente que el formulario sea válido
+    if (!isFormValid) {
+      toast.error('Por favor, completa todos los campos requeridos correctamente');
+      return;
+    }
+
     const user = auth.currentUser;
     if (!user) {
       toast.error('Debes iniciar sesión para reportar contenido');
@@ -431,6 +458,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       setErrors({});
       setTouched({});
       setShowGeneralError(false);
+      setIsFormValid(false); // Resetear validez al cerrar
     } else {
       toast.error(result.error || 'Error al enviar el reporte');
     }
@@ -448,6 +476,9 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
+
+  // Calcular si el botón debe estar deshabilitado
+  const isSubmitDisabled = loading || !isFormValid;
 
   if (!isOpen) return null;
 
@@ -580,7 +611,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
                 onBlur={handleBlur}
                 disabled={loading}
                 rows={5}
-                maxLength={1000}
+                maxLength={100}
                 className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 resize-none disabled:opacity-50 ${
                   errors.description && touched.description 
                     ? 'border-red-500 focus:border-red-500 focus:ring-red-500' 
@@ -602,7 +633,7 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
                   formData.description.length < 10 ? 'text-red-500' : 
                   formData.description.length > 800 ? 'text-orange-500' : 'text-gray-500'
                 }`}>
-                  {formData.description.length}/1000 caracteres
+                  {formData.description.length}/100 caracteres
                 </p>
               </div>
             </div>
@@ -614,12 +645,8 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
               <h4 className="text-sm font-medium text-blue-800 mb-2">Información importante</h4>
               <ul className="text-xs text-blue-700 space-y-1">
                 <li>• Los reportes son anónimos para otros usuarios</li>
-                <li>• Los moderadores revisarán tu reporte en 24-48 horas</li>
+                <li>• Los moderadores revisarán tu reporte</li>
                 <li>• Usa este sistema solo para contenido que viole las normas</li>
-                <li>• Los reportes falsos pueden resultar en sanciones</li>
-                {reportType === 'profile' && (
-                  <li>• Los perfiles médicos reportados serán investigados exhaustivamente</li>
-                )}
               </ul>
             </div>
           </form>
@@ -639,13 +666,25 @@ function ReportModal({ isOpen, onClose, reportType, targetId, targetName }) {
             <button
               type="submit"
               onClick={handleSubmit}
-              disabled={loading}
-              className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium flex items-center justify-center gap-2 disabled:opacity-50 order-1 sm:order-2"
+              disabled={isSubmitDisabled}
+              className={`px-6 py-3 text-white rounded-lg transition duration-200 font-medium flex items-center justify-center gap-2 ${
+                isSubmitDisabled 
+                  ? 'bg-red-400 cursor-not-allowed' 
+                  : 'bg-red-600 hover:bg-red-700'
+              } order-1 sm:order-2`}
             >
               {loading && <FaSpinner className="w-4 h-4 animate-spin" />}
               {loading ? 'Enviando...' : 'Enviar Reporte'}
+              {!isFormValid && !loading && (
+                <FaExclamationCircle className="w-4 h-4" title="Completa todos los campos requeridos" />
+              )}
             </button>
           </div>
+          {!isFormValid && (touched.reason || touched.description) && (
+            <p className="text-xs text-red-500 mt-2 text-center sm:text-left">
+              Completa todos los campos requeridos correctamente para habilitar el envío
+            </p>
+          )}
         </div>
       </div>
     </div>
