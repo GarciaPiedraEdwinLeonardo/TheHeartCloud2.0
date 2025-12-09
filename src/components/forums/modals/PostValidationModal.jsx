@@ -14,6 +14,9 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
   
   const { getPendingPosts, validatePost, rejectPost } = usePostModeration();
 
+  // Constante para el límite de caracteres del motivo de rechazo
+  const MAX_REJECT_REASON_LENGTH = 100;
+
   useEffect(() => {
     if (isOpen && forumId) {
       loadPendingPosts();
@@ -86,6 +89,15 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
       console.error(`Error al rechazar: ${result.error}`);
     }
     setActionLoading(prev => ({ ...prev, [postId]: null }));
+  };
+
+  // Manejador de cambio del textarea con validación
+  const handleRejectReasonChange = (e) => {
+    const value = e.target.value;
+    // Limitar a MAX_REJECT_REASON_LENGTH caracteres
+    if (value.length <= MAX_REJECT_REASON_LENGTH) {
+      setRejectReason(value);
+    }
   };
 
   const formatDate = (timestamp) => {
@@ -217,14 +229,14 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
                       <h5 className="font-medium text-gray-900 mb-2">Motivo del rechazo</h5>
                       <textarea
                         value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
+                        onChange={handleRejectReasonChange}
                         rows={3}
+                        maxLength={MAX_REJECT_REASON_LENGTH}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
                         placeholder="Explica por qué rechazas esta publicación..."
-                        maxLength={500}
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        {rejectReason.length}/500 caracteres
+                        {rejectReason.length}/{MAX_REJECT_REASON_LENGTH} caracteres
                       </p>
                       <div className="flex gap-3 mt-3">
                         <button
