@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { FaTimes, FaSpinner, FaUserCheck, FaUserTimes, FaUsers, FaClock } from 'react-icons/fa';
 import { useForumActions } from './../hooks/useForumsActions';
 
-function ManageMembersModal({ isOpen, onClose, forumId }) {
+function ManageMembersModal({ isOpen, onClose, forumId, onMembersUpdated }) {
   const [pendingMembers, setPendingMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
@@ -65,6 +65,11 @@ function ManageMembersModal({ isOpen, onClose, forumId }) {
       if (result.success) {
         // Remover de la lista local
         setPendingMembers(prev => prev.filter(member => member.userId !== userId));
+
+        if(onMembersUpdated){
+          onMembersUpdated();
+        }
+
       } else {
         setError(result.error);
       }
@@ -84,6 +89,11 @@ function ManageMembersModal({ isOpen, onClose, forumId }) {
       if (result.success) {
         // Remover de la lista local
         setPendingMembers(prev => prev.filter(member => member.userId !== userId));
+
+        if(onMembersUpdated){
+          onMembersUpdated();
+        }
+
       } else {
         setError(result.error);
       }

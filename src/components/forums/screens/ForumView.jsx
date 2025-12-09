@@ -480,6 +480,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
         isOpen={showManageMembersModal}
         onClose={() => setShowManageMembersModal(false)}
         forumId={forumDetails.id}
+        onMembersUpdated={reloadForumData}
       />
 
       <ForumSettingsModal
