@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FaTimes, FaSpinner, FaUserPlus, FaUserMinus, FaSearch, FaCrown, FaUserShield, FaUser } from 'react-icons/fa';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db, auth } from './../../../config/firebase';
 
 function AddModeratorModal({ isOpen, onClose, forumId }) {
@@ -10,6 +10,9 @@ function AddModeratorModal({ isOpen, onClose, forumId }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   const user = auth.currentUser;
+
+  // Constante para el límite de caracteres
+  const MAX_SEARCH_LENGTH = 100;
 
   useEffect(() => {
     if (isOpen && forumId) {
@@ -91,6 +94,15 @@ function AddModeratorModal({ isOpen, onClose, forumId }) {
       setError('Error cargando los miembros de la comunidad');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Manejador de cambio del input con validación
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    // Limitar a MAX_SEARCH_LENGTH caracteres
+    if (value.length <= MAX_SEARCH_LENGTH) {
+      setSearchTerm(value);
     }
   };
 
@@ -227,9 +239,13 @@ function AddModeratorModal({ isOpen, onClose, forumId }) {
                 type="text"
                 placeholder="Buscar miembros por nombre o email..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={handleSearchChange}
+                maxLength={MAX_SEARCH_LENGTH}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-400">
+                {searchTerm.length}/{MAX_SEARCH_LENGTH}
+              </span>
             </div>
           </div>
 
@@ -322,8 +338,5 @@ function AddModeratorModal({ isOpen, onClose, forumId }) {
     </div>
   );
 }
-
-// Necesitamos import deleteField
-import { deleteField } from 'firebase/firestore';
 
 export default AddModeratorModal;
