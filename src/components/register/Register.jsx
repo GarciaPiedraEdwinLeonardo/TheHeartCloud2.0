@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { createUserWithEmailAndPassword, signInWithPopup, sendEmailVerification, deleteUser } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc, getDocs, collection, query, where, deleteDoc } from 'firebase/firestore';
-import { auth, db, googleProvider } from './../../config/firebase';
+import { auth, db } from './../../config/firebase';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import VerificationSent from './VerificationSent';
 
@@ -238,7 +238,8 @@ function Register({ onSwitchToLogin }) {
                 emailVerified: false,
                 emailVerificationSentAt: new Date(),
                 verificationExpiresAt: expiresAt, // Expira en 24 horas
-                verificationAttempts: 1
+                verificationAttempts: 1,
+                hasPassword: true // Nuevo campo para indicar que tiene contraseña
             });
 
             // PASO 5: Cerrar sesión automáticamente
@@ -275,55 +276,6 @@ function Register({ onSwitchToLogin }) {
         }
     };
 
-    const handleGoogleRegister = async () => {
-        setError('');
-
-        try {
-            const result = await signInWithPopup(auth, googleProvider);
-            const user = result.user;
-
-            // Crear documento en Firestore
-            await setDoc(doc(db, 'users', user.uid), {
-                id: user.uid,
-                email: user.email,
-                name: null,
-                role: "unverified",
-                profileMedia: null,
-                professionalInfo: null,
-                stats: {
-                    aura: 0,
-                    contributionCount: 0,
-                    postCount: 0,
-                    commentCount: 0,
-                    forumCount: 0,
-                    joinedForumsCount: 0,
-                    totalImagesUploaded: 0,
-                    totalStorageUsed: 0
-                },
-                suspension: {
-                    isSuspended: false,
-                    reason: null,
-                    startDate: null,
-                    endDate: null,
-                    suspendedBy: null
-                },
-                joinedForums: [],
-                joinDate: new Date(),
-                lastLogin: new Date(),
-                isActive: true,
-                isDeleted: false,
-                deletedAt: null,
-                emailVerified: true,
-                emailVerificationSentAt: new Date()
-            });
-
-        } catch (error) {
-            console.error('Google registration error:', error);
-            setError(getErrorMessage(error.code));
-            setLoading(false);
-        } 
-    };
-
     const getErrorMessage = (errorCode) => {
         // Si errorCode es undefined, retornar mensaje genérico
         if (!errorCode) {
@@ -339,8 +291,6 @@ function Register({ onSwitchToLogin }) {
                 return 'El registro con email/contraseña no está habilitado.';
             case 'auth/weak-password':
                 return 'La contraseña es demasiado débil.';
-            case 'auth/popup-closed-by-user':
-                return 'El registro con Google fue cancelado.';
             default:
                 // Verificar si el errorCode es un string antes de usar includes
                 if (typeof errorCode === 'string' && errorCode.includes('already-in-use')) {
@@ -475,25 +425,6 @@ function Register({ onSwitchToLogin }) {
                     {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
                 </button>
             </form>
-
-            <div className="mt-6">
-                <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-300" />
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white text-gray-500">O regístrate con</span>
-                    </div>
-                </div>
-
-                <button
-                    onClick={handleGoogleRegister}
-                    disabled={loading}
-                    className="w-full mt-4 bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 flex items-center justify-center"
-                >
-                    Google
-                </button>
-            </div>
 
             <div className="mt-6 text-center">
                 <div className="text-sm text-gray-600">

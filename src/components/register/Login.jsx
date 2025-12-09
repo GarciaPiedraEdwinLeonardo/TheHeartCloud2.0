@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { signInWithEmailAndPassword, signInWithPopup, deleteUser } from 'firebase/auth';
-import { doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './../../config/firebase';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
@@ -114,31 +114,6 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         setShowPassword(!showPassword);
     }
 
-    // FUNCIÓN PARA LIMPIAR USUARIO EXPIRADO
-    const cleanupExpiredUser = async (user) => {
-        try {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                const now = new Date();
-                const expiresAt = userData.verificationExpiresAt?.toDate();
-                
-                // Verificar si la verificación expiró (más de 24 horas)
-                if (expiresAt && now > expiresAt && !userData.emailVerified) {
-                    // Eliminar de Firestore
-                    await deleteDoc(doc(db, 'users', user.uid));
-                    // Eliminar de Authentication
-                    await deleteUser(user);
-                    return true; // Indica que se eliminó
-                }
-            }
-        } catch (error) {
-            console.error('Error cleaning up expired user:', error);
-        }
-        return false; // No se eliminó
-    };
-
     const handleEmailLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -157,25 +132,20 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             const userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
             const user = userCredential.user;
             
-            // VERIFICAR SI EL EMAIL ESTÁ CONFIRMADO
-            if (!user.emailVerified) {
-                // Verificar si el usuario expiró y limpiarlo
-                const wasDeleted = await cleanupExpiredUser(user);
-                
-                if (wasDeleted) {
-                    await auth.signOut();
-                    setError('El enlace de verificación ha expirado. Por favor regístrate nuevamente.');
-                    setLoading(false);
-                    return;
-                }
-                
+            // OBTENER LOS PROVEEDORES DEL USUARIO
+            const providerData = user.providerData || [];
+            const isGoogleUser = providerData.some(provider => provider.providerId === 'google.com');
+            
+            // Verificar si es usuario de Google (ya verificado por Google)
+            // o si es usuario normal y necesita verificar email
+            if (!user.emailVerified && !isGoogleUser) {
                 await auth.signOut();
-                setError('Por favor verifica tu email antes de iniciar sesión. Revisa tu bandeja de entrada y carpeta de spam. Si no recibiste el email, puedes registrarte nuevamente después de 1 hora.');
+                setError('Por favor verifica tu email antes de iniciar sesión. Revisa tu bandeja de entrada y carpeta de spam.');
                 setLoading(false);
                 return;
             }
             
-            // Si llegó aquí, el email está verificado - permitir acceso
+            // Actualizar lastLogin
             await updateDoc(doc(db, 'users', user.uid), {
                 lastLogin: new Date(),
                 emailVerified: true
@@ -229,8 +199,9 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                     isActive: true,
                     isDeleted: false,
                     deletedAt: null,
-                    emailVerified: true,
-                    emailVerificationSentAt: new Date()
+                    emailVerified: true, // Google ya verifica el email
+                    emailVerificationSentAt: new Date(),
+                    hasPassword: false // IMPORTANTE: Indicar que no tiene contraseña aún
                 });
             } else {
                 // Actualizar lastLogin para usuarios existentes
@@ -242,9 +213,13 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             
         } catch (error) {
             console.error('Error en login con Google:', error);
-            setError(getErrorMessage(error.code));
-            setLoading(false);
+            
+            // Si el usuario cerró el popup, no mostrar error
+            if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+                setError(getErrorMessage(error.code));
+            }
         } finally {
+            // SIEMPRE desactivar loading, incluso si se cerró el popup
             setLoading(false);
         }
     };

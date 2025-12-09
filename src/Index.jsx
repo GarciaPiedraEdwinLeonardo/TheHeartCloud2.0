@@ -9,11 +9,15 @@ function Index() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const unsubscribe = onAuthStateChanged(auth, (user) => {
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // VERIFICAR SI EL EMAIL ESTÁ CONFIRMADO
-                if (!user.emailVerified) {
-                    // Si no está verificado, cerrar sesión automáticamente
+                // OBTENER LOS PROVEEDORES DEL USUARIO
+                const providerData = user.providerData || [];
+                const isGoogleUser = providerData.some(provider => provider.providerId === 'google.com');
+                
+                // Solo requerir verificación de email para usuarios que NO son de Google
+                if (!user.emailVerified && !isGoogleUser) {
+                    // Si no está verificado y no es usuario de Google, cerrar sesión
                     auth.signOut();
                     setUser(null);
                 } else {

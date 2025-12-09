@@ -14,6 +14,7 @@ import VerificationRequests from './admin/VerificationRequests';
 import PostDetailView from './forums/posts/PostDetailView';
 import ModerationDashboard from './moderation/ModerationDashboard';
 import SuspendedScreen from './modals/SuspendedScreen';
+import SetPasswordAfterGoogle from './register/SetPasswordAfterGoogle'; // Importar nuevo componente
 
 function Home() {
   const [isSidebarModalOpen, setIsSidebarModalOpen] = useState(false);
@@ -27,83 +28,91 @@ function Home() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [showSuspendedScreen, setShowSuspendedScreen] = useState(false); 
   const [currentForumFromPost, setCurrentForumFromPost] = useState(null);
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false); // Nuevo estado
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       
       if (user) {
-        const userDocUnsubscribe = onSnapshot(doc(db, 'users', user.uid), (doc) => {
-          if (doc.exists()) {
-            setUserData(doc.data());
+        const userDocUnsubscribe = onSnapshot(doc(db, 'users', user.uid), async (docSnapshot) => {
+          if (docSnapshot.exists()) {
+            const userData = docSnapshot.data();
+            setUserData(userData);
+            
+            // VERIFICAR SI EL USUARIO NECESITA ESTABLECER CONTRASEÑA
+            // Usuarios que se registraron con Google y no tienen contraseña establecida
+            const providerData = user.providerData || [];
+            const isGoogleUser = providerData.some(provider => provider.providerId === 'google.com');
+            
+            if (isGoogleUser && !userData.hasPassword) {
+              setNeedsPasswordSetup(true);
+              return; // No continuar con la lógica normal
+            }
+            
+            if (userData.suspension?.isSuspended && userData.suspension.endDate) {
+              const endDate = userData.suspension.endDate.toDate();
+              const now = new Date();
+              
+              // Verificar si la suspensión expiró
+              if (now >= endDate) {
+                console.log("Suspensión expirada limpiando automáticamente");
+                
+                try {
+                  // Limpiar suspensión
+                  await updateDoc(doc(db, 'users', user.uid), {
+                    "suspension.isSuspended": false,
+                    "suspension.reason": null,
+                    "suspension.startDate": null,
+                    "suspension.endDate": null,
+                    "suspension.suspendedBy": null,
+                    "suspension.autoRemovedAt": serverTimestamp(),
+                  });
+                  
+                  console.log("Suspensión limpiada exitosamente");
+                  
+                  // Forzar recarga de datos
+                  const updatedDoc = await getDoc(doc(db, 'users', user.uid));
+                  if (updatedDoc.exists()) {
+                    setUserData(updatedDoc.data());
+                  }
+                } catch (error) {
+                  console.error("Error limpiando suspensión:", error);
+                }
+              }
+            }
+            
+            // Verificar suspensión normal
+            if (userData && userData.suspension?.isSuspended) {
+              setShowSuspendedScreen(true);
+            } else {
+              setShowSuspendedScreen(false);
+            }
           }
         });
         return () => userDocUnsubscribe();
       } else {
         setUserData(null);
+        setNeedsPasswordSetup(false);
       }
     });
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
-    if (userData && userData.suspension?.isSuspended) {
-      setShowSuspendedScreen(true);
-    } else {
-      setShowSuspendedScreen(false);
-    }
-  }, [userData]);
+  // Función para cuando se completa la configuración de contraseña
+  const handlePasswordSetupComplete = () => {
+    setNeedsPasswordSetup(false);
+  };
 
-  useEffect(() => {
-  const unsubscribe = onAuthStateChanged(auth, async (user) => {
-    setUser(user);
-    
-    if (user) {
-      const userDocUnsubscribe = onSnapshot(doc(db, 'users', user.uid), async (docSnapshot) => {
-        if (docSnapshot.exists()) {
-          const userData = docSnapshot.data();
-          setUserData(userData);
-          
-          if (userData.suspension?.isSuspended && userData.suspension.endDate) {
-            const endDate = userData.suspension.endDate.toDate();
-            const now = new Date();
-            
-            // Verificar si la suspensión expiró
-            if (now >= endDate) {
-              console.log("Suspensión expirada limpiando automáticamente");
-              
-              try {
-                // Limpiar suspensión
-                await updateDoc(doc(db, 'users', user.uid), {
-                  "suspension.isSuspended": false,
-                  "suspension.reason": null,
-                  "suspension.startDate": null,
-                  "suspension.endDate": null,
-                  "suspension.suspendedBy": null,
-                  "suspension.autoRemovedAt": serverTimestamp(),
-                });
-                
-                console.log("Suspensión limpiada exitosamente");
-                
-                // Forzar recarga de datos
-                const updatedDoc = await getDoc(doc(db, 'users', user.uid));
-                if (updatedDoc.exists()) {
-                  setUserData(updatedDoc.data());
-                }
-              } catch (error) {
-                console.error("Error limpiando suspensión:", error);
-              }
-            }
-          }
-        }
-      });
-      return () => userDocUnsubscribe();
-    } else {
-      setUserData(null);
-    }
-  });
-  return unsubscribe;
-}, []);
+  // Si el usuario necesita establecer contraseña, mostrar pantalla de configuración
+  if (needsPasswordSetup && user) {
+    return (
+      <SetPasswordAfterGoogle 
+        user={user}
+        onComplete={handlePasswordSetupComplete}
+      />
+    );
+  }
 
   const handleLogout = async () => {
     try {
@@ -261,9 +270,9 @@ function Home() {
             
             {currentView === 'profile' && (
               <ProfileView 
-                userId={selectedUserId} // Pasar el ID del usuario seleccionado
+                userId={selectedUserId}
                 onShowForum={handleShowForum}
-                onShowMain={handleBackFromProfile} // Usar la nueva función de back
+                onShowMain={handleBackFromProfile}
                 onShowPost={handleShowPost}
               />
             )}
