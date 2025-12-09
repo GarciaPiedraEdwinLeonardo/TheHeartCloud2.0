@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { signInWithEmailAndPassword, signInWithPopup, deleteUser } from 'firebase/auth';
-import { doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { auth, db, googleProvider } from './../../config/firebase';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
-function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
+function Login({ onSwitchToRegister, onSwitchToForgotPassword, onGooglePasswordSetup }) {
     const [formData, setFormData] = useState({
         email: '',
         password: ''
@@ -114,31 +114,6 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         setShowPassword(!showPassword);
     }
 
-    // FUNCIÓN PARA LIMPIAR USUARIO EXPIRADO
-    const cleanupExpiredUser = async (user) => {
-        try {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            
-            if (userDoc.exists()) {
-                const userData = userDoc.data();
-                const now = new Date();
-                const expiresAt = userData.verificationExpiresAt?.toDate();
-                
-                // Verificar si la verificación expiró (más de 24 horas)
-                if (expiresAt && now > expiresAt && !userData.emailVerified) {
-                    // Eliminar de Firestore
-                    await deleteDoc(doc(db, 'users', user.uid));
-                    // Eliminar de Authentication
-                    await deleteUser(user);
-                    return true; // Indica que se eliminó
-                }
-            }
-        } catch (error) {
-            console.error('Error cleaning up expired user:', error);
-        }
-        return false; // No se eliminó
-    };
-
     const handleEmailLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -159,16 +134,6 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             
             // VERIFICAR SI EL EMAIL ESTÁ CONFIRMADO
             if (!user.emailVerified) {
-                // Verificar si el usuario expiró y limpiarlo
-                const wasDeleted = await cleanupExpiredUser(user);
-                
-                if (wasDeleted) {
-                    await auth.signOut();
-                    setError('El enlace de verificación ha expirado. Por favor regístrate nuevamente.');
-                    setLoading(false);
-                    return;
-                }
-                
                 await auth.signOut();
                 setError('Por favor verifica tu email antes de iniciar sesión. Revisa tu bandeja de entrada y carpeta de spam. Si no recibiste el email, puedes registrarte nuevamente después de 1 hora.');
                 setLoading(false);
@@ -188,66 +153,107 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
     };
 
     const handleGoogleLogin = async () => {
-        setLoading(true);
-        setError('');
+    setLoading(true);
+    setError('');
 
-        try {
-            const result = await signInWithPopup(auth, googleProvider);
-            const user = result.user;
+    try {
+        const result = await signInWithPopup(auth, googleProvider);
+        const user = result.user;
+        
+        console.log('Google user logged in:', {
+            uid: user.uid,
+            email: user.email,
+            provider: user.providerData
+        });
+        
+        // Verificar si el usuario ya existe en Firestore
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        
+        let userData;
+        
+        if (!userDoc.exists()) {
+            console.log('First time Google user - creating document');
+            // Primera vez que se registra con Google
+            userData = {
+                id: user.uid,
+                email: user.email,
+                name: user.displayName || null,
+                role: "unverified",
+                profileMedia: user.photoURL || null,
+                professionalInfo: null,
+                stats: {
+                    aura: 0,
+                    contributionCount: 0,
+                    postCount: 0,
+                    commentCount: 0,
+                    forumCount: 0,
+                    joinedForumsCount: 0,
+                    totalImagesUploaded: 0,
+                    totalStorageUsed: 0
+                },
+                suspension: {
+                    isSuspended: false,
+                    reason: null,
+                    startDate: null,
+                    endDate: null,
+                    suspendedBy: null
+                },
+                joinedForums: [],
+                joinDate: new Date(),
+                lastLogin: new Date(),
+                isActive: true,
+                isDeleted: false,
+                deletedAt: null,
+                emailVerified: true,
+                emailVerificationSentAt: new Date(),
+                hasPassword: false, // Marcar que NO tiene contraseña configurada
+                provider: 'google' // Añadir campo para identificar proveedor
+            };
             
-            // Verificar si el usuario ya existe en Firestore
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            await setDoc(doc(db, 'users', user.uid), userData);
+        } else {
+            console.log('Existing Google user - checking password status');
+            userData = userDoc.data();
             
-            if (!userDoc.exists()) {
-                await setDoc(doc(db, 'users', user.uid), {
-                    id: user.uid,
+            // Actualizar último login
+            await updateDoc(doc(db, 'users', user.uid), {
+                lastLogin: new Date()
+            });
+        }
+        
+        // VERIFICAR SI NECESITA CONFIGURAR CONTRASEÑA
+        if (userData.hasPassword === false) {
+            console.log('Google user needs password setup - redirecting');
+            
+            // Pasar los datos directamente al callback
+            if (onGooglePasswordSetup) {
+                onGooglePasswordSetup({
+                    uid: user.uid,
                     email: user.email,
-                    name: null,
-                    role: "unverified",
-                    profileMedia: null,
-                    professionalInfo: null,
-                    stats: {
-                        aura: 0,
-                        contributionCount: 0,
-                        postCount: 0,
-                        commentCount: 0,
-                        forumCount: 0,
-                        joinedForumsCount: 0,
-                        totalImagesUploaded: 0,
-                        totalStorageUsed: 0
-                    },
-                    suspension: {
-                        isSuspended: false,
-                        reason: null,
-                        startDate: null,
-                        endDate: null,
-                        suspendedBy: null
-                    },
-                    joinedForums: [],
-                    joinDate: new Date(),
-                    lastLogin: new Date(),
-                    isActive: true,
-                    isDeleted: false,
-                    deletedAt: null,
-                    emailVerified: true,
-                    emailVerificationSentAt: new Date()
+                    displayName: user.displayName,
+                    photoURL: user.photoURL
                 });
             } else {
-                // Actualizar lastLogin para usuarios existentes
-                await updateDoc(doc(db, 'users', user.uid), {
-                    lastLogin: new Date(),
-                    emailVerified: true
-                });
+                console.error('onGooglePasswordSetup callback not provided');
+                // Si no hay callback, cerrar sesión y mostrar mensaje
+                await auth.signOut();
+                setError('Necesitas configurar tu contraseña. Por favor, recarga la página e intenta nuevamente.');
             }
             
-        } catch (error) {
-            console.error('Error en login con Google:', error);
-            setError(getErrorMessage(error.code));
-            setLoading(false);
-        } finally {
-            setLoading(false);
+            return; // Salir de la función, NO continuar con el login normal
         }
-    };
+        
+        // Si llegamos aquí, el usuario YA tiene contraseña configurada
+        console.log('Google user has password - allowing access');
+        
+    } catch (error) {
+        console.error('Error en login con Google:', error);
+        setError(getErrorMessage(error.code));
+        setLoading(false);
+    } finally {
+        setLoading(false);
+    }
+};
 
     const getErrorMessage = (errorCode) => {    
         // Si errorCode es undefined, retornar mensaje genérico

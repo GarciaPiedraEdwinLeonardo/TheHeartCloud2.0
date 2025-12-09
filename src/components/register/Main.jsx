@@ -3,10 +3,30 @@ import Aside from './Aside';
 import Register from './Register';
 import Login from './Login';
 import ForgotPassword from './ForgotPassword';
+import GooglePasswordSetup from './GooglePasswordSetup';
 import Logo from './../../img/logoprincipal.png'
 
 function Main() {
     const [activeComponent, setActiveComponent] = useState('login');
+    const [googleUserData, setGoogleUserData] = useState(null);
+
+    const handleGooglePasswordSetup = (userData) => {
+        console.log('Redirecting to Google password setup for:', userData.email);
+        setGoogleUserData(userData);
+        setActiveComponent('google-password-setup');
+    };
+
+    const handlePasswordSetupComplete = () => {
+        console.log('Password setup complete');
+        setGoogleUserData(null);
+        setActiveComponent('login');
+    };
+
+    const handlePasswordSetupCancel = () => {
+        console.log('Password setup cancelled');
+        setGoogleUserData(null);
+        setActiveComponent('login');
+    };
 
     const renderComponent = () => {
         switch (activeComponent) {
@@ -14,10 +34,25 @@ function Main() {
                 return <Register onSwitchToLogin={() => setActiveComponent('login')} />;
             case 'forgot-password':
                 return <ForgotPassword onSwitchToLogin={() => setActiveComponent('login')} />;
+            case 'google-password-setup':
+                return googleUserData ? (
+                    <GooglePasswordSetup 
+                        googleUser={googleUserData}
+                        onSetupComplete={handlePasswordSetupComplete}
+                        onCancel={handlePasswordSetupCancel}
+                    />
+                ) : (
+                    <Login 
+                        onSwitchToRegister={() => setActiveComponent('register')}
+                        onSwitchToForgotPassword={() => setActiveComponent('forgot-password')}
+                        onGooglePasswordSetup={handleGooglePasswordSetup}
+                    />
+                );
             default:
                 return <Login 
                     onSwitchToRegister={() => setActiveComponent('register')}
                     onSwitchToForgotPassword={() => setActiveComponent('forgot-password')}
+                    onGooglePasswordSetup={handleGooglePasswordSetup}
                 />;
         }
     };
