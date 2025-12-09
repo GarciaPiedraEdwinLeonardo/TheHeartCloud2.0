@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, getDoc, orderBy, query } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, orderBy, query, where } from 'firebase/firestore';
 import { auth, db } from './../../config/firebase';
 import { FaSpinner, FaExclamationTriangle, FaComments } from 'react-icons/fa';
 import PostCard from './../forums/posts/components/PostCard';
@@ -23,8 +23,11 @@ function Main({ onShowPost, onShowUserProfile, onShowForum }) {
         }
 
         // Cargar todos los posts ORDENADOS por fecha (más reciente primero)
+        // EXCLUYENDO posts con status "pending"
         const postsQuery = query(
           collection(db, 'posts'),
+          where('status', '!=', 'pending'),
+          orderBy('status', 'asc'), // Requerido cuando usas != en where
           orderBy('createdAt', 'desc')
         );
         
