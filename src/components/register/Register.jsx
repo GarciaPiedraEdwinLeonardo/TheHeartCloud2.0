@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { doc, setDoc, getDocs, collection, query, where, deleteDoc } from 'firebase/firestore';
 import { auth, db } from './../../config/firebase';
@@ -22,6 +22,7 @@ function Register({ onSwitchToLogin }) {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [verificationSent, setVerificationSent] = useState(false);
     const [currentUser, setCurrentUser] = useState(null);
+    const [isFormValid, setIsFormValid] = useState(false);
 
     const toggleShowPassword = () => {
         setShowPassword(!showPassword);
@@ -83,8 +84,10 @@ function Register({ onSwitchToLogin }) {
                 error = validatePassword(value);
                 break;
             case 'confirmPassword':
-                if (value !== formData.password) {
+                if (value && value !== formData.password) {
                     error = 'Las contraseñas no coinciden';
+                } else if (!value) {
+                    error = 'Confirma tu contraseña';
                 }
                 break;
             default:
@@ -98,6 +101,16 @@ function Register({ onSwitchToLogin }) {
         
         return !error;
     };
+
+    // Validar el formulario completo cada vez que cambian los datos
+    useEffect(() => {
+        const emailValid = validateEmail(formData.email) === null;
+        const passwordValid = validatePassword(formData.password) === null;
+        const confirmValid = formData.confirmPassword !== '' && 
+                            formData.confirmPassword === formData.password;
+        
+        setIsFormValid(emailValid && passwordValid && confirmValid);
+    }, [formData.email, formData.password, formData.confirmPassword]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -167,6 +180,12 @@ function Register({ onSwitchToLogin }) {
 
     const handleEmailRegister = async (e) => {
         e.preventDefault();
+        
+        // Prevenir envío si el formulario no es válido
+        if (!isFormValid) {
+            return;
+        }
+        
         setLoading(true);
         setError('');
 
@@ -364,7 +383,7 @@ function Register({ onSwitchToLogin }) {
                         maxLength={18}
                         pattern="[a-zA-Z0-9]+"
                         title="Solo letras y números (sin espacios ni caracteres especiales)"
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                        className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
                             fieldErrors.password ? 'border-red-300' : 'border-gray-300'
                         }`}
                         placeholder="Entre 8 y 18 caracteres"
@@ -380,6 +399,36 @@ function Register({ onSwitchToLogin }) {
                     
                     {fieldErrors.password && (
                         <p className="text-red-500 text-xs mt-1">{fieldErrors.password}</p>
+                    )}
+
+                    {/* Indicadores de requisitos faltantes */}
+                    {formData.password && (
+                        <div className="mt-2 space-y-1">
+                            {!(formData.password.length >= 8 && formData.password.length <= 18) && (
+                                <div className="text-xs flex items-center text-red-500">
+                                    <span className="mr-1">•</span>
+                                    Debe tener entre 8 y 18 caracteres
+                                </div>
+                            )}
+                            {!/(?=.*[a-z])/.test(formData.password) && (
+                                <div className="text-xs flex items-center text-red-500">
+                                    <span className="mr-1">•</span>
+                                    Debe contener al menos una minúscula
+                                </div>
+                            )}
+                            {!/(?=.*[A-Z])/.test(formData.password) && (
+                                <div className="text-xs flex items-center text-red-500">
+                                    <span className="mr-1">•</span>
+                                    Debe contener al menos una mayúscula
+                                </div>
+                            )}
+                            {!/(?=.*\d)/.test(formData.password) && (
+                                <div className="text-xs flex items-center text-red-500">
+                                    <span className="mr-1">•</span>
+                                    Debe contener al menos un número
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
 
@@ -398,7 +447,7 @@ function Register({ onSwitchToLogin }) {
                         minLength={8}
                         maxLength={18}
                         pattern="[a-zA-Z0-9]+"
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                        className={`w-full px-4 py-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
                             fieldErrors.confirmPassword ? 'border-red-300' : 'border-gray-300'
                         }`}
                         placeholder="Repite tu contraseña"
@@ -415,12 +464,24 @@ function Register({ onSwitchToLogin }) {
                     {fieldErrors.confirmPassword && (
                         <p className="text-red-500 text-xs mt-1">{fieldErrors.confirmPassword}</p>
                     )}
+
+                    {/* Indicador de falta de coincidencia */}
+                    {formData.confirmPassword && formData.confirmPassword !== formData.password && (
+                        <div className="text-xs mt-1 flex items-center text-red-500">
+                            <span className="mr-1">•</span>
+                            Las contraseñas no coinciden
+                        </div>
+                    )}
                 </div>
 
                 <button
                     type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={loading || !isFormValid}
+                    className={`w-full py-3 px-4 rounded-lg font-medium focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all ${
+                        loading || !isFormValid
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
                 >
                     {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
                 </button>
