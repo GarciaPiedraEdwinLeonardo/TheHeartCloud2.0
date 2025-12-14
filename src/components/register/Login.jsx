@@ -199,9 +199,9 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                     isActive: true,
                     isDeleted: false,
                     deletedAt: null,
-                    emailVerified: true, // Google ya verifica el email
+                    emailVerified: true,
                     emailVerificationSentAt: new Date(),
-                    hasPassword: false // IMPORTANTE: Indicar que no tiene contraseña aún
+                    hasPassword: false
                 });
             } else {
                 // Actualizar lastLogin para usuarios existentes
@@ -211,15 +211,21 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                 });
             }
             
+            setLoading(false);
+            
         } catch (error) {
             console.error('Error en login con Google:', error);
             
-            // Si el usuario cerró el popup, no mostrar error
-            if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-                setError(getErrorMessage(error.code));
+            // Inmediatamente desactivar loading si es popup cerrado o cancelado
+            if (error.code === 'auth/popup-closed-by-user' || 
+                error.code === 'auth/cancelled-popup-request') {
+                setLoading(false);
+                // No mostrar error para estos casos
+                return;
             }
-        } finally {
-            // SIEMPRE desactivar loading, incluso si se cerró el popup
+            
+            // Para otros errores, mostrar mensaje y desactivar loading
+            setError(getErrorMessage(error.code));
             setLoading(false);
         }
     };
