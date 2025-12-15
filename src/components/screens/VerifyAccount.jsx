@@ -11,7 +11,7 @@ function VerifyAccount({ onBack }) {
         nombre: '',
         especialidad: '',
         cedula: '',
-        paisCedula: 'México', // Valor por defecto
+        paisCedula: 'México',
         universidad: '',
         anioTitulacion: '',
         documentoCedula: null
@@ -19,11 +19,10 @@ function VerifyAccount({ onBack }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-    const [verificationStatus, setVerificationStatus] = useState(''); // 'pending', 'verified', 'rejected', null
+    const [verificationStatus, setVerificationStatus] = useState('');
     const [canSubmit, setCanSubmit] = useState(true); 
     const [fieldErrors, setFieldErrors] = useState({});
 
-    // Verificar estado actual al cargar el componente
     useEffect(() => {
         const checkVerificationStatus = async () => {
             const user = auth.currentUser;
@@ -35,7 +34,6 @@ function VerifyAccount({ onBack }) {
                         const status = userData.professionalInfo?.verificationStatus;
                         setVerificationStatus(status || '');
                         
-                        // Si ya tiene una solicitud pendiente o aprobada, no puede enviar otra
                         if (status === 'pending' || status === 'verified') {
                             setCanSubmit(false);
                         }
@@ -54,7 +52,6 @@ function VerifyAccount({ onBack }) {
         
         const { name, value, files } = e.target;
         
-        // Validar en tiempo real
         const error = validateField(name, value);
         setFieldErrors(prev => ({
             ...prev,
@@ -80,22 +77,23 @@ function VerifyAccount({ onBack }) {
                 throw new Error('No se proporcionó ningún archivo');
             }
 
-            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+            const allowedTypes = ['application/pdf'];
             if (!allowedTypes.includes(file.type)) {
-                throw new Error('Tipo de archivo no permitido. Use JPEG o PNG');
+                throw new Error('Tipo de archivo no permitido. Solo se aceptan archivos PDF');
             }
 
-            const maxSize = 4 * 1024 * 1024; // 4MB
+            const maxSize = 5 * 1024 * 1024;
             if (file.size > maxSize) {
-                throw new Error('La imagen no puede pesar más de 4MB');
+                throw new Error('El PDF no puede pesar más de 5MB');
             }
 
             const data = new FormData();
             data.append("file", file);
             data.append("upload_preset", cloudinaryConfig.uploadPreset);
+            data.append("resource_type", "raw");
 
             const res = await fetch(
-                `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/auto/upload`,
+                `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/raw/upload`,
                 {
                     method: "POST",
                     body: data,
@@ -120,7 +118,7 @@ function VerifyAccount({ onBack }) {
             if (error.message.includes('Failed to fetch')) {
                 throw new Error('Error de conexión. Verifica tu internet e intenta nuevamente.');
             } else if (error.message.includes('413')) {
-                throw new Error('El archivo es demasiado grande. Máximo 4MB');
+                throw new Error('El archivo es demasiado grande. Máximo 10MB');
             } else if (error.message.includes('400')) {
                 throw new Error('Error en la configuración de Cloudinary. Contacta al administrador.');
             }
@@ -133,37 +131,27 @@ function VerifyAccount({ onBack }) {
         switch (name) {
             case 'apellidoPaterno':
             case 'apellidoMaterno':
-                // Solo letras, espacios y acentos, 2-30 caracteres
                 if (!value) return 'Este campo es requerido';
                 if (!/^[A-Za-zÁáÉéÍíÓóÚúÑñ\s]{2,30}$/.test(value)) {
                     return 'Solo letras y espacios, 2-30 caracteres';
                 }
-                if (value.length < 2) return 'Mínimo 2 caracteres';
-                if (value.length > 30) return 'Máximo 30 caracteres';
                 break;
                 
             case 'nombre':
-                // Solo letras, espacios y acentos, 2-50 caracteres (nombres pueden ser más largos)
                 if (!value) return 'Este campo es requerido';
                 if (!/^[A-Za-zÁáÉéÍíÓóÚúÑñ\s]{2,50}$/.test(value)) {
                     return 'Solo letras y espacios, 2-50 caracteres';
                 }
-                if (value.length < 2) return 'Mínimo 2 caracteres';
-                if (value.length > 50) return 'Máximo 50 caracteres';
                 break;
                 
             case 'especialidad':
-                // Letras, números, espacios y algunos caracteres básicos, 3-50 caracteres
                 if (!value) return 'Este campo es requerido';
                 if (!/^[A-Za-z0-9ÁáÉéÍíÓóÚúÑñ\s\-\.,()]{3,50}$/.test(value)) {
                     return 'Solo letras, números y espacios, 3-50 caracteres';
                 }
-                if (value.length < 3) return 'Mínimo 3 caracteres';
-                if (value.length > 50) return 'Máximo 50 caracteres';
                 break;
                 
             case 'cedula':
-                // Cédulas mexicanas: exactamente 7 dígitos
                 if (!value) return 'Este campo es requerido';
                 if (!/^\d{7}$/.test(value)) {
                     return 'La cédula debe tener exactamente 7 dígitos';
@@ -171,17 +159,13 @@ function VerifyAccount({ onBack }) {
                 break;
                 
             case 'universidad':
-                // Letras, números, espacios y algunos caracteres básicos, 3-80 caracteres
                 if (!value) return 'Este campo es requerido';
                 if (!/^[A-Za-z0-9ÁáÉéÍíÓóÚúÑñ\s\-\.,()&]{3,80}$/.test(value)) {
                     return 'Solo letras, números y espacios, 3-80 caracteres';
                 }
-                if (value.length < 3) return 'Mínimo 3 caracteres';
-                if (value.length > 80) return 'Máximo 80 caracteres';
                 break;
                 
             case 'anioTitulacion':
-                // Año entre 1950 y año actual
                 if (!value) return 'Este campo es requerido';
                 const year = parseInt(value);
                 const currentYear = new Date().getFullYear();
@@ -198,7 +182,6 @@ function VerifyAccount({ onBack }) {
     };
 
     const isFormValid = () => {
-        // Verificar que todos los campos de texto tengan valor y no tengan errores
         const requiredFields = ['apellidoPaterno', 'apellidoMaterno', 'nombre', 'especialidad', 'cedula', 'universidad', 'anioTitulacion'];
         
         for (const field of requiredFields) {
@@ -207,7 +190,6 @@ function VerifyAccount({ onBack }) {
             }
         }
         
-        // Verificar que se haya seleccionado un archivo
         if (!formData.documentoCedula) {
             return false;
         }
@@ -218,7 +200,6 @@ function VerifyAccount({ onBack }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         
-        // Verificar si puede enviar
         if (!canSubmit) {
             setError('Ya tienes una solicitud de verificación en proceso.');
             return;
@@ -229,10 +210,9 @@ function VerifyAccount({ onBack }) {
         setSuccess('');
 
         try {
-            // Validar todos los campos antes de enviar
             const errors = {};
             Object.keys(formData).forEach(key => {
-                if (key !== 'documentoCedula' && key !== 'paisCedula') { // Excluir país que es fijo
+                if (key !== 'documentoCedula' && key !== 'paisCedula') {
                     const error = validateField(key, formData[key]);
                     if (error) errors[key] = error;
                 }       
@@ -248,15 +228,12 @@ function VerifyAccount({ onBack }) {
                 throw new Error('No hay usuario autenticado');
             }
 
-            // Validaciones básicas
             if (!formData.documentoCedula) {
-                throw new Error('Debes subir una imagen de tu cédula profesional');
+                throw new Error('Debes subir el PDF de tu cédula profesional');
             }
 
-            // Subir documento a Cloudinary
             const documentoUrl = await uploadToCloudinary(formData.documentoCedula);
 
-            // Preparar datos para Firestore
             const userUpdate = {
                 name: {
                     apellidopat: formData.apellidoPaterno,
@@ -276,10 +253,8 @@ function VerifyAccount({ onBack }) {
                 },
             };
 
-            // Actualizar en Firestore
             await updateDoc(doc(db, 'users', user.uid), userUpdate);
 
-            // Bloquear envíos futuros
             setCanSubmit(false);
             setVerificationStatus('pending');
             setSuccess('¡Solicitud de verificación enviada! Un moderador revisará tu documentación.');
@@ -308,7 +283,6 @@ function VerifyAccount({ onBack }) {
 
     const currentYear = new Date().getFullYear();
 
-    // Renderizar diferentes estados
     const renderStatusMessage = () => {
         switch (verificationStatus) {
             case 'pending':
@@ -356,7 +330,6 @@ function VerifyAccount({ onBack }) {
     return (
         <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-2xl mx-auto">
-                {/* Header */}
                 <div className="mb-8">
                     <button
                         onClick={onBack}
@@ -373,10 +346,8 @@ function VerifyAccount({ onBack }) {
                     </p>
                 </div>
 
-                {/* Alertas de estado */}
                 {renderStatusMessage()}
 
-                {/* Alertas de error/success */}
                 {error && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
                         {error}
@@ -389,11 +360,9 @@ function VerifyAccount({ onBack }) {
                     </div>
                 )}
 
-                {/* Formulario - Solo mostrar si puede enviar */}
                 {canSubmit ? (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            {/* Información Personal */}
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                     <FaIdCard className="text-blue-600" />
@@ -451,7 +420,7 @@ function VerifyAccount({ onBack }) {
                                             onChange={handleChange}
                                             required
                                             maxLength={50}
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
                                                 fieldErrors.nombre ? 'border-red-500' : 'border-gray-300'
                                             }`}
                                             placeholder="Nombre completo"
@@ -463,7 +432,6 @@ function VerifyAccount({ onBack }) {
                                 </div>
                             </div>
 
-                            {/* Información Profesional */}
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                     <FaUniversity className="text-blue-600" />
@@ -481,7 +449,7 @@ function VerifyAccount({ onBack }) {
                                             onChange={handleChange}
                                             required
                                             maxLength={50}
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
                                                 fieldErrors.especialidad ? 'border-red-500' : 'border-gray-300'
                                             }`}
                                             placeholder="Ej: Cardiología, Pediatría, etc."
@@ -500,15 +468,18 @@ function VerifyAccount({ onBack }) {
                                             value={formData.cedula}
                                             onChange={handleChange}
                                             required
-                                            maxLength={20}
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                            maxLength={7}
+                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
                                                 fieldErrors.cedula ? 'border-red-500' : 'border-gray-300'
                                             }`}
-                                            placeholder="Número de cédula profesional"
+                                            placeholder="1234567"
                                         />
                                         {fieldErrors.cedula && (
                                             <p className="text-red-500 text-xs mt-1">{fieldErrors.cedula}</p>
                                         )}
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            Exactamente 7 dígitos numéricos
+                                        </p>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -544,7 +515,7 @@ function VerifyAccount({ onBack }) {
                                             onChange={handleChange}
                                             required
                                             maxLength={80}
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
                                                 fieldErrors.universidad ? 'border-red-500' : 'border-gray-300'
                                             }`}
                                             placeholder="Universidad de titulación"
@@ -566,7 +537,7 @@ function VerifyAccount({ onBack }) {
                                             required
                                             min="1950"
                                             max={currentYear}
-                                            className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
+                                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 ${
                                                 fieldErrors.anioTitulacion ? 'border-red-500' : 'border-gray-300'
                                             }`}
                                             placeholder="Ej: 2020"
@@ -581,7 +552,6 @@ function VerifyAccount({ onBack }) {
                                 </div>
                             </div>
 
-                            {/* Documento de Cédula */}
                             <div>
                                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                                     <FaUpload className="text-blue-600" />
@@ -593,7 +563,7 @@ function VerifyAccount({ onBack }) {
                                         id="documentoCedula"
                                         name="documentoCedula"
                                         onChange={handleChange}
-                                        accept="image/jpeg,image/png,image/jpg"
+                                        accept="application/pdf"
                                         required
                                         className="hidden"
                                     />
@@ -604,18 +574,23 @@ function VerifyAccount({ onBack }) {
                                         <FaUpload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
                                         <p className="text-sm font-medium text-gray-700">
                                             {formData.documentoCedula 
-                                                ? `Archivo seleccionado: ${formData.documentoCedula.name}`
-                                                : 'Sube una captura/foto de tu cédula profesional'
+                                                ? `📄 Archivo seleccionado: ${formData.documentoCedula.name}`
+                                                : 'Sube el PDF de tu cédula profesional'
                                             }
                                         </p>
                                         <p className="text-xs text-gray-500 mt-1">
-                                            PNG, JPG (Máx. 4MB) - Solo imágenes, no PDF
+                                            Solo archivos PDF (Máx. 10MB)
                                         </p>
                                     </label>
                                 </div>
+                                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                    <p className="text-xs text-amber-800">
+                                        <strong>Tip:</strong> Asegúrate de que tu cédula PDF sea legible y contenga todos los datos visibles. 
+                                        Puedes descargar tu cédula desde el <a href="https://www.cedulaprofesional.sep.gob.mx/cedula/indexAvanzada.action" target="_blank" rel="noopener noreferrer" className="underline font-medium">Registro Nacional de Profesionistas</a>.
+                                    </p>
+                                </div>
                             </div>
 
-                            {/* Botón de envío */}
                             <div className="pt-4">
                                 <button
                                     type="submit"
@@ -631,11 +606,15 @@ function VerifyAccount({ onBack }) {
                                         'Enviar Solicitud de Verificación'
                                     )}
                                 </button>
+                                {!isFormValid() && !loading && (
+                                    <p className="text-sm text-amber-600 mt-2 text-center">
+                                        Complete todos los campos correctamente para enviar la solicitud
+                                    </p>
+                                )}
                             </div>
                         </form>
                     </div>
                 ) : (
-                    // Mensaje cuando no puede enviar
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
                         <FaClock className="w-16 h-16 text-amber-500 mx-auto mb-4" />
                         <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -656,7 +635,6 @@ function VerifyAccount({ onBack }) {
                     </div>
                 )}
 
-                {/* Información adicional */}
                 <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-200">
                     <h4 className="font-semibold text-blue-800 mb-2">Información importante</h4>
                     <ul className="text-sm text-blue-700 space-y-1">
@@ -664,7 +642,9 @@ function VerifyAccount({ onBack }) {
                         <li>• Recibirás una notificación cuando tu cuenta sea verificada</li>
                         <li>• Solo puedes enviar una solicitud de verificación a la vez</li>
                         <li>• Actualmente solo aceptamos cédulas profesionales mexicanas</li>
-                        <li>• Sube una foto o captura de tu cédula (no se aceptan PDF)</li>
+                        <li>• La cédula debe tener exactamente 7 dígitos numéricos</li>
+                        <li>• Sube tu cédula en formato PDF (máximo 5MB)</li>
+                        <li>• Puedes descargar tu cédula oficial desde el sitio de la SEP</li>
                     </ul>
                 </div>
             </div>
