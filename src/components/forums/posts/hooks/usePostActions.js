@@ -252,7 +252,7 @@ export const usePostActions = () => {
       }
 
       // Actualizar estadísticas del autor del post
-      if (isAuthor) {
+      if (postData.authorId) {
         const authorRef = doc(db, "users", postData.authorId);
         batch.update(authorRef, {
           "stats.postCount": increment(-1),
