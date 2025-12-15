@@ -16,6 +16,10 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         email: '',
         password: ''
     });
+    const [touched, setTouched] = useState({
+        email: false,
+        password: false
+    });
 
     const validateEmail = (email) => {
         if(!email) return 'El email es requerido';
@@ -76,6 +80,14 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         return !error;
     };
 
+    // Función para verificar si el formulario es válido
+    const isFormValid = () => {
+        const emailError = validateEmail(formData.email);
+        const passwordError = validatePassword(formData.password);
+        
+        return !emailError && !passwordError && formData.email && formData.password;
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         
@@ -98,16 +110,30 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             [name]: processedValue
         });
         
-        // Validación en tiempo real
-        if (processedValue) {
+        // Validación en tiempo real solo si el campo ha sido tocado
+        if (touched[name] && processedValue) {
             validateField(name, processedValue);
-        } else {
-            // Limpiar error si el campo está vacío
+        } else if (touched[name] && !processedValue) {
+            // Mostrar error si el campo está vacío y ha sido tocado
+            setFieldErrors(prev => ({
+                ...prev,
+                [name]: name === 'email' ? 'El email es requerido' : 'Ingresa una contraseña'
+            }));
+        } else if (!touched[name]) {
+            // Limpiar error si el campo no ha sido tocado
             setFieldErrors(prev => ({
                 ...prev,
                 [name]: ''
             }));
         }
+    };
+
+    const handleBlur = (name) => {
+        setTouched(prev => ({
+            ...prev,
+            [name]: true
+        }));
+        validateField(name, formData[name]);
     };
 
     const toggleShowPassword = () => {
@@ -116,6 +142,13 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
 
     const handleEmailLogin = async (e) => {
         e.preventDefault();
+        
+        // Marcar todos los campos como tocados
+        setTouched({
+            email: true,
+            password: true
+        });
+        
         setLoading(true);
         setError('');
 
@@ -199,9 +232,9 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                     isActive: true,
                     isDeleted: false,
                     deletedAt: null,
-                    emailVerified: true,
+                    emailVerified: true, // Google ya verifica el email
                     emailVerificationSentAt: new Date(),
-                    hasPassword: false
+                    hasPassword: false // IMPORTANTE: Indicar que no tiene contraseña aún
                 });
             } else {
                 // Actualizar lastLogin para usuarios existentes
@@ -211,21 +244,15 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                 });
             }
             
-            setLoading(false);
-            
         } catch (error) {
             console.error('Error en login con Google:', error);
             
-            // Inmediatamente desactivar loading si es popup cerrado o cancelado
-            if (error.code === 'auth/popup-closed-by-user' || 
-                error.code === 'auth/cancelled-popup-request') {
-                setLoading(false);
-                // No mostrar error para estos casos
-                return;
+            // Si el usuario cerró el popup, no mostrar error
+            if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+                setError(getErrorMessage(error.code));
             }
-            
-            // Para otros errores, mostrar mensaje y desactivar loading
-            setError(getErrorMessage(error.code));
+        } finally {
+            // SIEMPRE desactivar loading, incluso si se cerró el popup
             setLoading(false);
         }
     };
@@ -257,7 +284,7 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
             case 'auth/invalid-credential':
                 return 'Correo o contraseña incorrectos. Verifica tus datos.';
             default:
-                return `Error al iniciar sesión: ${errorCode}. Intenta nuevamente.`;
+                return `Error al iniciar sesión: Intenta nuevamente.`;
         }
     };
 
@@ -284,7 +311,7 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        onBlur={() => validateField('email', formData.email)}
+                        onBlur={() => handleBlur('email')}
                         required
                         maxLength={254}
                         className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
@@ -307,7 +334,7 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
-                        onBlur={() => validateField('password', formData.password)}
+                        onBlur={() => handleBlur('password')}
                         required
                         maxLength={18}
                         pattern="[a-zA-Z0-9]+"
@@ -337,7 +364,7 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
 
                 <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || !isFormValid()}
                     className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
