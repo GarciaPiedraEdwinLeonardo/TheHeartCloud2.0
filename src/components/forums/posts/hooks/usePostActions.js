@@ -163,45 +163,6 @@ export const usePostActions = () => {
     }
   };
 
-  const updateUsersCommentStats = async (postId) => {
-    try {
-      // Buscar todos los comentarios del post para obtener los autores
-      const commentsQuery = query(
-        collection(db, "comments"),
-        where("postId", "==", postId)
-      );
-
-      const commentsSnapshot = await getDocs(commentsQuery);
-      const authorsMap = new Map();
-
-      // Contar comentarios por autor
-      commentsSnapshot.forEach((commentDoc) => {
-        const commentData = commentDoc.data();
-        const authorId = commentData.authorId;
-        if (authorId) {
-          authorsMap.set(authorId, (authorsMap.get(authorId) || 0) + 1);
-        }
-      });
-
-      // Actualizar estadísticas de cada autor
-      const batch = writeBatch(db);
-      for (const [authorId, commentCount] of authorsMap) {
-        const authorRef = doc(db, "users", authorId);
-        batch.update(authorRef, {
-          "stats.commentCount": increment(-commentCount),
-          "stats.contributionCount": increment(-commentCount),
-        });
-      }
-
-      await batch.commit();
-
-      return { success: true, updatedAuthors: authorsMap.size };
-    } catch (error) {
-      console.error("Error actualizando estadísticas de autores:", error);
-      return { success: false, error: error.message };
-    }
-  };
-
   // Eliminar post
   const deletePost = async (
     postId,
@@ -216,18 +177,44 @@ export const usePostActions = () => {
         isModeratorAction ||
         (!isAuthor && (isModeratorOrAdmin || isForumModerator));
 
-      // PRIMERO: Eliminar comentarios del post
-      const commentsResult = await deletePostComments(postId);
-      const deletedCommentsCount = commentsResult.deletedComments || 0;
+      // PRIMERO: Contar comentarios antes de eliminarlos
+      const commentsQuery = query(
+        collection(db, "comments"),
+        where("postId", "==", postId)
+      );
+      const commentsSnapshot = await getDocs(commentsQuery);
+      const authorsMap = new Map();
 
-      // SEGUNDO: Actualizar estadísticas de autores de comentarios
+      // Contar comentarios por autor ANTES de eliminarlos
+      commentsSnapshot.forEach((commentDoc) => {
+        const commentData = commentDoc.data();
+        const authorId = commentData.authorId;
+        if (authorId) {
+          authorsMap.set(authorId, (authorsMap.get(authorId) || 0) + 1);
+        }
+      });
+
+      const deletedCommentsCount = commentsSnapshot.size;
+
+      // SEGUNDO: Eliminar comentarios del post
+      await deletePostComments(postId);
+
+      // TERCERO: Actualizar estadísticas de autores de comentarios
       let updatedAuthorsCount = 0;
       if (deletedCommentsCount > 0) {
-        const statsResult = await updateUsersCommentStats(postId);
-        updatedAuthorsCount = statsResult.updatedAuthors || 0;
+        const batch = writeBatch(db);
+        for (const [authorId, commentCount] of authorsMap) {
+          const authorRef = doc(db, "users", authorId);
+          batch.update(authorRef, {
+            "stats.commentCount": increment(-commentCount),
+            "stats.contributionCount": increment(-commentCount),
+          });
+          updatedAuthorsCount++;
+        }
+        await batch.commit();
       }
 
-      // TERCERO: Eliminar el post y actualizar contadores
+      // CUARTO: Eliminar el post y actualizar contadores
       const batch = writeBatch(db);
 
       if (isModeratorDeletion) {
@@ -266,7 +253,7 @@ export const usePostActions = () => {
 
       // Actualizar estadísticas del autor del post
       if (isAuthor) {
-        const authorRef = doc(db, "users", user.uid);
+        const authorRef = doc(db, "users", postData.authorId);
         batch.update(authorRef, {
           "stats.postCount": increment(-1),
           "stats.contributionCount": increment(-1),
