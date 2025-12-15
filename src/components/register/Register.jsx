@@ -149,31 +149,85 @@ function Register({ onSwitchToLogin }) {
     // Limpiar usuario no verificado existente
     const cleanupExistingUnverifiedUser = async (email) => {
         try {
-            const usersRef = collection(db, 'users');
+            console.log('🔍 Buscando usuarios previos con email:', email);
+            
             const q = query(
-                usersRef, 
+                collection(db, 'users'),
                 where('email', '==', email),
                 where('emailVerified', '==', false)
             );
             
             const snapshot = await getDocs(q);
             
+            console.log('📊 Usuarios encontrados:', snapshot.size);
+            
             if (!snapshot.empty) {
                 const userDoc = snapshot.docs[0];
                 const userData = userDoc.data();
                 const now = new Date();
+                const expiresAt = userData.verificationExpiresAt?.toDate();
                 const lastSent = userData.emailVerificationSentAt?.toDate();
                 
-                // Verificar si se envió recientemente (menos de 1 hora)
+                console.log('📅 Ahora:', now);
+                console.log('⏰ Expira:', expiresAt);
+                console.log('❓ ¿Expiró?:', expiresAt && expiresAt < now);
+                
+                // Si ya expiró, eliminar completamente (Firestore + Auth)
+                if (expiresAt && expiresAt < now) {
+                    console.log('🗑️ Usuario expirado encontrado, eliminando...');
+                    
+                    // Llamar al backend para eliminar de Auth y Firestore
+                    const backendUrl = import.meta.env.VITE_BACKEND_URL;
+                    if (backendUrl) {
+                        try {
+                            const response = await fetch(`${backendUrl}/api/deleteUnverifiedUser`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email, userId: userDoc.id })
+                            });
+                            
+                            const result = await response.json();
+                            
+                            if (response.ok && result.success) {
+                                console.log('✅ Usuario eliminado completamente (Auth + Firestore)');
+                                console.log('📋 Detalles:', result);
+                                return; // Usuario eliminado exitosamente
+                            } else {
+                                console.warn('⚠️ Eliminación parcial:', result);
+                                // Continuar de todas formas
+                            }
+                        } catch (err) {
+                            console.error('❌ Error llamando al backend:', err);
+                            // Si falla el backend, intentar eliminar solo de Firestore
+                            await deleteDoc(doc(db, 'users', userDoc.id));
+                            console.log('✅ Usuario eliminado de Firestore (Auth requiere esperar)');
+                            throw new Error('EXPIRED_USER_AUTH_PENDING');
+                        }
+                    } else {
+                        // Si no hay backend configurado, solo eliminar de Firestore
+                        await deleteDoc(doc(db, 'users', userDoc.id));
+                        console.log('✅ Usuario eliminado de Firestore');
+                        console.warn('⚠️ Backend no configurado - usuario permanece en Authentication');
+                        throw new Error('EXPIRED_USER_AUTH_PENDING');
+                    }
+                }
+                
+                // Si NO ha expirado, verificar tiempo de reenvío
                 if (lastSent && (now - lastSent) < (60 * 60 * 1000)) {
-                    throw new Error('Ya se envió un email de verificación recientemente. Revisa tu bandeja de entrada y espera al menos 1 hora.');
+                    const timeRemaining = Math.ceil((60 * 60 * 1000 - (now - lastSent)) / 60000);
+                    throw new Error(`Ya se envió un email de verificación recientemente. Revisa tu bandeja de entrada y espera ${timeRemaining} minutos más.`);
                 }
                 
                 // Eliminar el usuario no verificado existente
+                console.log('🗑️ Usuario no verificado encontrado, eliminando...');
                 await deleteDoc(doc(db, 'users', userDoc.id));
+                console.log('✅ Usuario eliminado exitosamente');
                 
+            } else {
+                console.log('✨ No hay usuarios previos con este email');
             }
         } catch (error) {
+            console.error('❌ Error en limpieza:', error);
             throw error;
         }
     };
@@ -270,7 +324,16 @@ function Register({ onSwitchToLogin }) {
 
         } catch (error) {
             console.error('Registration error:', error);
-            setError(getErrorMessage(error.code));
+            
+            // Manejar el caso especial de usuario expirado
+            if (error.message === 'EXPIRED_USER_AUTH_PENDING') {
+                setError('Tu cuenta anterior expiró y fue eliminada de nuestra base de datos. Sin embargo, el email aún está reservado en el sistema de autenticación. Por favor, usa un correo diferente temporalmente o espera 24-48 horas para que se libere completamente.');
+            } else if (error.message.startsWith('Ya se envió un email')) {
+                setError(error.message);
+            } else {
+                setError(getErrorMessage(error.code));
+            }
+            
             setLoading(false);
         }
     };
@@ -303,7 +366,7 @@ function Register({ onSwitchToLogin }) {
         
         switch (errorCode) {
             case 'auth/email-already-in-use':
-                return 'Este correo electrónico ya está registrado. Si no verificaste tu cuenta anteriormente, espera unos minutos y intenta nuevamente.';
+                return 'Este correo electrónico ya está registrado en el sistema.';
             case 'auth/invalid-email':
                 return 'El correo electrónico no es válido.';
             case 'auth/operation-not-allowed':
@@ -313,7 +376,7 @@ function Register({ onSwitchToLogin }) {
             default:
                 // Verificar si el errorCode es un string antes de usar includes
                 if (typeof errorCode === 'string' && errorCode.includes('already-in-use')) {
-                    return 'Este email ya está en uso. Si no verificaste tu cuenta, espera 1 hora e intenta nuevamente.';
+                    return 'Este email ya está en uso. Intenta con otro correo electrónico.';
                 }
                 return `Error al crear la cuenta: ${errorCode}. Intenta nuevamente.`;
         }
