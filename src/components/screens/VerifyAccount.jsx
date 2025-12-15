@@ -163,13 +163,11 @@ function VerifyAccount({ onBack }) {
                 break;
                 
             case 'cedula':
-                // Solo números y letras, 5-20 caracteres
+                // Cédulas mexicanas: exactamente 7 dígitos
                 if (!value) return 'Este campo es requerido';
-                if (!/^[A-Za-z0-9]{5,20}$/.test(value)) {
-                    return 'Solo números y letras, 5-20 caracteres';
+                if (!/^\d{7}$/.test(value)) {
+                    return 'La cédula debe tener exactamente 7 dígitos';
                 }
-                if (value.length < 5) return 'Mínimo 5 caracteres';
-                if (value.length > 20) return 'Máximo 20 caracteres';
                 break;
                 
             case 'universidad':
@@ -197,6 +195,24 @@ function VerifyAccount({ onBack }) {
                 return null;
         }
         return null;
+    };
+
+    const isFormValid = () => {
+        // Verificar que todos los campos de texto tengan valor y no tengan errores
+        const requiredFields = ['apellidoPaterno', 'apellidoMaterno', 'nombre', 'especialidad', 'cedula', 'universidad', 'anioTitulacion'];
+        
+        for (const field of requiredFields) {
+            if (!formData[field] || fieldErrors[field]) {
+                return false;
+            }
+        }
+        
+        // Verificar que se haya seleccionado un archivo
+        if (!formData.documentoCedula) {
+            return false;
+        }
+        
+        return true;
     };
 
     const handleSubmit = async (e) => {
@@ -603,7 +619,7 @@ function VerifyAccount({ onBack }) {
                             <div className="pt-4">
                                 <button
                                     type="submit"
-                                    disabled={loading || !canSubmit}
+                                    disabled={loading || !canSubmit || !isFormValid()}
                                     className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                 >
                                     {loading ? (
