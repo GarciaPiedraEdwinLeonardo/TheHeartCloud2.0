@@ -16,11 +16,23 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
   const [showGeneralError, setShowGeneralError] = useState(false);
   
   const { createPost } = usePostActions();
-  const { uploadImage, uploading: imageUploading } = usePostUpload();
+  const { uploadImage, deleteFromCloudinary, uploading: imageUploading } = usePostUpload();
 
   // Refs para focus automático
   const titleRef = useRef(null);
   const contentRef = useRef(null);
+  const uploadedImagesRef = useRef([]); // Rastrear imágenes subidas
+
+  // Función para limpiar imágenes huérfanas
+  const cleanupUploadedImages = async () => {
+    if (uploadedImagesRef.current.length > 0) {
+      const deletionPromises = uploadedImagesRef.current.map(image => 
+        deleteFromCloudinary(image.url)
+      );
+      await Promise.allSettled(deletionPromises);
+      uploadedImagesRef.current = [];
+    }
+  };
 
   // Resetear formulario al abrir/cerrar
   useEffect(() => {
@@ -33,6 +45,9 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
         titleRef.current?.focus();
       }, 100);
     } else {
+      // Limpiar imágenes huérfanas cuando se cierra el modal SIN publicar
+      cleanupUploadedImages();
+      
       // Resetear formulario al cerrar
       setFormData({ title: '', content: '' });
       setImages([]);
@@ -138,7 +153,9 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
 
       const result = await uploadImage(file);
       if (result.success) {
-        setImages(prev => [...prev, result.image]);
+        const newImage = result.image;
+        setImages(prev => [...prev, newImage]);
+        uploadedImagesRef.current.push(newImage); // Rastrear imagen subida
         toast.success('Imagen subida exitosamente');
       } else {
         toast.error(result.error || 'Error al subir la imagen');
@@ -146,8 +163,19 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
     }
   };
 
-  const removeImage = (index) => {
+  const removeImage = async (index) => {
+    const imageToRemove = images[index];
+    
+    // Eliminar de Cloudinary inmediatamente
+    await deleteFromCloudinary(imageToRemove.url);
+    
+    // Remover del estado
     setImages(prev => prev.filter((_, i) => i !== index));
+    
+    // Remover del rastreo
+    uploadedImagesRef.current = uploadedImagesRef.current.filter(
+      img => img.url !== imageToRemove.url
+    );
   };
 
   const handleSubmit = async (e) => {
@@ -198,6 +226,9 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
       });
 
       if (result.success) {
+        // IMPORTANTE: Limpiar el rastreo de imágenes ya que se usaron exitosamente
+        uploadedImagesRef.current = [];
+        
         onClose();
         setFormData({ title: '', content: '' });
         setImages([]);
@@ -216,6 +247,20 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClose = async () => {
+    // Si hay imágenes subidas, advertir al usuario
+    if (images.length > 0) {
+      const confirmClose = window.confirm(
+        '¿Estás seguro de que quieres cancelar? Las imágenes subidas se eliminarán.'
+      );
+      
+      if (!confirmClose) return;
+    }
+    
+    // Cerrar el modal (el useEffect se encargará de limpiar las imágenes)
+    onClose();
   };
 
   // Prevenir scroll del body
@@ -252,7 +297,7 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
             )}
           </div>
           <button 
-            onClick={onClose}
+            onClick={handleClose}
             disabled={loading}
             className="p-2 hover:bg-gray-100 rounded-lg transition duration-200 disabled:opacity-50 flex-shrink-0 ml-2"
           >
@@ -378,6 +423,7 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
                           onClick={() => removeImage(index)}
                           disabled={loading}
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                          title="Eliminar imagen (se borrará de Cloudinary)"
                         >
                           ×
                         </button>
@@ -406,7 +452,7 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
                   </label>
                 </div>
                 <p className="text-xs text-gray-500 mt-2">
-                  Máximo 1 imagen. Formatos: JPEG, PNG, WebP. Tamaño máximo: 2MB por imagen.
+                  Máximo 1 imagen. Formatos: JPEG, PNG, WebP. Tamaño máximo: 2MB.
                 </p>
               </div>
 
@@ -440,7 +486,7 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
               <div className="flex gap-2 sm:gap-3">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   disabled={loading}
                   className="flex-1 sm:flex-none px-4 sm:px-6 py-2 text-sm sm:text-base bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium disabled:opacity-50"
                 >

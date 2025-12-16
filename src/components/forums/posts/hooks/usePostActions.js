@@ -15,9 +15,24 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { db, auth } from "./../../../../config/firebase";
+import { usePostUpload } from "./usePostUpload";
 
 export const usePostActions = () => {
   const user = auth.currentUser;
+  const { deleteFromCloudinary } = usePostUpload();
+
+  // Función auxiliar para eliminar imágenes de un post
+  const deletePostImages = async (images) => {
+    if (!images || images.length === 0) return;
+
+    const deletionPromises = images.map(async (image) => {
+      if (image.url) {
+        await deleteFromCloudinary(image.url);
+      }
+    });
+
+    await Promise.allSettled(deletionPromises);
+  };
 
   // Función auxiliar para verificar permisos
   const checkPostPermissions = async (postId) => {
@@ -124,6 +139,24 @@ export const usePostActions = () => {
     try {
       const { postData } = await checkPostPermissions(postId);
 
+      // Si se están actualizando las imágenes, eliminar las antiguas de Cloudinary
+      if (updates.images) {
+        const oldImages = postData.images || [];
+        const newImages = updates.images || [];
+
+        // Encontrar imágenes que se eliminaron
+        const oldImageUrls = oldImages.map((img) => img.url);
+        const newImageUrls = newImages.map((img) => img.url);
+        const imagesToDelete = oldImages.filter(
+          (img) => !newImageUrls.includes(img.url)
+        );
+
+        // Eliminar imágenes antiguas de Cloudinary
+        if (imagesToDelete.length > 0) {
+          await deletePostImages(imagesToDelete);
+        }
+      }
+
       const postRef = doc(db, "posts", postId);
 
       await updateDoc(postRef, {
@@ -199,7 +232,12 @@ export const usePostActions = () => {
       // SEGUNDO: Eliminar comentarios del post
       await deletePostComments(postId);
 
-      // TERCERO: Actualizar estadísticas de autores de comentarios
+      // TERCERO: Eliminar imágenes del post de Cloudinary
+      if (postData.images && postData.images.length > 0) {
+        await deletePostImages(postData.images);
+      }
+
+      // CUARTO: Actualizar estadísticas de autores de comentarios
       let updatedAuthorsCount = 0;
       if (deletedCommentsCount > 0) {
         const batch = writeBatch(db);
@@ -214,7 +252,7 @@ export const usePostActions = () => {
         await batch.commit();
       }
 
-      // CUARTO: Eliminar el post y actualizar contadores
+      // QUINTO: Eliminar el post y actualizar contadores
       const batch = writeBatch(db);
 
       if (isModeratorDeletion) {
@@ -278,6 +316,7 @@ export const usePostActions = () => {
         savedForAudit: isModeratorDeletion,
         deletedComments: deletedCommentsCount,
         updatedAuthors: updatedAuthorsCount,
+        deletedImages: postData.images?.length || 0,
       };
     } catch (error) {
       console.error("Error eliminando post:", error);
@@ -309,32 +348,25 @@ export const usePostActions = () => {
       // Calcular cambio en aura basado en reacción anterior y nueva
       if (reactionType === "like") {
         if (wasLiked) {
-          // Quitar like: -1 al aura
           auraChange = -1;
         } else if (wasDisliked) {
-          // Cambiar de dislike a like: +2 al aura (quitar dislike +1, agregar like +1)
           auraChange = 2;
         } else {
-          // Nuevo like: +1 al aura
           auraChange = 1;
         }
       } else if (reactionType === "dislike") {
         if (wasDisliked) {
-          // Quitar dislike: +1 al aura
           auraChange = 1;
         } else if (wasLiked) {
-          // Cambiar de like a dislike: -2 al aura (quitar like -1, agregar dislike -1)
           auraChange = -2;
         } else {
-          // Nuevo dislike: -1 al aura
           auraChange = -1;
         }
       } else if (reactionType === "remove") {
-        // Remover todas las reacciones
         if (wasLiked) {
-          auraChange = -1; // Se quita un like
+          auraChange = -1;
         } else if (wasDisliked) {
-          auraChange = 1; // Se quita un dislike
+          auraChange = 1;
         }
       }
 
@@ -392,7 +424,7 @@ export const usePostActions = () => {
         reportedAt: serverTimestamp(),
         status: "pending_review",
         communityContext: true,
-        requiresAction: true, // Indica que necesita revisión para posibles sanciones
+        requiresAction: true,
       });
     } catch (error) {
       console.error("Error reporting to global moderation:", error);

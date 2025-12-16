@@ -10,13 +10,14 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
     content: '',
   });
   const [images, setImages] = useState([]);
+  const [originalImages, setOriginalImages] = useState([]); // Para rastrear imágenes originales
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [showGeneralError, setShowGeneralError] = useState(false);
   
   const { editPost } = usePostActions();
-  const { uploadImage, uploading: imageUploading } = usePostUpload();
+  const { uploadImage, deleteFromCloudinary, uploading: imageUploading } = usePostUpload();
 
   // Refs para focus automático
   const titleRef = useRef(null);
@@ -29,7 +30,9 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
         title: post.title || '',
         content: post.content || '',
       });
-      setImages(post.images || []);
+      const postImages = post.images || [];
+      setImages(postImages);
+      setOriginalImages(postImages); // Guardar imágenes originales
       setErrors({});
       setTouched({});
       setShowGeneralError(false);
@@ -143,8 +146,14 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
     }
   };
 
-  const removeImage = (index) => {
+  const removeImage = async (index) => {
+    const imageToRemove = images[index];
+    
+    // Eliminar imagen del estado
     setImages(prev => prev.filter((_, i) => i !== index));
+    
+    // No eliminar de Cloudinary aquí, se hará en el submit
+    // para evitar eliminar imágenes si el usuario cancela
   };
 
   const handleSubmit = async (e) => {
@@ -159,7 +168,6 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
     
     // Validar formulario completo
     if (!validateForm()) {
-      // Mostrar mensaje de error general solo al enviar
       setShowGeneralError(true);
       
       // Encontrar el primer campo con error y hacer focus
@@ -231,7 +239,7 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
 
         <form onSubmit={handleSubmit} className="flex flex-col h-[calc(90vh-80px)]">
           <div className="flex-1 overflow-y-auto p-6">
-            {/* Mensaje de error general - SOLO al enviar */}
+            {/* Mensaje de error general */}
             {showGeneralError && (errors.title || errors.content) && (
               <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg error-message">
                 <div className="flex items-center gap-2 mb-2">
@@ -385,7 +393,7 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
           <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 sticky bottom-0 rounded-b-lg sm:rounded-b-2xl">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <p className="text-xs sm:text-sm text-gray-500 text-center sm:text-left">
-                Los cambios se aplicarán inmediatamente.
+                Las imágenes antiguas se eliminarán automáticamente.
               </p>
               <div className="flex gap-2 sm:gap-3">
                 <button

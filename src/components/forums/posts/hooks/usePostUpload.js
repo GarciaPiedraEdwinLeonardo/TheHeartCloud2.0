@@ -5,6 +5,41 @@ export const usePostUpload = () => {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
 
+  const deleteFromCloudinary = async (imageUrl) => {
+    if (!imageUrl) return { success: true };
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        console.warn(
+          "Backend no configurado - imagen permanecerá en Cloudinary"
+        );
+        return { success: false, error: "Backend no configurado" };
+      }
+
+      const response = await fetch(`${backendUrl}/api/deleteCloudinaryImage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        console.warn(
+          "No se pudo eliminar la imagen de Cloudinary:",
+          result.error
+        );
+        return { success: false, error: result.error };
+      }
+
+      return { success: true };
+    } catch (err) {
+      console.warn("Error eliminando imagen de Cloudinary:", err);
+      return { success: false, error: err.message };
+    }
+  };
+
   const uploadImage = async (file) => {
     setUploading(true);
     setError(null);
@@ -32,7 +67,7 @@ export const usePostUpload = () => {
       // Crear FormData para Cloudinary
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("upload_preset", "publicaciones"); // Tu upload preset de Cloudinary
+      formData.append("upload_preset", "publicaciones");
 
       // Subir a Cloudinary
       const response = await fetch(
@@ -50,7 +85,7 @@ export const usePostUpload = () => {
       // Crear objeto de imagen para Firestore
       const imageData = {
         url: data.secure_url,
-        thumbnailUrl: data.secure_url, // Podrías generar thumbnail si quieres
+        thumbnailUrl: data.secure_url,
         storagePath: data.public_id,
         filename: file.name,
         size: file.size,
@@ -73,6 +108,7 @@ export const usePostUpload = () => {
 
   return {
     uploadImage,
+    deleteFromCloudinary,
     uploading,
     error,
   };

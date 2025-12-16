@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db, auth } from "./../../../config/firebase";
 import cloudinaryConfig from "../../../config/cloudinary";
 
@@ -33,6 +33,51 @@ export const useProfilePhoto = () => {
     }
   };
 
+  const deleteFromCloudinary = async (imageUrl) => {
+    if (!imageUrl) return;
+
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        console.warn(
+          "Backend no configurado - imagen permanecerá en Cloudinary"
+        );
+        return;
+      }
+
+      const response = await fetch(`${backendUrl}/api/deleteCloudinaryImage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        console.warn(
+          "No se pudo eliminar la imagen de Cloudinary:",
+          result.error
+        );
+      }
+    } catch (err) {
+      console.warn("Error eliminando imagen de Cloudinary:", err);
+    }
+  };
+
+  const getCurrentPhotoURL = async () => {
+    if (!auth.currentUser) return null;
+
+    try {
+      const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
+      if (userDoc.exists()) {
+        return userDoc.data().photoURL || null;
+      }
+    } catch (err) {
+      console.error("Error obteniendo foto actual:", err);
+    }
+    return null;
+  };
+
   const uploadProfilePhoto = async (file) => {
     if (!auth.currentUser) {
       setError("Usuario no autenticado");
@@ -55,7 +100,10 @@ export const useProfilePhoto = () => {
 
       const userId = auth.currentUser.uid;
 
-      // Subir a Cloudinary
+      // Obtener la foto actual antes de subir la nueva
+      const currentPhotoURL = await getCurrentPhotoURL();
+
+      // Subir nueva imagen a Cloudinary
       const cloudinaryUrl = await uploadToCloudinary(file);
 
       // Actualizar perfil del usuario en Firestore
@@ -63,6 +111,11 @@ export const useProfilePhoto = () => {
         photoURL: cloudinaryUrl,
         lastUpdated: new Date(),
       });
+
+      // Eliminar la foto anterior de Cloudinary (si existía)
+      if (currentPhotoURL) {
+        await deleteFromCloudinary(currentPhotoURL);
+      }
 
       return cloudinaryUrl;
     } catch (err) {
@@ -79,12 +132,23 @@ export const useProfilePhoto = () => {
 
     try {
       setUploading(true);
+      setError(null);
 
-      // Actualizar Firestore (en Cloudinary la imagen permanece, pero la quitamos del perfil)
-      await updateDoc(doc(db, "users", auth.currentUser.uid), {
+      const userId = auth.currentUser.uid;
+
+      // Obtener la foto actual
+      const currentPhotoURL = await getCurrentPhotoURL();
+
+      // Actualizar Firestore primero
+      await updateDoc(doc(db, "users", userId), {
         photoURL: null,
         lastUpdated: new Date(),
       });
+
+      // Eliminar de Cloudinary
+      if (currentPhotoURL) {
+        await deleteFromCloudinary(currentPhotoURL);
+      }
     } catch (err) {
       console.error("Error eliminando foto de perfil:", err);
       setError(err.message);
