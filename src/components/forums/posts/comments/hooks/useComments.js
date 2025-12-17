@@ -24,7 +24,6 @@ export const useComments = (postId, commentsLimit = 50) => {
     const q = query(
       collection(db, "comments"),
       where("postId", "==", postId),
-      where("isDeleted", "==", false),
       orderBy("createdAt", "asc"),
       limit(commentsLimit)
     );
@@ -38,10 +37,8 @@ export const useComments = (postId, commentsLimit = 50) => {
             ...doc.data(),
             likes: doc.data().likes || [],
             likeCount: doc.data().likeCount || 0,
-            // Asegurar valores por defecto
             parentCommentId: doc.data().parentCommentId || null,
             editHistory: doc.data().editHistory || [],
-            isDeleted: doc.data().isDeleted || false,
           }));
 
           setComments(commentsData);

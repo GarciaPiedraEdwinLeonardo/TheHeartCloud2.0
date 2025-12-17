@@ -12,6 +12,7 @@ import {
   query,
   where,
   getDocs,
+  deleteDoc,
 } from "firebase/firestore";
 import { db, auth } from "./../../../../../config/firebase";
 
@@ -80,10 +81,9 @@ export const useCommentActions = () => {
         content: commentData.content,
         authorId: user.uid,
         postId: commentData.postId,
-        parentCommentId: commentData.parentCommentId || null, // Para comentarios anidados
+        parentCommentId: commentData.parentCommentId || null,
         likes: [],
         likeCount: 0,
-        isDeleted: false,
         createdAt: serverTimestamp(),
         updatedAt: null,
         editHistory: [],
@@ -230,22 +230,21 @@ export const useCommentActions = () => {
 
       const batch = writeBatch(db);
 
-      // Variable para contar TODOS los comentarios eliminados (incluyendo anidados profundos)
+      // Variable para contar TODOS los comentarios eliminados
       let totalCommentsDeleted = 0;
 
-      // Función recursiva para eliminar comentarios y sus respuestas
+      // Función recursiva para eliminar comentarios y sus respuestas DEFINITIVAMENTE
       const deleteCommentRecursive = async (currentCommentId, currentBatch) => {
         // 1. Obtener todas las respuestas de este comentario
         const repliesQuery = query(
           collection(db, "comments"),
-          where("parentCommentId", "==", currentCommentId),
-          where("isDeleted", "==", false)
+          where("parentCommentId", "==", currentCommentId)
         );
 
         const repliesSnapshot = await getDocs(repliesQuery);
         const replies = repliesSnapshot.docs;
 
-        // 2. Eliminar recursivamente cada respuesta y contar cuántas se eliminan
+        // 2. Eliminar recursivamente cada respuesta
         let repliesDeletedCount = 0;
         for (const replyDoc of replies) {
           repliesDeletedCount += await deleteCommentRecursive(
@@ -254,43 +253,31 @@ export const useCommentActions = () => {
           );
         }
 
-        // 3. Eliminar el comentario actual
+        // 3. ELIMINAR DEFINITIVAMENTE el comentario actual
         const commentRef = doc(db, "comments", currentCommentId);
         const commentDoc = await getDoc(commentRef);
 
         if (commentDoc.exists()) {
           const currentCommentData = commentDoc.data();
 
-          if (
-            isModeratorAction ||
-            (!isAuthor && (isModeratorOrAdmin || isForumModerator))
-          ) {
-            // Eliminación por moderador
-            currentBatch.update(commentRef, {
-              isDeleted: true,
-              deletedAt: serverTimestamp(),
-              deletedBy: user.uid,
-              moderatorDelete: true,
-              deletedContent: currentCommentData.content,
-            });
-          } else {
-            // Eliminación por autor
-            currentBatch.update(commentRef, {
-              isDeleted: true,
-              deletedAt: serverTimestamp(),
-              deletedContent: currentCommentData.content,
-            });
-          }
+          // ELIMINAR el documento en lugar de marcarlo como eliminado
+          currentBatch.delete(commentRef);
 
-          // Actualizar estadísticas del autor (solo si es autor del comentario)
+          // Actualizar estadísticas del autor
           const commentAuthorId = currentCommentData.authorId;
+
           if (commentAuthorId === user.uid) {
+            // Si el usuario elimina su propio comentario
             currentBatch.update(doc(db, "users", commentAuthorId), {
               "stats.commentCount": increment(-1),
               "stats.contributionCount": increment(-1),
             });
-          } else if (isModeratorAction) {
-            // Si es moderador eliminando comentario de otro, afectar stats del autor original
+          } else if (
+            isModeratorAction ||
+            isModeratorOrAdmin ||
+            isForumModerator
+          ) {
+            // Si es moderador eliminando comentario de otro usuario
             currentBatch.update(doc(db, "users", commentAuthorId), {
               "stats.commentCount": increment(-1),
               "stats.contributionCount": increment(-1),
@@ -300,14 +287,13 @@ export const useCommentActions = () => {
         }
 
         // Retornar el total de comentarios eliminados en este sub-árbol
-        // (1 por el comentario actual + todas sus respuestas eliminadas)
         return 1 + repliesDeletedCount;
       };
 
       // Ejecutar eliminación recursiva y obtener el total real
       totalCommentsDeleted = await deleteCommentRecursive(commentId, batch);
 
-      // Actualizar contador de comentarios en el post UNA SOLA VEZ con el total real
+      // Actualizar contador de comentarios en el post
       batch.update(doc(db, "posts", commentData.postId), {
         "stats.commentCount": increment(-totalCommentsDeleted),
       });
@@ -330,8 +316,7 @@ export const useCommentActions = () => {
     try {
       const repliesQuery = query(
         collection(db, "comments"),
-        where("parentCommentId", "==", commentId),
-        where("isDeleted", "==", false)
+        where("parentCommentId", "==", commentId)
       );
 
       const repliesSnapshot = await getDocs(repliesQuery);
