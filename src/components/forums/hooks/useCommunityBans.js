@@ -5,9 +5,6 @@ import {
   arrayUnion,
   arrayRemove,
   getDoc,
-  addDoc,
-  collection,
-  serverTimestamp,
   deleteField,
 } from "firebase/firestore";
 import { db, auth } from "../../../config/firebase";
@@ -82,47 +79,12 @@ export const useCommunityBans = () => {
         duration
       );
 
-      // Reportar a moderación global con más detalles
-      await reportToGlobalModeration(
-        userId,
-        reason,
-        "community_ban",
-        forumId,
-        forumData.name
-      );
-
       return { success: true, banData };
     } catch (error) {
       console.error("Error baneando usuario:", error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
-    }
-  };
-
-  const reportToGlobalModeration = async (
-    userId,
-    reason,
-    actionType,
-    forumId = null,
-    forumName = null
-  ) => {
-    try {
-      await addDoc(collection(db, "global_moderation_reports"), {
-        userId,
-        reason,
-        moderatorId: auth.currentUser.uid,
-        actionType,
-        forumId,
-        forumName,
-        reportedAt: serverTimestamp(),
-        status: "pending_review",
-        communityContext: true,
-        requiresAction: true,
-        severity: "high", // Los baneos son de alta severidad
-      });
-    } catch (error) {
-      console.error("Error reporting to global moderation:", error);
     }
   };
 
@@ -142,29 +104,9 @@ export const useCommunityBans = () => {
     }
   };
 
-  // Nueva función: obtener historial de baneos de un usuario
-  const getUserBanHistory = async (userId) => {
-    try {
-      // Esto requeriría una consulta más compleja, pero para empezar:
-      const userRef = doc(db, "users", userId);
-      const userDoc = await getDoc(userRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        // Podrías almacenar el historial de baneos en el usuario o hacer consultas a los foros
-        return userData.banHistory || [];
-      }
-      return [];
-    } catch (error) {
-      console.error("Error getting user ban history:", error);
-      return [];
-    }
-  };
-
   return {
     banUser,
     isUserBanned,
-    getUserBanHistory,
     loading,
   };
 };

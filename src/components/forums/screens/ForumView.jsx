@@ -4,8 +4,6 @@ import { BiSolidFoodMenu } from "react-icons/bi";
 import { useForumActions } from './../hooks/useForumsActions';
 import { useForumSettings } from './../hooks/useForumSettings';
 import { usePostModeration } from './../hooks/usePostModeration';
-import { useCommunityBans } from './../hooks/useCommunityBans';
-import { useForumMembers } from './../hooks/useForumMembers';
 import { auth, db } from './../../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { usePosts } from './../posts/hooks/usePosts';
@@ -55,12 +53,9 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   // Hooks
   const { joinForum, leaveForum, checkUserMembership, getForumData, isUserBannedFromForum } = useForumActions();
   const { leaveForumAsOwner } = useForumSettings();
-  const { getPendingPosts, deletePost } = usePostModeration();
-  const [currentPost, setCurrentPost] = useState(null);
-  const { banUser } = useCommunityBans();
-  const { members } = useForumMembers(forumDetails.id);
+  const { getPendingPosts } = usePostModeration();
   const { posts, loading: postsLoading, error: postsError } = usePosts(forumDetails.id);
-  const { deleteCommunity, loading: deleteLoading, error: deleteError } = useCommunityDeletion();
+  const { deleteCommunity } = useCommunityDeletion();
   const user = auth.currentUser;
 
   // Variables computadas

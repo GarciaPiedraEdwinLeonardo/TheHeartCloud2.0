@@ -14,8 +14,6 @@ import {
     FaClock,
     FaBan,
     FaTrash,
-    FaEllipsisH,
-    FaMobileAlt
   } from 'react-icons/fa';
   
   function ForumSidebar({ 
@@ -24,7 +22,6 @@ import {
     userMembership, actionLoading, hasPendingRequest, forumDetails, isUserBanned,
     onCreatePost, onJoinLeave, onLeaveAsOwner, onReport, onManageModerators, 
     onManageMembers, onSettings, onValidatePosts, onDeleteCommunity, userRole,
-    onOpenMobileActions // Nueva prop para móviles
   }) {
     
     const formatDate = (timestamp) => {
