@@ -9,13 +9,8 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
   const [pendingPosts, setPendingPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
-  const [rejectReason, setRejectReason] = useState('');
-  const [selectedPost, setSelectedPost] = useState(null);
   
   const { getPendingPosts, validatePost, rejectPost } = usePostModeration();
-
-  // Constante para el límite de caracteres del motivo de rechazo
-  const MAX_REJECT_REASON_LENGTH = 100;
 
   useEffect(() => {
     if (isOpen && forumId) {
@@ -68,18 +63,11 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
   };
 
   const handleReject = async (postId) => {
-    if (!rejectReason.trim()) {
-      toast.error('Por favor proporciona un motivo para el rechazo');
-      return;
-    }
-
     setActionLoading(prev => ({ ...prev, [postId]: 'rejecting' }));
-    const result = await rejectPost(postId, forumId, forumName, rejectReason);
+    const result = await rejectPost(postId, forumId, forumName);
     if (result.success) {
       // Actualizar UI inmediatamente 
       setPendingPosts(prev => prev.filter(post => post.id !== postId));
-      setRejectReason('');
-      setSelectedPost(null);
       
       if (onPostsValidated) {
         onPostsValidated();
@@ -89,15 +77,6 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
       console.error(`Error al rechazar: ${result.error}`);
     }
     setActionLoading(prev => ({ ...prev, [postId]: null }));
-  };
-
-  // Manejador de cambio del textarea con validación
-  const handleRejectReasonChange = (e) => {
-    const value = e.target.value;
-    // Limitar a MAX_REJECT_REASON_LENGTH caracteres
-    if (value.length <= MAX_REJECT_REASON_LENGTH) {
-      setRejectReason(value);
-    }
   };
 
   const formatDate = (timestamp) => {
@@ -214,51 +193,18 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
                     </button>
                     
                     <button
-                      onClick={() => setSelectedPost(post.id)}
+                      onClick={() => handleReject(post.id)}
                       disabled={actionLoading[post.id]}
                       className="flex-1 bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition duration-200 flex items-center justify-center gap-2 font-medium disabled:opacity-50 min-h-[42px]"
                     >
-                      <FaTimes className="w-4 h-4" />
+                      {actionLoading[post.id] === 'rejecting' ? (
+                        <FaSpinner className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FaTimes className="w-4 h-4" />
+                      )}
                       Rechazar
                     </button>
                   </div>
-
-                  {/* Modal de rechazo */}
-                  {selectedPost === post.id && (
-                    <div className="mt-4 p-4 bg-white border border-red-200 rounded-lg">
-                      <h5 className="font-medium text-gray-900 mb-2">Motivo del rechazo</h5>
-                      <textarea
-                        value={rejectReason}
-                        onChange={handleRejectReasonChange}
-                        rows={3}
-                        maxLength={MAX_REJECT_REASON_LENGTH}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-                        placeholder="Explica por qué rechazas esta publicación..."
-                      />
-                      <p className="text-xs text-gray-500 mt-1">
-                        {rejectReason.length}/{MAX_REJECT_REASON_LENGTH} caracteres
-                      </p>
-                      <div className="flex gap-3 mt-3">
-                        <button
-                          onClick={() => {
-                            setSelectedPost(null);
-                            setRejectReason('');
-                          }}
-                          className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 font-medium"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          onClick={() => handleReject(post.id)}
-                          disabled={!rejectReason.trim() || actionLoading[post.id]}
-                          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center justify-center gap-2 disabled:opacity-50 min-h-[42px]"
-                        >
-                          {actionLoading[post.id] === 'rejecting' && <FaSpinner className="w-4 h-4 animate-spin" />}
-                          Confirmar Rechazo
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>

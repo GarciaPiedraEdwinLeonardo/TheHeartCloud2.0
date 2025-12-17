@@ -289,12 +289,6 @@ function CreatePostModal({ isOpen, onClose, forumId, forumName, requiresPostAppr
           <div className="flex-1 min-w-0">
             <h2 className="text-2xl font-bold text-gray-900 truncate">Crear Publicación</h2>
             <p className="text-sm text-gray-600 mt-1 truncate">En {forumName}</p>
-            {requiresPostApproval && !canPostWithoutApproval && (
-              <div className="flex items-center gap-2 mt-2 text-amber-600 text-sm">
-                <FaUserShield className="w-4 h-4" />
-                <span>Tu publicación requerirá aprobación de un moderador</span>
-              </div>
-            )}
           </div>
           <button 
             onClick={handleClose}

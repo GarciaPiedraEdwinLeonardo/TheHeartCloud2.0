@@ -1,7 +1,6 @@
 import { FaTimesCircle } from 'react-icons/fa';
 
 function PostRejected({ notification, onMarkAsRead }) {
-    const actionRequired = notification.isActionable && notification.actionData?.actionRequired === 'edit_and_resubmit';
 
     return (
         <div className={`p-4 border-l-4 border-l-red-500 bg-white rounded-r-lg hover:bg-gray-50 transition duration-200 ${
@@ -19,14 +18,6 @@ function PostRejected({ notification, onMarkAsRead }) {
                         )}
                     </div>
                     <p className="text-gray-600 text-sm mb-2">{notification.message}</p>
-                    
-                    {actionRequired && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
-                            <p className="text-amber-700 text-xs font-medium">
-                                ⚡ Puedes editar y volver a enviar tu publicación
-                            </p>
-                        </div>
-                    )}
                     
                     <div className="flex items-center justify-between mt-2">
                         <p className="text-xs text-gray-500">

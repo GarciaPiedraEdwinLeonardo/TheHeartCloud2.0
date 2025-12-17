@@ -213,20 +213,18 @@ export const notificationService = {
     }
   },
 
-  sendPostRejected: async (userId, forumId, forumName, reason) => {
+  sendPostRejected: async (userId, forumId, forumName) => {
     try {
       await addDoc(collection(db, "notifications"), {
         userId,
         type: "post_rejected",
         title: "Publicación Rechazada",
-        message: `Tu publicación en "${forumName}" fue rechazada. Motivo: ${reason}`,
+        message: `Tu publicación en "${forumName}" fue rechazada`,
         isRead: false,
         isActionable: true,
         actionData: {
           forumId,
           forumName,
-          reason,
-          actionRequired: "edit_and_resubmit",
         },
         createdAt: new Date(),
         expiresAt: getExpirationDate(),

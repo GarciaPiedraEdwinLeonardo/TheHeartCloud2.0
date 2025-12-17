@@ -45,7 +45,7 @@ export const usePostModeration = () => {
     }
   };
 
-  const rejectPost = async (postId, forumId, forumName, reason) => {
+  const rejectPost = async (postId, forumId, forumName) => {
     setLoading(true);
     try {
       const postRef = doc(db, "posts", postId);
@@ -59,28 +59,6 @@ export const usePostModeration = () => {
       const authorId = postData.authorId;
 
       const batch = writeBatch(db);
-
-      // 1. Guardar en deleted_posts para auditoría (rechazo = eliminación por moderador)
-      const deletedPostRef = doc(collection(db, "deleted_posts"), postId);
-      batch.set(deletedPostRef, {
-        ...postData,
-        id: postId,
-        deletedAt: serverTimestamp(),
-        deletedBy: auth.currentUser.uid,
-        deleteReason: reason,
-        deleteType: "moderator_rejection",
-        originalForumId: forumId,
-        authorId: authorId,
-        moderatorAction: true,
-        rejectionReason: reason,
-        statsAtDeletion: {
-          likes: postData.likes?.length || 0,
-          dislikes: postData.dislikes?.length || 0,
-          comments: postData.stats?.commentCount || 0,
-          views: postData.stats?.viewCount || 0,
-        },
-        reportedToGlobal: true,
-      });
 
       // 2. Eliminar post original
       batch.delete(postRef);
@@ -105,15 +83,7 @@ export const usePostModeration = () => {
       await batch.commit();
 
       // 5. Notificar al autor
-      await notificationService.sendPostRejected(
-        authorId,
-        forumId,
-        forumName,
-        reason
-      );
-
-      // 6. Reportar a moderación global
-      await reportToGlobalModeration(authorId, reason, "post_rejected", postId);
+      await notificationService.sendPostRejected(authorId, forumId, forumName);
 
       return { success: true };
     } catch (error) {
@@ -185,17 +155,6 @@ export const usePostModeration = () => {
       }
 
       await batch.commit();
-
-      // 5. Si es acción de moderador, reportar a moderación global
-      if (isModeratorAction) {
-        await reportToGlobalModeration(
-          postData.authorId,
-          reason,
-          "post_deleted_by_moderator",
-          postId
-        );
-      }
-
       return { success: true, savedForAudit: isModeratorAction };
     } catch (error) {
       return { success: false, error: error.message };
@@ -216,30 +175,6 @@ export const usePostModeration = () => {
     } catch (error) {
       console.error("Error getting pending posts:", error);
       return [];
-    }
-  };
-
-  const reportToGlobalModeration = async (
-    userId,
-    reason,
-    actionType,
-    postId = null
-  ) => {
-    try {
-      await addDoc(collection(db, "global_moderation_reports"), {
-        userId,
-        reason,
-        moderatorId: auth.currentUser.uid,
-        actionType,
-        postId,
-        reportedAt: serverTimestamp(),
-        status: "pending_review",
-        communityContext: true,
-        requiresAction: true,
-        severity: actionType.includes("rejected") ? "medium" : "high",
-      });
-    } catch (error) {
-      console.error("Error reporting to global moderation:", error);
     }
   };
 
