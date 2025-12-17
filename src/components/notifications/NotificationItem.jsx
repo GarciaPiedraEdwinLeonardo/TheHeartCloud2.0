@@ -8,6 +8,7 @@ import CommunityBan from './NotificationTypes/CommunityBan';
 import MembershipApproved from './NotificationTypes/MembershipApproved';
 import OwnershipTransferred from './NotificationTypes/OwnershipTransferred';
 import CommentDeleted from './NotificationTypes/CommentDeleted';
+import PostDeleted from './NotificationTypes/PostDeleted';
 
 function NotificationItem({ notification, onMarkAsRead }) {
   const renderNotification = () => {
@@ -22,6 +23,8 @@ function NotificationItem({ notification, onMarkAsRead }) {
         return <PostApproved notification={notification} onMarkAsRead={onMarkAsRead} />;
       case 'post_rejected':
         return <PostRejected notification={notification} onMarkAsRead={onMarkAsRead} />;
+      case 'post_deleted':
+        return <PostDeleted notification={notification} onMarkAsRead={onMarkAsRead} />;
       case 'moderator_assigned':
         return <ModeratorAssigned notification={notification} onMarkAsRead={onMarkAsRead} />;
       case 'community_ban':

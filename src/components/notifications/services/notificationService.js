@@ -234,6 +234,24 @@ export const notificationService = {
     }
   },
 
+  sendPostDeletedByModerator: async (userId, postName) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        userId,
+        type: "post_deleted",
+        title: "Publicación Eliminada",
+        message: `Tu publicación "${postName}" fue eliminada por un moderador.`,
+        isRead: false,
+        isActionable: false,
+        actionData: { postName },
+        createdAt: new Date(),
+        expiresAt: getExpirationDate(),
+      });
+    } catch (error) {
+      console.error("Error en notificación de post eliminado:", error);
+    }
+  },
+
   sendModeratorAssigned: async (userId, forumName) => {
     try {
       await addDoc(collection(db, "notifications"), {

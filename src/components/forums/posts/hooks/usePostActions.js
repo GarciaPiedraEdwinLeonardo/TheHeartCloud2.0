@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "./../../../../config/firebase";
 import { usePostUpload } from "./usePostUpload";
+import { notificationService } from "./../../../notifications/services/notificationService";
 
 export const usePostActions = () => {
   const user = auth.currentUser;
@@ -201,6 +202,10 @@ export const usePostActions = () => {
       const { postData, isAuthor, isModeratorOrAdmin, isForumModerator } =
         await checkPostPermissions(postId);
 
+      // Determinar si es eliminación por moderador
+      const isModeratorDeletion =
+        !isAuthor && (isModeratorOrAdmin || isForumModerator);
+
       // PRIMERO: Contar comentarios antes de eliminarlos
       const commentsQuery = query(
         collection(db, "comments"),
@@ -269,11 +274,29 @@ export const usePostActions = () => {
 
       await batch.commit();
 
+      // SEXTO: Enviar notificación si es eliminación por moderador
+      if (
+        isModeratorDeletion &&
+        postData.authorId &&
+        postData.authorId !== user.uid
+      ) {
+        try {
+          await notificationService.sendPostDeletedByModerator(
+            postData.authorId,
+            postData.title || "tu publicación"
+          );
+        } catch (notifError) {
+          console.error("Error enviando notificación:", notifError);
+          // No fallar la eliminación si falla la notificación
+        }
+      }
+
       return {
         success: true,
         deletedComments: deletedCommentsCount,
         updatedAuthors: updatedAuthorsCount,
         deletedImages: postData.images?.length || 0,
+        moderatorDeletion: isModeratorDeletion,
       };
     } catch (error) {
       console.error("Error eliminando post:", error);
