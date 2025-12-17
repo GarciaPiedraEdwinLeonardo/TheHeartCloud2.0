@@ -1,20 +1,17 @@
 import { useState, useEffect } from 'react';
-import { FaSpinner, FaExclamationTriangle, FaTrash, FaCheck, FaTimes, FaExclamationCircle } from 'react-icons/fa';
+import { FaSpinner, FaExclamationTriangle, FaTrash, FaTimes } from 'react-icons/fa';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../config/firebase';
 import { useModerationActions } from '../hooks/useModerationActions';
 import { toast } from 'react-hot-toast';
 
-function ContentPreview({ report, contentType, isGlobalReport, onContentDeleted }) {
+function ContentPreview({ report, contentType, onClose, onContentDeleted }) {
   const [contentData, setContentData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteReason, setDeleteReason] = useState('');
-  const [deleteError, setDeleteError] = useState('');
-  const [deleteTouched, setDeleteTouched] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
-  const { deleteContent, loading: actionLoading, error: actionError } = useModerationActions();
+  const { deleteContent, loading: actionLoading } = useModerationActions();
 
   useEffect(() => {
     const loadContentData = async () => {
@@ -60,66 +57,19 @@ function ContentPreview({ report, contentType, isGlobalReport, onContentDeleted 
     loadContentData();
   }, [contentType, report.targetId]);
 
-  const validateDeleteReason = (reason) => {
-    const trimmedReason = reason.trim();
-    
-    if (!trimmedReason) {
-      return 'Debes proporcionar un motivo para la eliminación';
-    }
-    
-    if (trimmedReason.length < 10) {
-      return 'El motivo debe tener al menos 10 caracteres';
-    }
-    
-    if (trimmedReason.length > 100) {
-      return 'El motivo no puede exceder 100 caracteres';
-    }
-    
-    return '';
-  };
-
-  const handleDeleteReasonChange = (e) => {
-    const value = e.target.value;
-    setDeleteReason(value);
-    
-    if (deleteTouched) {
-      const error = validateDeleteReason(value);
-      setDeleteError(error);
-    }
-  };
-
-  const handleDeleteReasonBlur = () => {
-    setDeleteTouched(true);
-    const error = validateDeleteReason(deleteReason);
-    setDeleteError(error);
-  };
-
   const handleDeleteContent = async () => {
-    setDeleteTouched(true);
-    
-    const error = validateDeleteReason(deleteReason);
-    if (error) {
-      setDeleteError(error);
-      toast.error(error);
-      return;
-    }
-
     try {
-      const result = await deleteContent(contentType, report.targetId, deleteReason, report.forumId);
+      const result = await deleteContent(contentType, report.targetId);
       
       if (result.success) {
-        toast.success('Contenido Eliminado Correctamente');
-        setShowDeleteModal(false);
-        setDeleteReason('');
-        setDeleteError('');
-        setDeleteTouched(false);
+        toast.success('Contenido eliminado correctamente');
+        setShowDeleteConfirm(false);
         
         if (onContentDeleted) {
           onContentDeleted();
         }
       } else {
-        toast.error("Error al eliminar el contenido");
-        console.error(`Error: ${result.error}`);
+        toast.error(result.error || "Error al eliminar el contenido");
       }
     } catch (err) {
       console.error('Error eliminando contenido:', err);
@@ -127,42 +77,45 @@ function ContentPreview({ report, contentType, isGlobalReport, onContentDeleted 
     }
   };
 
-  const closeDeleteModal = () => {
-    setShowDeleteModal(false);
-    setDeleteReason('');
-    setDeleteError('');
-    setDeleteTouched(false);
-  };
-
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-8 px-4">
-        <FaSpinner className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500 animate-spin mb-3" />
-        <span className="text-gray-600 text-sm sm:text-base">Cargando contenido...</span>
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg p-8 max-w-md w-full">
+          <div className="flex flex-col items-center justify-center">
+            <FaSpinner className="w-8 h-8 text-blue-500 animate-spin mb-3" />
+            <span className="text-gray-600">Cargando contenido...</span>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-8 px-4">
-        <div className="text-red-500 text-sm bg-red-50 p-3 sm:p-4 rounded-lg max-w-md mx-auto">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <FaExclamationTriangle className="w-5 h-5" />
-            <span className="font-medium">Error</span>
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg p-8 max-w-md w-full">
+          <div className="text-center">
+            <div className="text-red-500 mb-4">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <FaExclamationTriangle className="w-6 h-6" />
+                <span className="font-medium text-lg">Error</span>
+              </div>
+              <p className="text-sm">{error}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200"
+            >
+              Cerrar
+            </button>
           </div>
-          {error}
         </div>
       </div>
     );
   }
 
   if (!contentData) {
-    return (
-      <div className="text-center py-8 text-gray-500 text-sm sm:text-base">
-        No se pudo cargar el contenido
-      </div>
-    );
+    return null;
   }
 
   const getAuthorName = () => {
@@ -207,196 +160,197 @@ function ContentPreview({ report, contentType, isGlobalReport, onContentDeleted 
     }
   };
 
-  const isDeleteDisabled = actionLoading || deleteError || !deleteReason.trim();
-
   return (
-    <div className="content-preview">
-      {/* Header de acciones */}
-      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-blue-900 text-sm sm:text-base">Acciones de Moderación</h3>
-            <p className="text-xs sm:text-sm text-blue-700 truncate">
-              Revisa el contenido y toma la acción apropiada
-            </p>
-          </div>
-          <div className="flex-shrink-0">
+    <>
+      {/* Modal principal de preview */}
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl my-8 max-h-[90vh] overflow-hidden flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+              Vista previa - {contentType === 'post' ? 'Publicación' : 'Comentario'}
+            </h3>
             <button
-              onClick={() => setShowDeleteModal(true)}
-              className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium text-xs sm:text-sm w-full sm:w-auto"
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-lg transition duration-200"
             >
-              <FaTrash className="w-3 h-3 sm:w-4 sm:h-4" />
-              <span>Eliminar</span>
+              <FaTimes className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+
+          {/* Contenido scrolleable */}
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {/* Header de acciones */}
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-blue-900">Acciones de Moderación</h3>
+                  <p className="text-sm text-blue-700">
+                    Revisa el contenido y toma la acción apropiada
+                  </p>
+                </div>
+                <div className="flex-shrink-0">
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium w-full sm:w-auto"
+                  >
+                    <FaTrash className="w-4 h-4" />
+                    <span>Eliminar</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Información del reporte */}
+            <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <h4 className="font-semibold text-gray-900 mb-2">Información del Reporte</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                <div className="break-words">
+                  <strong>Motivo del reporte:</strong> {report.reason}
+                </div>
+                {report.description && (
+                  <div className="break-words">
+                    <strong>Descripción:</strong> {report.description}
+                  </div>
+                )}
+                <div>
+                  <strong>Reportado por:</strong> {report.reporterName || 'Usuario'}
+                </div>
+                <div>
+                  <strong>Fecha del reporte:</strong> {formatDate(report.createdAt)}
+                </div>
+              </div>
+            </div>
+
+            {/* Contenido real */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              {/* Header del contenido */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 pb-4 border-b border-gray-200 gap-3">
+                <div className="flex items-center gap-3">
+                  {contentData.authorData?.photoURL ? (
+                    <img 
+                      src={contentData.authorData.photoURL} 
+                      alt={`Foto de ${getAuthorName()}`}
+                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <FaExclamationTriangle className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-gray-900 truncate">{getAuthorName()}</h3>
+                    <p className="text-sm text-gray-600 truncate">
+                      {contentData.authorData?.professionalInfo?.specialty || 'Usuario'}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {formatDate(contentData.createdAt)}
+                </div>
+              </div>
+
+              {/* Contenido */}
+              <div className="prose max-w-none">
+                {contentType === 'post' && (
+                  <>
+                    <h2 className="text-xl font-bold text-gray-900 mb-3 break-words">
+                      {contentData.title}
+                    </h2>
+                    <div className="text-gray-700 whitespace-pre-line break-words">
+                      {contentData.content}
+                    </div>
+                  </>
+                )}
+                
+                {contentType === 'comment' && (
+                  <div className="text-gray-700 whitespace-pre-line break-words">
+                    {contentData.content}
+                  </div>
+                )}
+              </div>
+
+              {/* Estadísticas */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                  {contentType === 'post' && (
+                    <>
+                      <span>Likes: {contentData.likes?.length || 0}</span>
+                      <span>Dislikes: {contentData.dislikes?.length || 0}</span>
+                      <span>Comentarios: {contentData.stats?.commentCount || 0}</span>
+                    </>
+                  )}
+                  {contentType === 'comment' && (
+                    <span>Likes: {contentData.likes?.length || 0}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
+            <button
+              onClick={onClose}
+              className="w-full sm:w-auto px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium"
+            >
+              Cerrar
             </button>
           </div>
         </div>
       </div>
 
-      {/* Información del reporte */}
-      <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <h4 className="font-semibold text-gray-900 text-sm sm:text-base mb-2">Información del Reporte</h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
-          <div className="break-words">
-            <strong>Motivo del reporte:</strong> {report.reason}
-          </div>
-          {report.description && (
-            <div className="break-words">
-              <strong>Descripción:</strong> {report.description}
-            </div>
-          )}
-          <div className="truncate">
-            <strong>Reportado por:</strong> {report.reporterName || 'Usuario'}
-          </div>
-          <div>
-            <strong>Fecha del reporte:</strong> {formatDate(report.createdAt)}
-          </div>
-        </div>
-      </div>
-
-      {/* Contenido real */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
-        {/* Header del contenido */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 pb-3 sm:pb-4 border-b border-gray-200 gap-3">
-          <div className="flex items-center gap-2 sm:gap-3">
-            {contentData.authorData?.photoURL ? (
-              <img 
-                src={contentData.authorData.photoURL} 
-                alt={`Foto de ${getAuthorName()}`}
-                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover flex-shrink-0"
-              />
-            ) : (
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center flex-shrink-0">
-                <FaExclamationTriangle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-              </div>
-            )}
-            <div className="min-w-0">
-              <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{getAuthorName()}</h3>
-              <p className="text-xs sm:text-sm text-gray-600 truncate">
-                {contentData.authorData?.professionalInfo?.specialty || 'Usuario'}
-              </p>
-            </div>
-          </div>
-          <div className="text-xs sm:text-sm text-gray-500 text-right sm:text-left">
-            {formatDate(contentData.createdAt)}
-          </div>
-        </div>
-
-        {/* Contenido */}
-        <div className="prose max-w-none">
-          {contentType === 'post' && (
-            <>
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 break-words">
-                {contentData.title}
-              </h2>
-              <div className="text-gray-700 whitespace-pre-line text-sm sm:text-base break-words">
-                {contentData.content}
-              </div>
-            </>
-          )}
-          
-          {contentType === 'comment' && (
-            <div className="text-gray-700 whitespace-pre-line text-sm sm:text-base break-words">
-              {contentData.content}
-            </div>
-          )}
-        </div>
-
-        {/* Estadísticas */}
-        <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-gray-200">
-          <div className="flex flex-wrap gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm text-gray-600">
-            {contentType === 'post' && (
-              <>
-                <span className="whitespace-nowrap">Likes: {contentData.likes?.length || 0}</span>
-                <span className="whitespace-nowrap">Dislikes: {contentData.dislikes?.length || 0}</span>
-                <span className="whitespace-nowrap">Comentarios: {contentData.stats?.commentCount || 0}</span>
-              </>
-            )}
-            {contentType === 'comment' && (
-              <span className="whitespace-nowrap">Likes: {contentData.likes?.length || 0}</span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Modal de eliminación */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-auto max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
-                Eliminar {contentType === 'post' ? 'Publicación' : 'Comentario'}
-              </h3>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Motivo de la eliminación *
-                </label>
-                <textarea
-                  value={deleteReason}
-                  onChange={handleDeleteReasonChange}
-                  onBlur={handleDeleteReasonBlur}
-                  rows={4}
-                  maxLength={100}
-                  className={`block w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 transition duration-200 text-sm ${
-                    deleteError && deleteTouched
-                      ? 'border-red-500 focus:border-red-500'
-                      : 'border-gray-300 focus:border-red-500'
-                  }`}
-                  placeholder="Explica por qué eliminas este contenido (mínimo 10 caracteres, máximo 100)..."
-                  required
-                />
-                
-                {/* Mensaje de error */}
-                {deleteError && deleteTouched && (
-                  <div className="flex items-start gap-1 mt-1">
-                    <FaExclamationCircle className="w-3 h-3 text-red-500 flex-shrink-0 mt-0.5" />
-                    <p className="text-red-600 text-xs break-words">{deleteError}</p>
-                  </div>
-                )}
-                
-                {/* Contador de caracteres */}
-                <div className="flex justify-between items-center mt-1">
-                  <div className="flex items-center gap-1">
-                    {deleteReason.length > 0 && deleteReason.length < 10 && (
-                      <span className="text-xs text-orange-500">
-                        Mínimo 10 caracteres requeridos
-                      </span>
-                    )}
-                  </div>
-                  <p className={`text-xs ${
-                    deleteReason.length < 10 ? 'text-red-500' : 
-                    deleteReason.length > 80 ? 'text-orange-500' : 'text-gray-500'
-                  }`}>
-                    {deleteReason.length}/100 caracteres
+      {/* Modal de confirmación de eliminación */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <FaExclamationTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Confirmar Eliminación
+                  </h3>
+                  <p className="text-sm text-gray-600">
+                    Esta acción es permanente
                   </p>
                 </div>
               </div>
-              
-              {actionError && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700 break-words">
-                  {actionError}
-                </div>
-              )}
 
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 justify-end">
+              <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <FaExclamationTriangle className="w-5 h-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-medium text-orange-800 mb-1">
+                      Advertencia
+                    </h4>
+                    <ul className="text-xs text-orange-700 space-y-1">
+                      <li>• El contenido será eliminado permanentemente</li>
+                      <li>• No podrás recuperar este contenido</li>
+                      <li>• Las estadísticas del usuario se actualizarán</li>
+                      <li>• Esta acción no se puede deshacer</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
-                  onClick={closeDeleteModal}
+                  onClick={() => setShowDeleteConfirm(false)}
                   disabled={actionLoading}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200 disabled:opacity-50 text-sm order-2 sm:order-1"
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-300 rounded-lg hover:bg-gray-400 transition duration-200 disabled:opacity-50 font-medium order-2 sm:order-1"
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleDeleteContent}
-                  disabled={isDeleteDisabled}
-                  className={`px-4 py-2 text-white rounded-lg transition duration-200 flex items-center justify-center gap-2 text-sm order-1 sm:order-2 ${
-                    isDeleteDisabled
-                      ? 'bg-red-400 cursor-not-allowed'
-                      : 'bg-red-600 hover:bg-red-700'
-                  }`}
+                  disabled={actionLoading}
+                  className="flex-1 px-4 py-2 text-white bg-red-600 rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50 flex items-center justify-center gap-2 font-medium order-1 sm:order-2"
                 >
                   {actionLoading && <FaSpinner className="w-4 h-4 animate-spin" />}
-                  <FaTrash className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <FaTrash className="w-4 h-4" />
                   Eliminar
                 </button>
               </div>
@@ -404,7 +358,7 @@ function ContentPreview({ report, contentType, isGlobalReport, onContentDeleted 
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 

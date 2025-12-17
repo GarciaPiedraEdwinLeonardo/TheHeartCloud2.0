@@ -9,7 +9,6 @@ import {
   increment,
   getDoc,
   writeBatch,
-  deleteField,
   query,
   where,
   getDocs,
@@ -197,18 +196,10 @@ export const usePostActions = () => {
   };
 
   // Eliminar post
-  const deletePost = async (
-    postId,
-    deleteReason = "user_deleted",
-    isModeratorAction = false
-  ) => {
+  const deletePost = async (postId) => {
     try {
       const { postData, isAuthor, isModeratorOrAdmin, isForumModerator } =
         await checkPostPermissions(postId);
-
-      const isModeratorDeletion =
-        isModeratorAction ||
-        (!isAuthor && (isModeratorOrAdmin || isForumModerator));
 
       // PRIMERO: Contar comentarios antes de eliminarlos
       const commentsQuery = query(
@@ -252,36 +243,14 @@ export const usePostActions = () => {
         await batch.commit();
       }
 
-      // QUINTO: Eliminar el post y actualizar contadores
+      // QUINTO: Eliminar el post definitivamente y actualizar contadores
       const batch = writeBatch(db);
-
-      if (isModeratorDeletion) {
-        const deletedPostRef = doc(collection(db, "deleted_posts"), postId);
-        batch.set(deletedPostRef, {
-          ...postData,
-          id: postId,
-          deletedAt: serverTimestamp(),
-          deletedBy: user.uid,
-          deleteReason: deleteReason,
-          deleteType: "moderator_deletion",
-          originalForumId: postData.forumId,
-          authorId: postData.authorId,
-          moderatorAction: true,
-          statsAtDeletion: {
-            likes: postData.likes?.length || 0,
-            dislikes: postData.dislikes?.length || 0,
-            comments: postData.stats?.commentCount || 0,
-            views: postData.stats?.viewCount || 0,
-          },
-          reportedToGlobal: false,
-        });
-      }
 
       // Eliminar post
       const postRef = doc(db, "posts", postId);
       batch.delete(postRef);
 
-      // Actualizar contador del foro
+      // Actualizar contador del foro (solo si estaba activo)
       if (postData.status === "active") {
         const forumRef = doc(db, "forums", postData.forumId);
         batch.update(forumRef, {
@@ -300,20 +269,8 @@ export const usePostActions = () => {
 
       await batch.commit();
 
-      // Reportar a moderación global si es necesario
-      if (isModeratorDeletion) {
-        await reportToGlobalModeration(
-          postData.authorId,
-          deleteReason,
-          "post_deleted_by_moderator",
-          postId
-        );
-      }
-
       return {
         success: true,
-        deletionType: isModeratorDeletion ? "moderator" : "user",
-        savedForAudit: isModeratorDeletion,
         deletedComments: deletedCommentsCount,
         updatedAuthors: updatedAuthorsCount,
         deletedImages: postData.images?.length || 0,
@@ -404,30 +361,6 @@ export const usePostActions = () => {
     } catch (error) {
       console.error("Error reaccionando al post:", error);
       return { success: false, error: error.message };
-    }
-  };
-
-  // Reportar a moderación global (para eliminaciones de moderadores)
-  const reportToGlobalModeration = async (
-    userId,
-    reason,
-    actionType,
-    postId = null
-  ) => {
-    try {
-      await addDoc(collection(db, "global_moderation_reports"), {
-        userId,
-        reason,
-        moderatorId: user.uid,
-        actionType,
-        postId,
-        reportedAt: serverTimestamp(),
-        status: "pending_review",
-        communityContext: true,
-        requiresAction: true,
-      });
-    } catch (error) {
-      console.error("Error reporting to global moderation:", error);
     }
   };
 

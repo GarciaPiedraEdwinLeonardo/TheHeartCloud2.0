@@ -8,7 +8,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db, auth } from "../../../config/firebase";
-import { usePostModeration } from "../../forums/hooks/usePostModeration";
+import { usePostActions } from "../../forums/posts/hooks/usePostActions";
 import { useCommentActions } from "../../forums/posts/comments/hooks/useCommentActions";
 import { useCommunityBans } from "../../forums/hooks/useCommunityBans";
 
@@ -16,7 +16,7 @@ export const useModerationActions = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const { deletePost } = usePostModeration();
+  const { deletePost } = usePostActions();
   const { deleteComment } = useCommentActions();
   const { banUser } = useCommunityBans();
 
@@ -74,12 +74,7 @@ export const useModerationActions = () => {
   };
 
   // Eliminar contenido
-  const deleteContent = async (
-    contentType,
-    contentId,
-    reason,
-    forumId = null
-  ) => {
+  const deleteContent = async (contentType, contentId) => {
     setLoading(true);
     setError(null);
 
@@ -93,38 +88,13 @@ export const useModerationActions = () => {
           return { success: false, error: "La publicación ya no existe" };
         }
 
-        // Usar el forumId del reporte o intentar obtenerlo del post
-        let targetForumId = forumId;
-        if (!targetForumId) {
-          targetForumId = postDoc.data().forumId || "global-forum";
-        }
-
-        result = await deletePost(
-          contentId,
-          reason,
-          targetForumId,
-          true // moderatorAction
-        );
+        // Usar deletePost simplificado (solo requiere el ID)
+        result = await deletePost(contentId);
       } else if (contentType === "comment") {
         // Primero verificar si el comentario existe
         const commentDoc = await getDoc(doc(db, "comments", contentId));
         if (!commentDoc.exists()) {
           return { success: false, error: "El comentario ya no existe" };
-        }
-
-        let targetForumId = forumId;
-        if (!targetForumId) {
-          // Intentar obtener el forumId del comentario a través del post
-          try {
-            const postDoc = await getDoc(
-              doc(db, "posts", commentDoc.data().postId)
-            );
-            if (postDoc.exists()) {
-              targetForumId = postDoc.data().forumId;
-            }
-          } catch (err) {
-            console.warn("No se pudo obtener el forumId:", err);
-          }
         }
 
         // Verificar si el autor del comentario existe
@@ -149,13 +119,8 @@ export const useModerationActions = () => {
           }
         }
 
-        result = await deleteComment(
-          contentId,
-          reason,
-          targetForumId || "global-forum",
-          true, // moderatorAction
-          true // isGlobal
-        );
+        // Usar deleteComment (isModeratorAction = true)
+        result = await deleteComment(contentId, true);
       } else {
         return { success: false, error: "Tipo de contenido no soportado" };
       }

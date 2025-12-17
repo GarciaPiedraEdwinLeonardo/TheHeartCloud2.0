@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   FaExclamationTriangle, 
   FaUser, 
@@ -19,6 +19,19 @@ import ContentPreview from './ContentPreview';
 function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum }) {
   const [showActions, setShowActions] = useState(false);
   const [showContentPreview, setShowContentPreview] = useState(false);
+
+  // Prevenir scroll cuando el modal está abierto
+  useEffect(() => {
+    if (showContentPreview) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showContentPreview]);
 
   const getContentType = () => {
     switch (report.type) {
@@ -268,7 +281,7 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
           </div>
         </div>
 
-        {/* Acciones de moderación básicas */}
+        {/* Acciones de moderación */}
         {showActions && (
           <ModerationActions 
             report={report} 
@@ -277,44 +290,17 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
         )}
       </div>
 
-      {/* Modal de preview solo para posts y comentarios */}
+      {/* ContentPreview solo para posts y comentarios */}
       {showContentPreview && ['post', 'comment'].includes(contentType.type) && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden mx-auto">
-            <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b border-gray-200">
-              <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 truncate">
-                Vista previa - {contentType.label}
-              </h3>
-              <button
-                onClick={() => setShowContentPreview(false)}
-                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition duration-200 ml-2"
-                aria-label="Cerrar"
-              >
-                <FaTimes className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500" />
-              </button>
-            </div>
-            
-            <div className="p-3 sm:p-4 md:p-6 overflow-y-auto max-h-[60vh] sm:max-h-[70vh]">
-              <ContentPreview 
-                report={report}
-                contentType={contentType.type}
-                onContentDeleted={() => {
-                  setShowContentPreview(false);
-                  window.location.reload();
-                }}
-              />
-            </div>
-            
-            <div className="p-3 sm:p-4 md:p-6 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => setShowContentPreview(false)}
-                className="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition duration-200 font-medium text-sm sm:text-base"
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
+        <ContentPreview 
+          report={report}
+          contentType={contentType.type}
+          onClose={() => setShowContentPreview(false)}
+          onContentDeleted={() => {
+            setShowContentPreview(false);
+            window.location.reload();
+          }}
+        />
       )}
     </>
   );

@@ -6,17 +6,16 @@ import {
   query,
   where,
   getDocs,
-  writeBatch,
-  increment,
-  addDoc,
   getDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "./../../../config/firebase";
 import { notificationService } from "./../../notifications/services/notificationService";
+import { usePostActions } from "./../posts/hooks/usePostActions";
 
 export const usePostModeration = () => {
   const [loading, setLoading] = useState(false);
+  const { deletePost } = usePostActions();
 
   const validatePost = async (postId, forumId, forumName) => {
     setLoading(true);
@@ -58,105 +57,19 @@ export const usePostModeration = () => {
       const postData = postDoc.data();
       const authorId = postData.authorId;
 
-      const batch = writeBatch(db);
+      // Usar la función deletePost de usePostActions (ahora sin parámetros extra)
+      const result = await deletePost(postId);
 
-      // 2. Eliminar post original
-      batch.delete(postRef);
-
-      // 3. Actualizar contador del foro (solo si el post estaba activo)
-      if (postData.status === "active") {
-        const forumRef = doc(db, "forums", forumId);
-        batch.update(forumRef, {
-          postCount: increment(-1),
-        });
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
-      // 4. Actualizar estadísticas del autor
-      if (authorId) {
-        const authorRef = doc(db, "users", authorId);
-        batch.update(authorRef, {
-          "stats.postCount": increment(-1),
-          "stats.contributionCount": increment(-1),
-        });
-      }
-
-      await batch.commit();
-
-      // 5. Notificar al autor
+      // Notificar al autor sobre el rechazo
       await notificationService.sendPostRejected(authorId, forumId, forumName);
 
       return { success: true };
     } catch (error) {
       console.error("Error rechazando post:", error);
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const deletePost = async (
-    postId,
-    reason,
-    forumId,
-    isModeratorAction = false
-  ) => {
-    setLoading(true);
-    try {
-      const postRef = doc(db, "posts", postId);
-      const postDoc = await getDoc(postRef);
-
-      if (!postDoc.exists()) {
-        throw new Error("Publicación no encontrada");
-      }
-
-      const postData = postDoc.data();
-      const batch = writeBatch(db);
-
-      //Solo guardar en deleted_posts si es acción de moderador
-      if (isModeratorAction) {
-        const deletedPostRef = doc(collection(db, "deleted_posts"), postId);
-        batch.set(deletedPostRef, {
-          ...postData,
-          id: postId,
-          deletedAt: serverTimestamp(),
-          deletedBy: auth.currentUser.uid,
-          deleteReason: reason,
-          deleteType: "moderator_deletion",
-          originalForumId: forumId,
-          authorId: postData.authorId,
-          moderatorAction: true,
-          statsAtDeletion: {
-            likes: postData.likes?.length || 0,
-            dislikes: postData.dislikes?.length || 0,
-            comments: postData.stats?.commentCount || 0,
-            views: postData.stats?.viewCount || 0,
-          },
-          reportedToGlobal: true,
-        });
-      }
-      // Si no es moderadorAction, se elimina permanentemente sin guardar
-
-      // 2. Eliminar post original
-      batch.delete(postRef);
-
-      // 3. Actualizar contador del foro
-      const forumRef = doc(db, "forums", forumId);
-      batch.update(forumRef, {
-        postCount: increment(-1),
-      });
-
-      // 4. Actualizar estadísticas del autor
-      if (postData.authorId) {
-        const authorRef = doc(db, "users", postData.authorId);
-        batch.update(authorRef, {
-          "stats.postCount": increment(-1),
-          "stats.contributionCount": increment(-1),
-        });
-      }
-
-      await batch.commit();
-      return { success: true, savedForAudit: isModeratorAction };
-    } catch (error) {
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -181,7 +94,6 @@ export const usePostModeration = () => {
   return {
     validatePost,
     rejectPost,
-    deletePost,
     getPendingPosts,
     loading,
   };

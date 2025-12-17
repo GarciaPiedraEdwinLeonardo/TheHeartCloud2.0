@@ -566,7 +566,6 @@ function PostCard({
         onClose={() => setShowDeleteModal(false)}
         post={post}
         onPostDeleted={handlePostDeleted}
-        isModeratorAction={canModerate && !isAuthor}
       />
 
       <ReportModal
