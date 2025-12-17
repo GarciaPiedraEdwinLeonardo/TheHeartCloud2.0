@@ -23,7 +23,6 @@ import DeleteCommentModal from './../modals/DeleteCommentModal';
 import CreateCommentModal from './../modals/CreateCommentModal';
 import ReportModal from './../../../modals/ReportModal';
 import BanUserModal from './../../../modals/BanUserModal';
-import ModerateCommentModal from './../modals/ModerateCommentModal';
 
 function CommentCard({ 
   comment, 
@@ -43,7 +42,6 @@ function CommentCard({
   const [authorData, setAuthorData] = useState(null);
   const [forumDetails, setForumDetails] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [showModerateModal, setShowModerateModal] = useState(false);
   const [showFullContent, setShowFullContent] = useState(false); // Estado para expandir
   const [needsExpansion, setNeedsExpansion] = useState(false); // Si necesita expansión
   const contentRef = useRef(null); // Referencia para medir altura
@@ -154,11 +152,6 @@ function CommentCard({
 
   const handleCommentDeleted = () => {
     setShowDeleteModal(false);
-  };
-
-  const handleModeratorDelete = () => {
-    setShowModerateModal(true);
-    setShowMenu(false);
   };
 
   const handleReplyCreated = () => {
@@ -337,7 +330,7 @@ function CommentCard({
                         Moderación
                       </div>
                       <button
-                        onClick={handleModeratorDelete}
+                        onClick={handleDelete}
                         className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
                       >
                         <FaTrash className="w-3 h-3" />
@@ -474,18 +467,6 @@ function CommentCard({
         targetName={`Comentario de ${getAuthorName()}`}
       />
 
-      <ModerateCommentModal
-        isOpen={showModerateModal}
-        onClose={() => setShowModerateModal(false)}
-        comment={comment}
-        forumData={forumDetails}
-        onCommentModerated={(deletedCount) => {
-          setShowModerateModal(false);
-          if (onCommentCreated) {
-            onCommentCreated();
-          }
-        }}
-      />
     </>
   );
 }

@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../../config/firebase";
 import { usePostModeration } from "../../forums/hooks/usePostModeration";
-import { useCommentModeration } from "../../forums/posts/comments/hooks/useCommentModeration";
+import { useCommentActions } from "../../forums/posts/comments/hooks/useCommentActions";
 import { useCommunityBans } from "../../forums/hooks/useCommunityBans";
 
 export const useModerationActions = () => {
@@ -17,7 +17,7 @@ export const useModerationActions = () => {
   const [error, setError] = useState(null);
 
   const { deletePost } = usePostModeration();
-  const { deleteComment } = useCommentModeration();
+  const { deleteComment } = useCommentActions();
   const { banUser } = useCommunityBans();
 
   // Obtener el usuario actual de forma segura
