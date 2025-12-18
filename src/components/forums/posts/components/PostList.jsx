@@ -16,12 +16,15 @@ function PostList({
   onDeleteContent, 
   onBanUser,
   onCommentClick,
-  onShowUserProfile, // Nueva prop para manejar navegación a perfil
+  onShowUserProfile,
   forumData,
 }) {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const canCreatePost = ['doctor', 'moderator', 'admin'].includes(userRole);
+
+  // Filtrar posts pendientes - no mostrar posts con status="pending"
+  const approvedPosts = posts.filter(post => post.status !== 'pending');
 
   if (loading) {
     return (
@@ -46,7 +49,7 @@ function PostList({
     );
   }
 
-  if (posts.length === 0) {
+  if (approvedPosts.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="text-gray-400 mb-4">
@@ -81,7 +84,7 @@ function PostList({
     <div className="space-y-6">
       {/* Lista de posts*/}
       <div className="space-y-4">
-        {posts.map((post) => (
+        {approvedPosts.map((post) => (
           <PostCard
             key={post.id}
             post={post}

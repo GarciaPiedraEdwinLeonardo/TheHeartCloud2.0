@@ -8,6 +8,7 @@ import {
   getDocs,
   getDoc,
   serverTimestamp,
+  increment,
 } from "firebase/firestore";
 import { db, auth } from "./../../../config/firebase";
 import { notificationService } from "./../../notifications/services/notificationService";
@@ -21,23 +22,44 @@ export const usePostModeration = () => {
     setLoading(true);
     try {
       const postRef = doc(db, "posts", postId);
+      const postDoc = await getDoc(postRef);
+
+      if (!postDoc.exists()) {
+        throw new Error("Publicación no encontrada");
+      }
+
+      const postData = postDoc.data();
+
+      // Actualizar el post a activo
       await updateDoc(postRef, {
         status: "active",
         validatedAt: serverTimestamp(),
         validatedBy: auth.currentUser.uid,
       });
 
+      // IMPORTANTE: Al aprobar, incrementar AMBOS contadores del autor
+      await updateDoc(doc(db, "users", postData.authorId), {
+        "stats.postCount": increment(1),
+        "stats.contributionCount": increment(1),
+      });
+
+      // IMPORTANTE: Incrementar el contador del foro ahora que el post está activo
+      const forumRef = doc(db, "forums", forumId);
+      await updateDoc(forumRef, {
+        postCount: increment(1),
+        lastPostAt: serverTimestamp(),
+      });
+
       // Notificar al autor
-      const postDoc = await getDoc(postRef);
-      const post = postDoc.data();
       await notificationService.sendPostApproved(
-        post.authorId,
+        postData.authorId,
         forumId,
         forumName
       );
 
       return { success: true };
     } catch (error) {
+      console.error("Error validando post:", error);
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
@@ -57,7 +79,8 @@ export const usePostModeration = () => {
       const postData = postDoc.data();
       const authorId = postData.authorId;
 
-      // Usar la función deletePost de usePostActions (ahora sin parámetros extra)
+      // IMPORTANTE: Pasar el status actual para que deletePost sepa si debe decrementar
+      // Como el post está "pending", deletePost NO debe decrementar el contador
       const result = await deletePost(postId);
 
       if (!result.success) {

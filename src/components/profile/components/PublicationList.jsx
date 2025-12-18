@@ -1,6 +1,8 @@
 import PostCard from './../../forums/posts/components/PostCard';
 
 function PublicationsList({ publicaciones, onCommentClick, onShowForum }) {
+  const activePosts = publicaciones.filter(pub => pub.status === 'active' || !pub.status);
+
   // Transformar los datos para que sean compatibles con PostCard
   const transformPostData = (publicacion) => {
     return {
@@ -32,7 +34,7 @@ function PublicationsList({ publicaciones, onCommentClick, onShowForum }) {
 
   return (
     <div className="space-y-4">
-      {publicaciones.map((publicacion) => (
+      {activePosts.map((publicacion) => (
         <PostCard
           key={publicacion.id}
           post={transformPostData(publicacion)}
@@ -44,7 +46,7 @@ function PublicationsList({ publicaciones, onCommentClick, onShowForum }) {
         />
       ))}
 
-      {publicaciones.length === 0 && (
+      {activePosts.length === 0 && (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <div className="text-gray-300 mb-4">
             <svg className="w-20 h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">

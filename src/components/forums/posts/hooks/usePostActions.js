@@ -112,20 +112,20 @@ export const usePostActions = () => {
 
       const docRef = await addDoc(collection(db, "posts"), newPost);
 
-      // Solo incrementar el contador si el post está activo
+      // CAMBIO CRÍTICO: Manejar stats según el status del post
       if (newPost.status === "active") {
-        // Actualizar contador de posts en el foro
+        // Post activo: incrementar todo
         await updateDoc(doc(db, "forums", postData.forumId), {
           postCount: increment(1),
           lastPostAt: serverTimestamp(),
         });
-      }
 
-      // Actualizar estadísticas del usuario
-      await updateDoc(doc(db, "users", user.uid), {
-        "stats.postCount": increment(1),
-        "stats.contributionCount": increment(1),
-      });
+        await updateDoc(doc(db, "users", user.uid), {
+          "stats.postCount": increment(1),
+          "stats.contributionCount": increment(1),
+        });
+      }
+      // Si es pending, NO incrementar nada - se hará cuando se apruebe
 
       return { success: true, postId: docRef.id };
     } catch (error) {
@@ -263,13 +263,32 @@ export const usePostActions = () => {
         });
       }
 
-      // Actualizar estadísticas del autor del post
+      // CAMBIO CRÍTICO: Actualizar estadísticas del autor del post
       if (postData.authorId) {
         const authorRef = doc(db, "users", postData.authorId);
-        batch.update(authorRef, {
-          "stats.postCount": increment(-1),
-          "stats.contributionCount": increment(-1),
-        });
+
+        // Log para debug
+        console.log("🔍 deletePost - Status del post:", postData.status);
+        console.log(
+          "🔍 deletePost - ¿Es active?:",
+          postData.status === "active"
+        );
+
+        if (postData.status === "active") {
+          // Post estaba activo: decrementar postCount y contributionCount
+          console.log("📉 Decrementando stats (post era active)");
+          batch.update(authorRef, {
+            "stats.postCount": increment(-1),
+            "stats.contributionCount": increment(-1),
+          });
+        } else {
+          console.log(
+            "⏭️ NO decrementando stats (post era:",
+            postData.status,
+            ")"
+          );
+        }
+        // Si era pending, no hay nada que decrementar (nunca fue incrementado)
       }
 
       await batch.commit();
