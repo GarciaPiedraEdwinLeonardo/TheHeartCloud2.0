@@ -39,11 +39,14 @@ function SearchResults({
     }
   };
 
+  // Filtrar posts activos
+  const activePosts = results.posts.filter(post => post.status === 'active');
+
   // Obtener resultados del tipo activo
   const activeResults = 
     activeTab === 'forums' ? results.forums : 
     activeTab === 'users' ? results.users : 
-    results.posts;
+    activePosts;
   
   const resultsCount = activeResults.length;
 
@@ -92,7 +95,7 @@ function SearchResults({
             >
               <span>Publicaciones</span>
               <span className="bg-gray-200 text-gray-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-                {loading ? '...' : results.posts.length}
+                {loading ? '...' : activePosts.length}
               </span>
             </button>
             <button
@@ -133,7 +136,7 @@ function SearchResults({
                   : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
               }`}
             >
-              Publicaciones ({loading ? '...' : results.posts.length})
+              Publicaciones ({loading ? '...' : activePosts.length})
             </button>
             <button
               onClick={() => handleTabChange('forums')}

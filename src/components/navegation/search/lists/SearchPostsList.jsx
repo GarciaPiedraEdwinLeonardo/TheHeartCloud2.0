@@ -2,7 +2,9 @@ import { FaComments } from 'react-icons/fa';
 import PostCard from './../../../forums/posts/components/PostCard';
 
 function SearchPostsList({ posts, searchQuery, onPostClick, onShowUserProfile, onShowForum, queryDisplay }) {
-  if (posts.length === 0) {
+  const activePosts = posts.filter(post => post.status === 'active');
+
+  if (activePosts.length === 0) {
     return (
       <div className="text-center py-6 sm:py-8">
         <div className="text-gray-400 mb-3 sm:mb-4">
@@ -20,7 +22,7 @@ function SearchPostsList({ posts, searchQuery, onPostClick, onShowUserProfile, o
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      {posts.map(post => (
+      {activePosts.map(post => (
         <PostCard
           key={post.id}
           post={post}

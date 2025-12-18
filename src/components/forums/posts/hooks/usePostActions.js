@@ -267,28 +267,13 @@ export const usePostActions = () => {
       if (postData.authorId) {
         const authorRef = doc(db, "users", postData.authorId);
 
-        // Log para debug
-        console.log("🔍 deletePost - Status del post:", postData.status);
-        console.log(
-          "🔍 deletePost - ¿Es active?:",
-          postData.status === "active"
-        );
-
         if (postData.status === "active") {
           // Post estaba activo: decrementar postCount y contributionCount
-          console.log("📉 Decrementando stats (post era active)");
           batch.update(authorRef, {
             "stats.postCount": increment(-1),
             "stats.contributionCount": increment(-1),
           });
-        } else {
-          console.log(
-            "⏭️ NO decrementando stats (post era:",
-            postData.status,
-            ")"
-          );
         }
-        // Si era pending, no hay nada que decrementar (nunca fue incrementado)
       }
 
       await batch.commit();

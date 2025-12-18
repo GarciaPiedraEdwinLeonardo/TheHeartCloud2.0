@@ -23,6 +23,8 @@ function DesktopSearch({ onSearch }) {
     // Solo buscar si hay texto válido
     if (trimmedQuery && trimmedQuery.length <= MAX_CHARS) {
       onSearch(trimmedQuery, 'posts');
+      // Limpiar el input después de buscar
+      setSearchQuery('');
     }
   };
 
