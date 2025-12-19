@@ -73,6 +73,35 @@ function DesktopUserMenu({ onProfileClick, onVerifyAccount }) {
         setShowDeleteConfirm(false);
     };
 
+    // Función para obtener el nombre completo del usuario
+    const getFullName = () => {
+        if (!userData) {
+            return null;
+        }
+
+        // Verificar si userData.name es un objeto con los apellidos
+        if (userData.name && typeof userData.name === 'object') {
+            // CORREGIDO: campos en minúsculas
+            const { name, apellidopat, apellidomat } = userData.name;
+            const parts = [name, apellidopat, apellidomat].filter(Boolean);
+            return parts.length > 0 ? parts.join(' ') : null;
+        }
+
+        // Si userData.name es solo un string, buscar apellidos en el nivel superior
+        const name = userData.name;
+        const apellidopat = userData.apellidopat;
+        const apellidomat = userData.apellidomat;
+        
+        const parts = [name, apellidopat, apellidomat].filter(Boolean);
+        return parts.length > 0 ? parts.join(' ') : null;
+    };
+
+    // Función para truncar nombres largos
+    const truncateName = (name, maxLength = 25) => {
+        if (!name || name.length <= maxLength) return name;
+        return name.substring(0, maxLength) + '...';
+    };
+
     // Verificar si el usuario necesita verificación
     const needsVerification = userData?.role === 'unverified';
 
@@ -86,10 +115,12 @@ function DesktopUserMenu({ onProfileClick, onVerifyAccount }) {
         );
     }
 
-    // Variables seguras
-    const userInitial = user?.email ? user.email[0].toUpperCase() : 'U';
-    const userName = user?.displayName || user?.email || 'Usuario';
-    const userPhoto = userData?.photoURL; // Obtener la foto de perfil
+    const fullName = getFullName();
+    const userName = truncateName(fullName || user?.displayName || user?.email || 'Usuario');
+    const userInitial = fullName 
+        ? fullName[0].toUpperCase() 
+        : (user?.email ? user.email[0].toUpperCase() : 'U');
+    const userPhoto = userData?.photoURL;
 
     return (
         <>
@@ -116,8 +147,8 @@ function DesktopUserMenu({ onProfileClick, onVerifyAccount }) {
                         </div>
                     )}
                     
-                    <div className="text-left">
-                        <p className="text-sm font-medium text-gray-900">
+                    <div className="text-left max-w-[180px]">
+                        <p className="text-sm font-medium text-gray-900 truncate" title={fullName || userName}>
                             {userName}
                         </p>
                         <p className="text-xs text-gray-500">

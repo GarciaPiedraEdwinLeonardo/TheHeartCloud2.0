@@ -215,15 +215,6 @@ function SidebarModal({ isOpen, onClose, onInicioClick, onThemeClick, userData, 
                           <div className="flex items-center gap-2">
                             {/* Ícono de estado de membresía */}
                             {getMembershipIcon(forum.id)}
-                            
-                            {/* Contador de miembros */}
-                            <div className={`opacity-70 group-hover:opacity-100 transition-opacity ${
-                              isMember ? 'text-green-500' : 'text-gray-500'
-                            }`}>
-                              <span className="text-xs">
-                                {forum.memberCount || 0}
-                              </span>
-                            </div>
                           </div>
                         </button>
                       );

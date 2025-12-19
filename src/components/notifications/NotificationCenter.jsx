@@ -6,7 +6,18 @@ import NotificationList from './NotificationList';
 function NotificationCenter() {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
-    const { notifications, unreadCount, loading, markAsRead, markAllAsRead } = useNotifications();
+    const { 
+        notifications, 
+        unreadCount, 
+        loading, 
+        hasMore,
+        markAsRead, 
+        markAllAsRead,
+        loadMore,
+        deleteNotification,
+        deleteAllNotifications,
+        deleteReadNotifications
+    } = useNotifications();
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -31,6 +42,18 @@ function NotificationCenter() {
         markAllAsRead();
     };
 
+    const handleDeleteNotification = async (notificationId) => {
+        await deleteNotification(notificationId);
+    };
+
+    const handleDeleteAllNotifications = async () => {
+        await deleteAllNotifications();
+    };
+
+    const handleDeleteReadNotifications = async () => {
+        await deleteReadNotifications();
+    };
+
     return (
         <div className="relative" ref={dropdownRef}>
             <NotificationBell 
@@ -45,7 +68,12 @@ function NotificationCenter() {
                         notifications={notifications}
                         onMarkAsRead={handleMarkAsRead}
                         onMarkAllAsRead={handleMarkAllAsRead}
+                        onDeleteNotification={handleDeleteNotification}
+                        onDeleteAllNotifications={handleDeleteAllNotifications}
+                        onDeleteReadNotifications={handleDeleteReadNotifications}
                         loading={loading}
+                        hasMore={hasMore}
+                        loadMore={loadMore}
                     />
                 </div>
             )}

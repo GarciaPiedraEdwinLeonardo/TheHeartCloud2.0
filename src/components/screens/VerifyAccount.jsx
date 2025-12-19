@@ -82,9 +82,9 @@ function VerifyAccount({ onBack }) {
                 throw new Error('Tipo de archivo no permitido. Solo se aceptan archivos PDF');
             }
 
-            const maxSize = 5 * 1024 * 1024;
+            const maxSize = 3 * 1024 * 1024;
             if (file.size > maxSize) {
-                throw new Error('El PDF no puede pesar más de 5MB');
+                throw new Error('El PDF no puede pesar más de 3MB');
             }
 
             const data = new FormData();
@@ -579,7 +579,7 @@ function VerifyAccount({ onBack }) {
                                             }
                                         </p>
                                         <p className="text-xs text-gray-500 mt-1">
-                                            Solo archivos PDF (Máx. 10MB)
+                                            Solo archivos PDF (Máx. 3MB)
                                         </p>
                                     </label>
                                 </div>
@@ -643,7 +643,7 @@ function VerifyAccount({ onBack }) {
                         <li>• Solo puedes enviar una solicitud de verificación a la vez</li>
                         <li>• Actualmente solo aceptamos cédulas profesionales mexicanas</li>
                         <li>• La cédula debe tener exactamente 7 dígitos numéricos</li>
-                        <li>• Sube tu cédula en formato PDF (máximo 5MB)</li>
+                        <li>• Sube tu cédula en formato PDF (máximo 3MB)</li>
                         <li>• Puedes descargar tu cédula oficial desde el sitio de la SEP</li>
                     </ul>
                 </div>

@@ -266,8 +266,6 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         switch (errorCode) {
             case 'auth/invalid-email':
                 return 'El correo electrónico es inválido';
-            case 'auth/invalid-credential':
-                return 'El correo electrónico o contraseña no es válido.';
             case 'auth/user-disabled':
                 return 'Esta cuenta ha sido deshabilitada.';
             case 'auth/user-not-found':
@@ -280,11 +278,11 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                 return 'El inicio de sesión con Google fue cancelado.';
             case 'auth/network-request-failed':
                 return 'Error de conexión. Verifica tu internet.';
-            case 'auth/invalid-login-credentials': 
+            case 'auth/invalid-login-credentials':
             case 'auth/invalid-credential':
                 return 'Correo o contraseña incorrectos. Verifica tus datos.';
             default:
-                return `Error al iniciar sesión: Intenta nuevamente.`;
+                return 'Error al iniciar sesión: Intenta nuevamente.';
         }
     };
 

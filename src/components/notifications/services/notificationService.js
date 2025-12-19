@@ -5,20 +5,92 @@ import {
   query,
   where,
   writeBatch,
+  deleteDoc,
+  doc,
 } from "firebase/firestore";
 import { db } from "./../../../config/firebase";
-import { doc } from "firebase/firestore";
 
 const getExpirationDate = () => {
   const date = new Date();
-  date.setDate(date.getDate() + 30);
+  date.setDate(date.getDate() + 30); // Las notificaciones expirarán en 30 días
   return date;
 };
 
 export const notificationService = {
+  /**
+   * Elimina una notificación individual
+   */
+  deleteNotification: async (notificationId) => {
+    try {
+      await deleteDoc(doc(db, "notifications", notificationId));
+      return { success: true };
+    } catch (error) {
+      console.error("Error eliminando notificación:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Elimina todas las notificaciones de un usuario
+   */
+  deleteAllUserNotifications: async (userId) => {
+    try {
+      const notifications = await notificationService.getAllUserNotifications(
+        userId
+      );
+
+      if (notifications.length === 0) {
+        return { success: true, deletedCount: 0 };
+      }
+
+      const batch = writeBatch(db);
+      notifications.forEach((notif) => {
+        const docRef = doc(db, "notifications", notif.id);
+        batch.delete(docRef);
+      });
+
+      await batch.commit();
+      return { success: true, deletedCount: notifications.length };
+    } catch (error) {
+      console.error("Error eliminando todas las notificaciones:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  /**
+   * Elimina solo las notificaciones leídas de un usuario
+   */
+  deleteReadNotifications: async (userId) => {
+    try {
+      const notifications = await notificationService.getAllUserNotifications(
+        userId
+      );
+      const readNotifications = notifications.filter((n) => n.isRead);
+
+      if (readNotifications.length === 0) {
+        return { success: true, deletedCount: 0 };
+      }
+
+      const deletedCount = await notificationService.deleteNotificationsByIds(
+        readNotifications.map((n) => n.id)
+      );
+
+      return { success: true, deletedCount };
+    } catch (error) {
+      console.error("Error eliminando notificaciones leídas:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // ============= LIMPIEZA AUTOMÁTICA MEJORADA =============
+
+  /**
+   * Limpieza inteligente que se ejecuta automáticamente
+   * - Elimina notificaciones expiradas (>30 días)
+   * - Mantiene máximo 80 notificaciones por usuario
+   */
   smartCleanup: async (userId) => {
     try {
-      // 1. Primero obtener TODAS las notificaciones del usuario
       const allNotifications =
         await notificationService.getAllUserNotifications(userId);
 
@@ -26,14 +98,13 @@ export const notificationService = {
         return { success: true, expiredDeleted: 0, oldDeleted: 0 };
       }
 
-      // 2. Filtrar expiradas LOCALMENTE
+      // 1. Filtrar y eliminar notificaciones expiradas
       const now = new Date();
       const expiredNotifications = allNotifications.filter((notif) => {
         const expiresAt = notif.expiresAt?.toDate();
         return expiresAt && expiresAt <= now;
       });
 
-      // 3. Eliminar expiradas
       let expiredDeleted = 0;
       if (expiredNotifications.length > 0) {
         expiredDeleted = await notificationService.deleteNotificationsByIds(
@@ -41,7 +112,7 @@ export const notificationService = {
         );
       }
 
-      // 4. Verificar límite de cantidad (después de eliminar expiradas)
+      // 2. Verificar límite de cantidad (después de eliminar expiradas)
       const remainingNotifications = allNotifications.length - expiredDeleted;
 
       let oldDeleted = 0;
@@ -65,10 +136,12 @@ export const notificationService = {
         oldDeleted,
       };
     } catch (error) {
-      console.error("❌ Error en limpieza inteligente:", error);
+      console.error("Error en limpieza inteligente:", error);
       return { success: false, error: error.message };
     }
   },
+
+  // ============= FUNCIONES AUXILIARES =============
 
   getAllUserNotifications: async (userId) => {
     try {
@@ -112,6 +185,8 @@ export const notificationService = {
       return 0;
     }
   },
+
+  // ============= FUNCIONES DE ENVÍO DE NOTIFICACIONES =============
 
   sendVerificationApproved: async (userId, userName, adminEmail) => {
     try {

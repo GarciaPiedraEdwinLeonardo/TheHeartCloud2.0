@@ -9,51 +9,14 @@ import {
   where,
   writeBatch,
   serverTimestamp,
-  updateDoc,
 } from "firebase/firestore";
 import { db } from "../../../config/firebase";
+import { usePostActions } from "../posts/hooks/usePostActions";
 
 export const useCommunityDeletion = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  const deletePostComments = async (postId) => {
-    try {
-      const commentsRef = collection(db, "comments");
-
-      // Eliminar comentarios principales y en hilo en una sola operación
-      const commentsQuery = query(commentsRef, where("postId", "==", postId));
-      const commentsSnapshot = await getDocs(commentsQuery);
-
-      const threadCommentsQuery = query(
-        commentsRef,
-        where("parentPostId", "==", postId)
-      );
-      const threadCommentsSnapshot = await getDocs(threadCommentsQuery);
-
-      const batch = writeBatch(db);
-
-      // Combinar todos los comentarios a eliminar
-      const allComments = [
-        ...commentsSnapshot.docs,
-        ...threadCommentsSnapshot.docs,
-      ];
-
-      allComments.forEach((commentDoc) => {
-        batch.delete(commentDoc.ref);
-      });
-
-      if (allComments.length > 0) {
-        await batch.commit();
-      }
-
-      return allComments.length;
-    } catch (error) {
-      console.error(`Error eliminando comentarios del post ${postId}:`, error);
-      // No lanzar error, continuar con el proceso
-      return 0;
-    }
-  };
+  const { deletePost } = usePostActions();
 
   const deleteForumPosts = async (forumId) => {
     try {
@@ -63,30 +26,46 @@ export const useCommunityDeletion = () => {
 
       let deletedPostsCount = 0;
       let deletedCommentsCount = 0;
+      let deletedImagesCount = 0;
 
-      // Usar Promise.all para eliminar posts en paralelo (más rápido)
+      console.log(`📝 Encontrados ${postsSnapshot.size} posts para eliminar`);
+
+      // Usar deletePost de usePostActions para cada post
+      // Esto asegura consistencia en estadísticas
       const deletionPromises = postsSnapshot.docs.map(async (postDoc) => {
         try {
-          const commentsDeleted = await deletePostComments(postDoc.id);
-          await deleteDoc(postDoc.ref);
+          const result = await deletePost(postDoc.id);
 
-          deletedPostsCount++;
-          deletedCommentsCount += commentsDeleted;
+          if (result.success) {
+            deletedPostsCount++;
+            deletedCommentsCount += result.deletedComments || 0;
+            deletedImagesCount += result.deletedImages || 0;
+            console.log(`✅ Post ${postDoc.id} eliminado correctamente`);
+          } else {
+            console.error(`❌ Error en post ${postDoc.id}:`, result.error);
+          }
 
-          return { success: true };
+          return result;
         } catch (postError) {
-          console.error(`Error eliminando post ${postDoc.id}:`, postError);
-          return { success: false, error: postError };
+          console.error(
+            `❌ Excepción eliminando post ${postDoc.id}:`,
+            postError
+          );
+          return { success: false, error: postError.message };
         }
       });
 
-      await Promise.all(deletionPromises);
+      await Promise.allSettled(deletionPromises);
 
-      return { deletedPostsCount, deletedCommentsCount };
+      return { deletedPostsCount, deletedCommentsCount, deletedImagesCount };
     } catch (error) {
       console.error(`Error eliminando posts del foro ${forumId}:`, error);
       // Continuar aunque falle la eliminación de posts
-      return { deletedPostsCount: 0, deletedCommentsCount: 0 };
+      return {
+        deletedPostsCount: 0,
+        deletedCommentsCount: 0,
+        deletedImagesCount: 0,
+      };
     }
   };
 
@@ -138,7 +117,7 @@ export const useCommunityDeletion = () => {
         throw new Error("ID de comunidad no proporcionado");
       }
 
-      // 1. Verificar rápidamente que el foro existe
+      // 1. Verificar que el foro existe
       const forumRef = doc(db, "forums", forumId);
       const forumDoc = await getDoc(forumRef);
 
@@ -147,42 +126,35 @@ export const useCommunityDeletion = () => {
         return {
           success: true,
           message: "La comunidad ya había sido eliminada anteriormente",
-          stats: { deletedPosts: 0, deletedComments: 0, updatedUsers: 0 },
+          stats: {
+            deletedPosts: 0,
+            deletedComments: 0,
+            deletedImages: 0,
+            updatedUsers: 0,
+          },
         };
       }
 
       const forumData = forumDoc.data();
       console.log("📋 Eliminando comunidad:", forumData.name);
 
-      // 2. Eliminar contenido (no esperar a que termine completamente)
-      const deletionPromise = deleteForumPosts(forumId);
+      // 2. Eliminar posts usando deletePost (maneja estadísticas correctamente)
+      console.log("🗑️ Eliminando posts y comentarios...");
+      const deletionResult = await deleteForumPosts(forumId);
 
-      // 3. Actualizar usuarios (no esperar)
-      const updatePromise = updateUsersStatsAfterDeletion(forumId);
+      // 3. Actualizar usuarios que tenían el foro en joinedForums
+      console.log("👥 Actualizando usuarios...");
+      const updatedUsersCount = await updateUsersStatsAfterDeletion(forumId);
 
-      // 4. Eliminar el foro inmediatamente
+      // 4. Eliminar el foro
       await deleteDoc(forumRef);
       console.log("✅ Foro principal eliminado");
 
-      // 5. Esperar que las operaciones secundarias terminen (pero no bloquear)
-      const [deletionResult, updatedUsersCount] = await Promise.allSettled([
-        deletionPromise,
-        updatePromise,
-      ]);
-
       const stats = {
-        deletedPosts:
-          deletionResult.status === "fulfilled"
-            ? deletionResult.value.deletedPostsCount
-            : 0,
-        deletedComments:
-          deletionResult.status === "fulfilled"
-            ? deletionResult.value.deletedCommentsCount
-            : 0,
-        updatedUsers:
-          updatedUsersCount.status === "fulfilled"
-            ? updatedUsersCount.value
-            : 0,
+        deletedPosts: deletionResult.deletedPostsCount,
+        deletedComments: deletionResult.deletedCommentsCount,
+        deletedImages: deletionResult.deletedImagesCount,
+        updatedUsers: updatedUsersCount,
       };
 
       console.log("🎉 Eliminación completada:", stats);
@@ -200,7 +172,12 @@ export const useCommunityDeletion = () => {
         return {
           success: true,
           message: "La comunidad ya había sido eliminada",
-          stats: { deletedPosts: 0, deletedComments: 0, updatedUsers: 0 },
+          stats: {
+            deletedPosts: 0,
+            deletedComments: 0,
+            deletedImages: 0,
+            updatedUsers: 0,
+          },
         };
       }
 

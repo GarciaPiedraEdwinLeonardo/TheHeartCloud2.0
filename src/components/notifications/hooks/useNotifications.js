@@ -13,6 +13,7 @@ import {
   startAfter,
 } from "firebase/firestore";
 import { db, auth } from "./../../../config/firebase";
+import { notificationService } from "../services/notificationService";
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState([]);
@@ -148,6 +149,62 @@ export const useNotifications = () => {
     }
   };
 
+  // Eliminar una notificación individual
+  const deleteNotification = async (notificationId) => {
+    if (!user) return;
+
+    try {
+      const result = await notificationService.deleteNotification(
+        notificationId
+      );
+      if (result.success) {
+        // Actualizar el estado local
+        setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      }
+      return result;
+    } catch (error) {
+      console.error("Error eliminando notificación:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Eliminar todas las notificaciones
+  const deleteAllNotifications = async () => {
+    if (!user) return;
+
+    try {
+      const result = await notificationService.deleteAllUserNotifications(
+        user.uid
+      );
+      if (result.success) {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+      return result;
+    } catch (error) {
+      console.error("Error eliminando todas las notificaciones:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Eliminar solo las notificaciones leídas
+  const deleteReadNotifications = async () => {
+    if (!user) return;
+
+    try {
+      const result = await notificationService.deleteReadNotifications(
+        user.uid
+      );
+      if (result.success) {
+        setNotifications((prev) => prev.filter((n) => !n.isRead));
+      }
+      return result;
+    } catch (error) {
+      console.error("Error eliminando notificaciones leídas:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
   return {
     notifications,
     unreadCount,
@@ -156,5 +213,8 @@ export const useNotifications = () => {
     markAsRead,
     markAllAsRead,
     loadMore,
+    deleteNotification,
+    deleteAllNotifications,
+    deleteReadNotifications,
   };
 };

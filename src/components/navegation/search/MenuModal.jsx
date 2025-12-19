@@ -5,6 +5,7 @@ import { auth, db } from './../../../config/firebase';
 import { FaTimes, FaSignOutAlt, FaUser, FaTrash, FaUserCircle } from 'react-icons/fa';
 import VerificarCuenta from './../../buttons/VerificarCuenta';
 import DeleteAcount from '../../modals/DeleteAcount';
+import { toast } from 'react-hot-toast';
 
 function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
     const [user, setUser] = useState(null);
@@ -42,9 +43,9 @@ function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
             await deleteUser(user);
         } catch(error){
             if (error.code === 'auth/requires-recent-login') {
-                toast.error('Error de conexión. Verifica tu internet e intenta nuevamente.');
+                toast.error('Para eliminar tu cuenta, necesitas haber iniciado sesión recientemente. Por favor, cierra sesión y vuelve a iniciar sesión, luego intenta eliminar tu cuenta nuevamente.');
             } else {
-                toast.error('Error al eliminar la cuenta' );
+                toast.error('Error al eliminar la cuenta');
                 console.error('Error al eliminar la cuenta ' + error)
             }
             setDeleteLoading(false);
@@ -82,18 +83,48 @@ function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
         onClose();
     };
 
+    // Función para obtener el nombre completo del usuario
+    const getFullName = () => {
+        if (!userData) {
+            return null;
+        }
+
+        // Verificar si userData.name es un objeto con los apellidos
+        if (userData.name && typeof userData.name === 'object') {
+            const { name, apellidopat, apellidomat } = userData.name;
+            const parts = [name, apellidopat, apellidomat].filter(Boolean);
+            return parts.length > 0 ? parts.join(' ') : null;
+        }
+
+        // Si userData.name es solo un string, buscar apellidos en el nivel superior
+        const name = userData.name;
+        const apellidopat = userData.apellidopat;
+        const apellidomat = userData.apellidomat;
+        
+        const parts = [name, apellidopat, apellidomat].filter(Boolean);
+        return parts.length > 0 ? parts.join(' ') : null;
+    };
+
+    // Función para truncar nombres largos
+    const truncateName = (name, maxLength = 25) => {
+        if (!name || name.length <= maxLength) return name;
+        return name.substring(0, maxLength) + '...';
+    };
+
     // Verificar si el usuario necesita verificación
     const needsVerification = userData?.role === 'unverified';
 
-    // Variables seguras
-    const userInitial = user?.email ? user.email[0].toUpperCase() : 'U';
-    const userName = user?.displayName || user?.email || 'Usuario';
+    const fullName = getFullName();
+    const userName = truncateName(fullName || user?.displayName || user?.email || 'Usuario');
+    const userInitial = fullName 
+        ? fullName[0].toUpperCase() 
+        : (user?.email ? user.email[0].toUpperCase() : 'U');
     const userRole = userData?.role === 'unverified' ? 'Sin verificar' : 
                     userData?.role === 'doctor' ? 'Médico' : 
                     userData?.role === 'moderator' ? 'Moderador':
                     userData?.role === 'admin' ? "Admin":
                     userData?.role || 'Usuario';
-    const userPhoto = userData?.photoURL; // Obtener la foto de perfil
+    const userPhoto = userData?.photoURL;
 
     if (!isOpen) return null;
 
@@ -152,8 +183,8 @@ function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
                                                 </span>
                                             </div>
                                         )}
-                                        <div>
-                                            <p className="font-semibold text-blue-800">
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-semibold text-blue-800 truncate" title={fullName || userName}>
                                                 {userName}
                                             </p>
                                             <p className="text-blue-600 text-sm">
