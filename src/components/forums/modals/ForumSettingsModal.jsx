@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaTimes, FaSpinner, FaGlobe, FaLock, FaUserShield, FaInfoCircle, FaExclamationCircle, FaCheckCircle } from 'react-icons/fa';
+import { FaTimes, FaSpinner, FaGlobe, FaLock, FaUserShield, FaInfoCircle, FaExclamationCircle, FaCheckCircle, FaUserCheck } from 'react-icons/fa';
 import { useForumSettings } from '../hooks/useForumSettings';
 import { toast } from 'react-hot-toast';
 
@@ -16,6 +16,8 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
   const [touched, setTouched] = useState({});
   const [showGeneralError, setShowGeneralError] = useState(false);
   const [showPostApprovalWarning, setShowPostApprovalWarning] = useState(false);
+  const [showMemberApprovalWarning, setShowMemberApprovalWarning] = useState(false);
+  const [pendingMembersCount, setPendingMembersCount] = useState(0);
   
   const { updateForumSettings, loading, error } = useForumSettings();
 
@@ -28,23 +30,42 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
         },
         requiresPostApproval: forum.requiresPostApproval || false
       });
+
+      // Contar miembros pendientes
+      const pendingCount = forum.pendingMembers 
+        ? Object.keys(forum.pendingMembers).length 
+        : 0;
+      setPendingMembersCount(pendingCount);
     }
   }, [forum]);
 
   // Detectar cuando se desactiva la validación de posts
   useEffect(() => {
     if (forum) {
-      const wasRequiringApproval = forum.requiresPostApproval || false;
-      const willRequireApproval = formData.requiresPostApproval || false;
+      const wasRequiringPostApproval = forum.requiresPostApproval || false;
+      const willRequirePostApproval = formData.requiresPostApproval || false;
       
-      // Mostrar advertencia si se está desactivando
-      if (wasRequiringApproval && !willRequireApproval) {
+      if (wasRequiringPostApproval && !willRequirePostApproval) {
         setShowPostApprovalWarning(true);
       } else {
         setShowPostApprovalWarning(false);
       }
     }
   }, [formData.requiresPostApproval, forum]);
+
+  // Detectar cuando se desactiva la aprobación de miembros
+  useEffect(() => {
+    if (forum) {
+      const wasRequiringMemberApproval = forum.membershipSettings?.requiresApproval || false;
+      const willRequireMemberApproval = formData.membershipSettings?.requiresApproval || false;
+      
+      if (wasRequiringMemberApproval && !willRequireMemberApproval && pendingMembersCount > 0) {
+        setShowMemberApprovalWarning(true);
+      } else {
+        setShowMemberApprovalWarning(false);
+      }
+    }
+  }, [formData.membershipSettings.requiresApproval, forum, pendingMembersCount]);
 
   const validateField = (name, value) => {
     switch (name) {
@@ -119,8 +140,8 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
     const result = await updateForumSettings(forum.id, formData);
     
     if (result.success) {
-      // Mostrar mensaje especial si se activaron posts
-      if (result.postsActivated && result.postsActivated > 0) {
+      // Construir mensaje personalizado
+      if (result.postsActivated > 0 || result.membersApproved > 0) {
         toast.success(result.message, { duration: 5000 });
       } else {
         toast.success('Configuración actualizada exitosamente');
@@ -135,6 +156,7 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
       setTouched({});
       setShowGeneralError(false);
       setShowPostApprovalWarning(false);
+      setShowMemberApprovalWarning(false);
     } else {
       toast.error(result.error || 'Error al actualizar la configuración');
     }
@@ -146,6 +168,7 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
       setTouched({});
       setShowGeneralError(false);
       setShowPostApprovalWarning(false);
+      setShowMemberApprovalWarning(false);
     }
   }, [isOpen]);
 
@@ -219,15 +242,32 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
                 </div>
               )}
 
-              {/* Advertencia cuando se desactiva validación */}
+              {/* Advertencia de posts pendientes */}
               {showPostApprovalWarning && (
                 <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                   <div className="flex items-start gap-2">
                     <FaCheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-green-800 font-medium text-sm mb-1">Activación automática</p>
+                      <p className="text-green-800 font-medium text-sm mb-1">Posts activados automáticamente</p>
                       <p className="text-green-700 text-xs">
-                        Todos los posts pendientes de validación serán activados automáticamente cuando guardes los cambios. Los autores recibirán una notificación.
+                        Todos los posts pendientes de validación serán activados automáticamente. Los autores recibirán notificación.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Advertencia de miembros pendientes */}
+              {showMemberApprovalWarning && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <FaUserCheck className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-blue-800 font-medium text-sm mb-1">
+                        {pendingMembersCount} miembro(s) será(n) aprobado(s) automáticamente
+                      </p>
+                      <p className="text-blue-700 text-xs">
+                        Todas las solicitudes pendientes de membresía serán aprobadas automáticamente. Los usuarios recibirán notificación.
                       </p>
                     </div>
                   </div>
@@ -357,8 +397,8 @@ function ForumSettingsModal({ isOpen, onClose, forum, onSettingsUpdated }) {
                     <h4 className="text-sm font-medium text-blue-800 mb-2">Configuración de moderación</h4>
                     <ul className="text-xs text-blue-700 space-y-1">
                       <li>• Los cambios se aplican inmediatamente</li>
-                      <li>• La validación de posts ayuda a mantener la calidad del contenido</li>
-                      <li>• Desactivar la validación activa automáticamente posts pendientes</li>
+                      <li>• Desactivar validaciones aprueba automáticamente contenido pendiente</li>
+                      <li>• La validación ayuda a mantener la calidad del contenido</li>
                       <li>• Siempre puedes cambiar esta configuración después</li>
                     </ul>
                   </div>

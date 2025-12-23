@@ -4,9 +4,11 @@ import {
   updateDoc,
   writeBatch,
   arrayRemove,
+  arrayUnion,
   deleteField,
   getDoc,
   increment as firestoreIncrement,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db, auth } from "../../../config/firebase";
 import { notificationService } from "./../../notifications/services/notificationService";
@@ -16,6 +18,63 @@ export const useForumSettings = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { validatePostsBatch } = usePostModeration();
+
+  const approvePendingMembers = async (forumId, forumName, pendingMembers) => {
+    try {
+      if (!pendingMembers || Object.keys(pendingMembers).length === 0) {
+        return { success: true, approvedCount: 0 };
+      }
+
+      const batch = writeBatch(db);
+      const forumRef = doc(db, "forums", forumId);
+      const userIds = Object.keys(pendingMembers);
+
+      // 1. Agregar todos los usuarios pendientes como miembros
+      for (const userId of userIds) {
+        // Agregar al array de miembros del foro
+        batch.update(forumRef, {
+          members: arrayUnion(userId),
+        });
+
+        // Actualizar estadísticas del usuario
+        const userRef = doc(db, "users", userId);
+        batch.update(userRef, {
+          "stats.joinedForumsCount": firestoreIncrement(1),
+          joinedForums: arrayUnion(forumId),
+        });
+
+        // Remover de pendientes
+        batch.update(forumRef, {
+          [`pendingMembers.${userId}`]: deleteField(),
+        });
+      }
+
+      // 2. Incrementar el contador de miembros del foro
+      batch.update(forumRef, {
+        memberCount: firestoreIncrement(userIds.length),
+      });
+
+      // 3. Ejecutar batch
+      await batch.commit();
+
+      // 4. Enviar notificaciones (asíncrono, no bloquea)
+      const notificationPromises = userIds.map((userId) =>
+        notificationService
+          .sendMembershipApproved(userId, forumId, forumName)
+          .catch((err) => console.error("Error enviando notificación:", err))
+      );
+
+      await Promise.allSettled(notificationPromises);
+
+      return {
+        success: true,
+        approvedCount: userIds.length,
+      };
+    } catch (err) {
+      console.error("Error aprobando miembros pendientes:", err);
+      return { success: false, error: err.message };
+    }
+  };
 
   const updateForumSettings = async (forumId, settings) => {
     setLoading(true);
@@ -31,31 +90,69 @@ export const useForumSettings = () => {
       }
 
       const currentForumData = forumDoc.data();
-      const wasRequiringApproval =
+
+      // Estados previos y nuevos
+      const wasRequiringPostApproval =
         currentForumData.requiresPostApproval || false;
-      const willRequireApproval = settings.requiresPostApproval || false;
+      const willRequirePostApproval = settings.requiresPostApproval || false;
+
+      const wasRequiringMemberApproval =
+        currentForumData.membershipSettings?.requiresApproval || false;
+      const willRequireMemberApproval =
+        settings.membershipSettings?.requiresApproval || false;
 
       // Actualizar configuración del foro
       await updateDoc(forumRef, {
         ...settings,
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
       });
 
-      // IMPORTANTE: Si se desactiva requiresPostApproval, activar posts pendientes
-      if (wasRequiringApproval && !willRequireApproval) {
-        // Usar la función de batch del hook de moderación
+      let postsActivated = 0;
+      let membersApproved = 0;
+
+      // CASO 1: Si se desactiva validación de posts → Activar posts pendientes
+      if (wasRequiringPostApproval && !willRequirePostApproval) {
         const activationResult = await validatePostsBatch(
           forumId,
           currentForumData.name
         );
 
-        if (activationResult.success && activationResult.validatedCount > 0) {
-          return {
-            success: true,
-            postsActivated: activationResult.validatedCount,
-            message: `Configuración actualizada. ${activationResult.validatedCount} publicación(es) pendiente(s) fueron activadas automáticamente.`,
-          };
+        if (activationResult.success) {
+          postsActivated = activationResult.validatedCount || 0;
         }
+      }
+
+      // CASO 2: Si se desactiva aprobación de miembros → Aprobar miembros pendientes
+      if (wasRequiringMemberApproval && !willRequireMemberApproval) {
+        const pendingMembers = currentForumData.pendingMembers || {};
+
+        const approvalResult = await approvePendingMembers(
+          forumId,
+          currentForumData.name,
+          pendingMembers
+        );
+
+        if (approvalResult.success) {
+          membersApproved = approvalResult.approvedCount || 0;
+        }
+      }
+
+      // Construir mensaje de respuesta
+      const messages = [];
+      if (postsActivated > 0) {
+        messages.push(`${postsActivated} publicación(es) activada(s)`);
+      }
+      if (membersApproved > 0) {
+        messages.push(`${membersApproved} miembro(s) aprobado(s)`);
+      }
+
+      if (messages.length > 0) {
+        return {
+          success: true,
+          postsActivated,
+          membersApproved,
+          message: `Configuración actualizada. ${messages.join(" y ")}.`,
+        };
       }
 
       return { success: true };
@@ -111,7 +208,6 @@ export const useForumSettings = () => {
 
       const batch = writeBatch(db);
 
-      // 1. TRANSFERIR OWNERSHIP
       batch.update(forumRef, {
         ownerId: oldestModerator,
         [`moderators.${auth.currentUser.uid}`]: deleteField(),
@@ -121,13 +217,11 @@ export const useForumSettings = () => {
 
       await batch.commit();
 
-      // 2. Notificar al nuevo dueño
       await notificationService.sendOwnershipTransferred(
         oldestModerator,
         forumData.name
       );
 
-      // 3. Actualizar stats del usuario que abandona
       const userRef = doc(db, "users", auth.currentUser.uid);
       await updateDoc(userRef, {
         "stats.joinedForumsCount": firestoreIncrement(-1),
@@ -151,6 +245,7 @@ export const useForumSettings = () => {
   return {
     updateForumSettings,
     leaveForumAsOwner,
+    approvePendingMembers,
     loading,
     error,
   };
