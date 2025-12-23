@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FaSpinner, FaCheck, FaTimes, FaEye, FaUser } from 'react-icons/fa';
+import { FaSpinner, FaCheck, FaTimes, FaEye, FaUser, FaImage } from 'react-icons/fa';
 import { usePostModeration } from '../hooks/usePostModeration';
 import { auth, db } from '../../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
+import PostImages from '../posts/components/PostImages';
 
 function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValidated }) {
   const [pendingPosts, setPendingPosts] = useState([]);
@@ -176,6 +177,14 @@ function PostValidationModal({ isOpen, onClose, forumId, forumName, onPostsValid
                       {post.content}
                     </div>
                   </div>
+
+                  {post.images && post.images.length > 0 && (
+                    <div className="mb-4">
+                      <div className="bg-white p-3 rounded-lg border border-gray-200">
+                        <PostImages images={post.images} />
+                      </div>
+                    </div>
+                  )}
 
                   {/* Acciones */}
                   <div className="flex gap-3 pt-4 border-t border-gray-200">
