@@ -146,34 +146,49 @@ function ManageMembersModal({ isOpen, onClose, forumId, onMembersUpdated }) {
     );
   };
 
+  // Prevenir scroll del body cuando el modal está abierto
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div 
-        className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[80vh] overflow-hidden"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col my-8"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+        {/* Header - Fijo */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
               <FaUsers className="w-5 h-5 text-orange-600" />
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">Gestionar Solicitudes</h2>
-              <p className="text-sm text-gray-600 mt-1">Aprobar o rechazar solicitudes de membresía</p>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-2xl font-bold text-gray-900 truncate">Gestionar Solicitudes</h2>
+              <p className="text-sm text-gray-600 mt-1 truncate">Aprobar o rechazar solicitudes de membresía</p>
             </div>
           </div>
           <button 
             onClick={onClose}
             disabled={loading}
-            className="p-2 hover:bg-gray-100 rounded-lg transition duration-200 disabled:opacity-50"
+            className="p-2 hover:bg-gray-100 rounded-lg transition duration-200 disabled:opacity-50 flex-shrink-0 ml-4"
           >
             <FaTimes className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        <div className="p-6">
+        {/* Contenido - Con scroll */}
+        <div className="flex-1 overflow-y-auto p-6">
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-red-700 text-sm">{error}</p>
@@ -191,75 +206,74 @@ function ManageMembersModal({ isOpen, onClose, forumId, onMembersUpdated }) {
           </div>
 
           {/* Lista de solicitudes pendientes */}
-          <div className="max-h-96 overflow-y-auto">
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <FaSpinner className="w-8 h-8 text-blue-500 animate-spin" />
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <FaSpinner className="w-8 h-8 text-blue-500 animate-spin" />
+            </div>
+          ) : pendingMembers.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-4">
+                <FaUsers className="w-16 h-16 mx-auto" />
               </div>
-            ) : pendingMembers.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <FaUsers className="w-16 h-16 mx-auto" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay solicitudes pendientes</h3>
-                <p className="text-gray-600">Todas las solicitudes han sido procesadas.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {pendingMembers.map((member) => (
-                  <div key={member.userId} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2 flex-wrap">
-                        <p className="font-medium text-gray-900 truncate">{member.userName}</p>
-                        {getRoleBadge(member.userRole)}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-                        <p className="truncate">{member.userEmail}</p>
-                        <span>•</span>
-                        <div className="flex items-center gap-1">
-                          <FaClock className="w-3 h-3 text-orange-500" />
-                          <span>Solicitó: {formatDate(member.requestedAt)}</span>
-                        </div>
-                      </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay solicitudes pendientes</h3>
+              <p className="text-gray-600">Todas las solicitudes han sido procesadas.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pendingMembers.map((member) => (
+                <div key={member.userId} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
+                      <p className="font-medium text-gray-900 truncate">{member.userName}</p>
+                      {getRoleBadge(member.userRole)}
                     </div>
-                    
-                    <div className="flex gap-2 ml-4 flex-shrink-0">
-                      <button
-                        onClick={() => handleApprove(member.userId)}
-                        disabled={actionLoading[member.userId]}
-                        className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 disabled:opacity-50 flex items-center gap-1 text-sm"
-                        title="Aprobar solicitud"
-                      >
-                        {actionLoading[member.userId] === 'approving' ? (
-                          <FaSpinner className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <FaUserCheck className="w-4 h-4" />
-                        )}
-                        <span>Aprobar</span>
-                      </button>
-                      
-                      <button
-                        onClick={() => handleReject(member.userId)}
-                        disabled={actionLoading[member.userId]}
-                        className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50 flex items-center gap-1 text-sm"
-                        title="Rechazar solicitud"
-                      >
-                        {actionLoading[member.userId] === 'rejecting' ? (
-                          <FaSpinner className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <FaUserTimes className="w-4 h-4" />
-                        )}
-                        <span>Rechazar</span>
-                      </button>
+                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                      <p className="truncate">{member.userEmail}</p>
+                      <span className="hidden sm:inline">•</span>
+                      <div className="flex items-center gap-1">
+                        <FaClock className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                        <span className="truncate">Solicitó: {formatDate(member.requestedAt)}</span>
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  
+                  <div className="flex gap-2 ml-4 flex-shrink-0">
+                    <button
+                      onClick={() => handleApprove(member.userId)}
+                      disabled={actionLoading[member.userId]}
+                      className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 disabled:opacity-50 flex items-center gap-1 text-sm"
+                      title="Aprobar solicitud"
+                    >
+                      {actionLoading[member.userId] === 'approving' ? (
+                        <FaSpinner className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FaUserCheck className="w-4 h-4" />
+                      )}
+                      <span className="hidden sm:inline">Aprobar</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => handleReject(member.userId)}
+                      disabled={actionLoading[member.userId]}
+                      className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50 flex items-center gap-1 text-sm"
+                      title="Rechazar solicitud"
+                    >
+                      {actionLoading[member.userId] === 'rejecting' ? (
+                        <FaSpinner className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <FaUserTimes className="w-4 h-4" />
+                      )}
+                      <span className="hidden sm:inline">Rechazar</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="p-6 border-t border-gray-200 bg-gray-50">
+        {/* Footer - Fijo */}
+        <div className="p-6 border-t border-gray-200 bg-gray-50 flex-shrink-0">
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-600">
               <p>Total de solicitudes: {pendingMembers.length}</p>
