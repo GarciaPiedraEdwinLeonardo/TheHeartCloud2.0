@@ -10,10 +10,12 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../../../config/firebase";
 import { notificationService } from "./../../notifications/services/notificationService";
+import { usePostModeration } from "./usePostModeration";
 
 export const useForumSettings = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { validatePostsBatch } = usePostModeration();
 
   const updateForumSettings = async (forumId, settings) => {
     setLoading(true);
@@ -21,10 +23,41 @@ export const useForumSettings = () => {
 
     try {
       const forumRef = doc(db, "forums", forumId);
+
+      // Obtener datos actuales del foro
+      const forumDoc = await getDoc(forumRef);
+      if (!forumDoc.exists()) {
+        throw new Error("Comunidad no encontrada");
+      }
+
+      const currentForumData = forumDoc.data();
+      const wasRequiringApproval =
+        currentForumData.requiresPostApproval || false;
+      const willRequireApproval = settings.requiresPostApproval || false;
+
+      // Actualizar configuración del foro
       await updateDoc(forumRef, {
         ...settings,
         updatedAt: new Date(),
       });
+
+      // IMPORTANTE: Si se desactiva requiresPostApproval, activar posts pendientes
+      if (wasRequiringApproval && !willRequireApproval) {
+        // Usar la función de batch del hook de moderación
+        const activationResult = await validatePostsBatch(
+          forumId,
+          currentForumData.name
+        );
+
+        if (activationResult.success && activationResult.validatedCount > 0) {
+          return {
+            success: true,
+            postsActivated: activationResult.validatedCount,
+            message: `Configuración actualizada. ${activationResult.validatedCount} publicación(es) pendiente(s) fueron activadas automáticamente.`,
+          };
+        }
+      }
+
       return { success: true };
     } catch (err) {
       setError(err.message);
@@ -46,7 +79,6 @@ export const useForumSettings = () => {
 
       const forumData = forumDoc.data();
       const moderators = forumData.moderators || {};
-      const moderatorIds = Object.keys(moderators);
 
       const otherModerators = Object.entries(moderators).filter(
         ([modId, modData]) => modId !== auth.currentUser.uid
@@ -81,25 +113,21 @@ export const useForumSettings = () => {
 
       // 1. TRANSFERIR OWNERSHIP
       batch.update(forumRef, {
-        ownerId: oldestModerator, // Actualizar el ownerId
-        [`moderators.${auth.currentUser.uid}`]: deleteField(), // Remover al dueño actual de moderadores
-        members: arrayRemove(auth.currentUser.uid), // Remover de miembros
-        memberCount: firestoreIncrement(-1), // Usar firestoreIncrement
+        ownerId: oldestModerator,
+        [`moderators.${auth.currentUser.uid}`]: deleteField(),
+        members: arrayRemove(auth.currentUser.uid),
+        memberCount: firestoreIncrement(-1),
       });
 
       await batch.commit();
 
-      // 2. Verificar que se actualizó
-      const updatedForumDoc = await getDoc(forumRef);
-      const updatedForumData = updatedForumDoc.data();
-
-      // 3. Notificar al nuevo dueño
+      // 2. Notificar al nuevo dueño
       await notificationService.sendOwnershipTransferred(
         oldestModerator,
         forumData.name
       );
 
-      // 4. Actualizar stats del usuario que abandona
+      // 3. Actualizar stats del usuario que abandona
       const userRef = doc(db, "users", auth.currentUser.uid);
       await updateDoc(userRef, {
         "stats.joinedForumsCount": firestoreIncrement(-1),
