@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { 
   FaHeart, FaRegHeart, FaThumbsDown, FaRegThumbsDown, FaComment, 
   FaEllipsisH, FaUser, FaCalendar, FaEdit, FaTrash, FaBan,
-  FaClock, FaCheckCircle, FaTimesCircle, FaFlag, FaUsers,
+  FaClock, FaFlag, FaUsers,
   FaBriefcaseMedical
 } from 'react-icons/fa';
 import { usePostActions } from './../hooks/usePostActions';
@@ -291,12 +291,6 @@ function PostCard({
   const getPostStatus = () => {
     if (post.status === 'pending') {
       return { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800', icon: FaClock };
-    }
-    if (post.status === 'rejected') {
-      return { label: 'Rechazado', color: 'bg-red-100 text-red-800', icon: FaTimesCircle };
-    }
-    if (post.validatedAt) {
-      return { label: 'Verificado', color: 'bg-green-100 text-green-800', icon: FaCheckCircle };
     }
     return null;
   };
