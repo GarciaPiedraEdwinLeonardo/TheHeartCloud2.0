@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../../config/firebase';
+import { auth } from '../../config/firebase';
 import { FaIdCard, FaUniversity, FaCalendarAlt, FaUpload, FaArrowLeft, FaCheckCircle, FaClock } from 'react-icons/fa'; 
-import cloudinaryConfig from './../../config/cloudinary'
+import cloudinaryConfig from './../../config/cloudinary';
+import axiosInstance from "./../../config/axiosInstance";
 
 function VerifyAccount({ onBack }) {
     const [formData, setFormData] = useState({
@@ -28,15 +28,11 @@ function VerifyAccount({ onBack }) {
             const user = auth.currentUser;
             if (user) {
                 try {
-                    const userDoc = await getDoc(doc(db, 'users', user.uid));
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data();
-                        const status = userData.professionalInfo?.verificationStatus;
-                        setVerificationStatus(status || '');
-                        
-                        if (status === 'pending' || status === 'verified') {
-                            setCanSubmit(false);
-                        }
+                    const response = await axiosInstance.get('/api/verification/status');
+                    
+                    if (response.success) {
+                        setVerificationStatus(response.data.status);
+                        setCanSubmit(response.data.canSubmit);
                     }
                 } catch (error) {
                     console.error('Error al verificar estado:', error);
@@ -118,7 +114,7 @@ function VerifyAccount({ onBack }) {
             if (error.message.includes('Failed to fetch')) {
                 throw new Error('Error de conexión. Verifica tu internet e intenta nuevamente.');
             } else if (error.message.includes('413')) {
-                throw new Error('El archivo es demasiado grande. Máximo 10MB');
+                throw new Error('El archivo es demasiado grande. Máximo 3MB');
             } else if (error.message.includes('400')) {
                 throw new Error('Error en la configuración de Cloudinary. Contacta al administrador.');
             }
@@ -160,8 +156,8 @@ function VerifyAccount({ onBack }) {
                 
             case 'universidad':
                 if (!value) return 'Este campo es requerido';
-                if (!/^[A-Za-z0-9ÁáÉéÍíÓóÚúÑñ\s\-\.,()&]{3,80}$/.test(value)) {
-                    return 'Solo letras, números y espacios, 3-80 caracteres';
+                if (!/^[A-Za-z0-9ÁáÉéÍíÓóÚúÑñ\s\-\.,()&]{3,90}$/.test(value)) {
+                    return 'Solo letras, números y espacios, 3-90 caracteres';
                 }
                 break;
                 
@@ -210,6 +206,7 @@ function VerifyAccount({ onBack }) {
         setSuccess('');
 
         try {
+            // Validar formulario
             const errors = {};
             Object.keys(formData).forEach(key => {
                 if (key !== 'documentoCedula' && key !== 'paisCedula') {
@@ -232,46 +229,43 @@ function VerifyAccount({ onBack }) {
                 throw new Error('Debes subir el PDF de tu cédula profesional');
             }
 
+            // 1. Subir documento a Cloudinary (desde frontend)
             const documentoUrl = await uploadToCloudinary(formData.documentoCedula);
 
-            const userUpdate = {
-                name: {
-                    apellidopat: formData.apellidoPaterno,
-                    apellidomat: formData.apellidoMaterno,
-                    name: formData.nombre
-                },
-                professionalInfo: {
-                    specialty: formData.especialidad,
-                    licenseNumber: formData.cedula,
-                    licenseCountry: formData.paisCedula,
-                    university: formData.universidad,
-                    titulationYear: parseInt(formData.anioTitulacion),
-                    licenseDocument: documentoUrl,
-                    verificationStatus: 'pending',
-                    verifiedAt: null,
-                    verifiedBy: null
-                },
-            };
+            // 2. Enviar datos al backend
+            const response = await axiosInstance.post('/api/verification/submit', {
+                apellidoPaterno: formData.apellidoPaterno,
+                apellidoMaterno: formData.apellidoMaterno,
+                nombre: formData.nombre,
+                especialidad: formData.especialidad,
+                cedula: formData.cedula,
+                paisCedula: formData.paisCedula,
+                universidad: formData.universidad,
+                anioTitulacion: formData.anioTitulacion,
+                documentoCedula: documentoUrl,
+            });
 
-            await updateDoc(doc(db, 'users', user.uid), userUpdate);
-
-            setCanSubmit(false);
-            setVerificationStatus('pending');
-            setSuccess('¡Solicitud de verificación enviada! Un moderador revisará tu documentación.');
-            
-            setTimeout(() => {
-                if (onBack) onBack();
-            }, 3000);
+            if (response.success) {
+                setCanSubmit(false);
+                setVerificationStatus('pending');
+                setSuccess('¡Solicitud de verificación enviada! Un moderador revisará tu documentación.');
+                
+                setTimeout(() => {
+                    if (onBack) onBack();
+                }, 3000);
+            }
 
         } catch (error) {
             console.error('Error completo en verificación:', error);
     
             let userFriendlyError = 'Error al enviar la solicitud de verificación';
     
-            if (error.message.includes('Cloudinary') || error.message.includes('subir')) {
+            if (error.message && error.message.includes('Cloudinary') || error.message && error.message.includes('subir')) {
                 userFriendlyError = error.message;
-            } else if (error.message.includes('Firebase')) {
-                userFriendlyError = 'Error de conexión con la base de datos. Intenta nuevamente.';
+            } else if (error.response?.data?.error) {
+                userFriendlyError = error.response.data.error;
+            } else if (error.message) {
+                userFriendlyError = error.message;
             }
     
             setError(userFriendlyError);

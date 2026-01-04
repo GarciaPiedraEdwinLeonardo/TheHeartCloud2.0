@@ -1,9 +1,6 @@
 import {
   doc,
-  addDoc,
-  updateDoc,
   collection,
-  serverTimestamp,
   arrayUnion,
   arrayRemove,
   increment,
@@ -14,56 +11,10 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { db, auth } from "./../../../../config/firebase";
-import { usePostUpload } from "./usePostUpload";
-import { notificationService } from "./../../../notifications/services/notificationService";
+import axiosInstance from "./../../../../config/axiosInstance";
 
 export const usePostActions = () => {
   const user = auth.currentUser;
-  const { deleteFromCloudinary } = usePostUpload();
-
-  // Función auxiliar para eliminar imágenes de un post
-  const deletePostImages = async (images) => {
-    if (!images || images.length === 0) return;
-
-    const deletionPromises = images.map(async (image) => {
-      if (image.url) {
-        await deleteFromCloudinary(image.url);
-      }
-    });
-
-    await Promise.allSettled(deletionPromises);
-  };
-
-  // Función auxiliar para verificar permisos
-  const checkPostPermissions = async (postId) => {
-    if (!user) throw new Error("Debes iniciar sesión");
-
-    const postRef = doc(db, "posts", postId);
-    const postDoc = await getDoc(postRef);
-
-    if (!postDoc.exists()) throw new Error("Publicación no encontrada");
-
-    const postData = postDoc.data();
-    const userDoc = await getDoc(doc(db, "users", user.uid));
-    const userData = userDoc.data();
-
-    // Verificar si puede modificar (autor, moderador o admin)
-    const isAuthor = postData.authorId === user.uid;
-    const isModeratorOrAdmin = ["moderator", "admin"].includes(userData?.role);
-    const isForumModerator = await checkForumModeration(postData.forumId);
-
-    if (!isAuthor && !isModeratorOrAdmin && !isForumModerator) {
-      throw new Error("No tienes permisos para modificar esta publicación");
-    }
-
-    return {
-      postData,
-      userData,
-      isAuthor,
-      isModeratorOrAdmin,
-      isForumModerator,
-    };
-  };
 
   // Verificar si es moderador del foro
   const checkForumModeration = async (forumId) => {
@@ -85,89 +36,41 @@ export const usePostActions = () => {
     try {
       if (!user) throw new Error("Debes iniciar sesión para publicar");
 
-      // Verificar que el usuario puede publicar (doctor o superior)
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      const userData = userDoc.data();
+      const result = await axiosInstance.post("/api/posts", postData);
 
-      if (!["doctor", "moderator", "admin"].includes(userData?.role)) {
-        throw new Error("Solo usuarios verificados pueden publicar");
-      }
-
-      const newPost = {
-        title: postData.title,
-        content: postData.content,
-        authorId: user.uid,
-        forumId: postData.forumId,
-        createdAt: serverTimestamp(),
-        updatedAt: null,
-        likes: [],
-        dislikes: [],
-        images: postData.images || [],
-        stats: {
-          commentCount: 0,
-          viewCount: 0,
-        },
-        status: postData.status || "active",
-      };
-
-      const docRef = await addDoc(collection(db, "posts"), newPost);
-
-      // CAMBIO CRÍTICO: Manejar stats según el status del post
-      if (newPost.status === "active") {
-        // Post activo: incrementar todo
-        await updateDoc(doc(db, "forums", postData.forumId), {
-          postCount: increment(1),
-          lastPostAt: serverTimestamp(),
-        });
-
-        await updateDoc(doc(db, "users", user.uid), {
-          "stats.postCount": increment(1),
-          "stats.contributionCount": increment(1),
-        });
-      }
-      // Si es pending, NO incrementar nada - se hará cuando se apruebe
-
-      return { success: true, postId: docRef.id };
+      return { success: true, postId: result.data.postId };
     } catch (error) {
       console.error("Error creando post:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: error };
     }
   };
 
   // Editar post
   const editPost = async (postId, updates) => {
     try {
-      const { postData } = await checkPostPermissions(postId);
+      if (!user) throw new Error("Debes iniciar sesión");
 
-      // Si se están actualizando las imágenes, eliminar las antiguas de Cloudinary
-      if (updates.images) {
-        const oldImages = postData.images || [];
-        const newImages = updates.images || [];
-
-        // Encontrar imágenes que se eliminaron
-        const oldImageUrls = oldImages.map((img) => img.url);
-        const newImageUrls = newImages.map((img) => img.url);
-        const imagesToDelete = oldImages.filter(
-          (img) => !newImageUrls.includes(img.url)
-        );
-
-        // Eliminar imágenes antiguas de Cloudinary
-        if (imagesToDelete.length > 0) {
-          await deletePostImages(imagesToDelete);
-        }
+      // Validar que postId existe
+      if (!postId) {
+        throw new Error("ID del post es requerido");
       }
 
-      const postRef = doc(db, "posts", postId);
+      // Hacer la petición al backend
+      const result = await axiosInstance.put(`/api/posts/${postId}`, updates);
 
-      await updateDoc(postRef, {
-        ...updates,
-        updatedAt: serverTimestamp(),
-      });
-
-      return { success: true };
+      return {
+        success: true,
+        data: result.data,
+      };
     } catch (error) {
       console.error("Error editando post:", error);
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error:
+          typeof error === "string"
+            ? error
+            : error.message || "Error al editar el post",
+      };
     }
   };
 
@@ -199,112 +102,31 @@ export const usePostActions = () => {
   // Eliminar post
   const deletePost = async (postId) => {
     try {
-      const { postData, isAuthor, isModeratorOrAdmin, isForumModerator } =
-        await checkPostPermissions(postId);
+      if (!user) throw new Error("Debes iniciar sesión");
 
-      // Determinar si es eliminación por moderador
-      const isModeratorDeletion =
-        !isAuthor && (isModeratorOrAdmin || isForumModerator);
-
-      // PRIMERO: Contar comentarios antes de eliminarlos
-      const commentsQuery = query(
-        collection(db, "comments"),
-        where("postId", "==", postId)
-      );
-      const commentsSnapshot = await getDocs(commentsQuery);
-      const authorsMap = new Map();
-
-      // Contar comentarios por autor ANTES de eliminarlos
-      commentsSnapshot.forEach((commentDoc) => {
-        const commentData = commentDoc.data();
-        const authorId = commentData.authorId;
-        if (authorId) {
-          authorsMap.set(authorId, (authorsMap.get(authorId) || 0) + 1);
-        }
-      });
-
-      const deletedCommentsCount = commentsSnapshot.size;
-
-      // SEGUNDO: Eliminar comentarios del post
-      await deletePostComments(postId);
-
-      // TERCERO: Eliminar imágenes del post de Cloudinary
-      if (postData.images && postData.images.length > 0) {
-        await deletePostImages(postData.images);
+      if (!postId) {
+        throw new Error("ID del post es requerido");
       }
 
-      // CUARTO: Actualizar estadísticas de autores de comentarios
-      let updatedAuthorsCount = 0;
-      if (deletedCommentsCount > 0) {
-        const batch = writeBatch(db);
-        for (const [authorId, commentCount] of authorsMap) {
-          const authorRef = doc(db, "users", authorId);
-          batch.update(authorRef, {
-            "stats.commentCount": increment(-commentCount),
-            "stats.contributionCount": increment(-commentCount),
-          });
-          updatedAuthorsCount++;
-        }
-        await batch.commit();
-      }
-
-      // QUINTO: Eliminar el post definitivamente y actualizar contadores
-      const batch = writeBatch(db);
-
-      // Eliminar post
-      const postRef = doc(db, "posts", postId);
-      batch.delete(postRef);
-
-      // Actualizar contador del foro (solo si estaba activo)
-      if (postData.status === "active") {
-        const forumRef = doc(db, "forums", postData.forumId);
-        batch.update(forumRef, {
-          postCount: increment(-1),
-        });
-      }
-
-      // CAMBIO CRÍTICO: Actualizar estadísticas del autor del post
-      if (postData.authorId) {
-        const authorRef = doc(db, "users", postData.authorId);
-
-        if (postData.status === "active") {
-          // Post estaba activo: decrementar postCount y contributionCount
-          batch.update(authorRef, {
-            "stats.postCount": increment(-1),
-            "stats.contributionCount": increment(-1),
-          });
-        }
-      }
-
-      await batch.commit();
-
-      // SEXTO: Enviar notificación si es eliminación por moderador
-      if (
-        isModeratorDeletion &&
-        postData.authorId &&
-        postData.authorId !== user.uid
-      ) {
-        try {
-          await notificationService.sendPostDeletedByModerator(
-            postData.authorId,
-            postData.title || "tu publicación"
-          );
-        } catch (notifError) {
-          console.error("Error enviando notificación:", notifError);
-          // No fallar la eliminación si falla la notificación
-        }
-      }
+      // Hacer la petición al backend
+      const result = await axiosInstance.delete(`/api/posts/${postId}`);
 
       return {
         success: true,
-        deletedComments: deletedCommentsCount,
-        updatedAuthors: updatedAuthorsCount,
-        deletedImages: postData.images?.length || 0,
-        moderatorDeletion: isModeratorDeletion,
+        deletedComments: result.data.deletedComments || 0,
+        updatedAuthors: result.data.updatedAuthors || 0,
+        deletedImages: result.data.deletedImages || 0,
+        moderatorDeletion: result.data.moderatorDeletion || false,
       };
     } catch (error) {
       console.error("Error eliminando post:", error);
-      return { success: false, error: error.message };
+      return {
+        success: false,
+        error:
+          typeof error === "string"
+            ? error
+            : error.message || "Error al eliminar el post",
+      };
     }
   };
 
@@ -378,9 +200,19 @@ export const usePostActions = () => {
       // 2. Actualizar aura del autor SOLO si hay cambio y no es el mismo usuario
       if (auraChange !== 0 && authorId !== user.uid) {
         const authorRef = doc(db, "users", authorId);
-        batch.update(authorRef, {
-          "stats.aura": increment(auraChange),
-        });
+
+        // Verificar si el autor existe antes de actualizar
+        try {
+          const authorDoc = await getDoc(authorRef);
+          if (authorDoc.exists()) {
+            batch.update(authorRef, {
+              "stats.aura": increment(auraChange),
+            });
+          }
+        } catch (error) {
+          console.warn(`Error verificando usuario ${authorId}:`, error.message);
+          // Continuar sin actualizar el aura si hay error
+        }
       }
 
       await batch.commit();

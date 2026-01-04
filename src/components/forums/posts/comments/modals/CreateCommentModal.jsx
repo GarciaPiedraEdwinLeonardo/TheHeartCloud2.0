@@ -11,8 +11,8 @@ function CreateCommentModal({ isOpen, onClose, postId, postTitle, parentCommentI
 
   // Constantes de validación
   const MIN_LENGTH = 2;
-  const MAX_LENGTH = 500; 
-  const CHAR_WARNING_THRESHOLD = 450;
+  const MAX_LENGTH = 1000; 
+  const CHAR_WARNING_THRESHOLD = 900;
 
   const handleContentChange = (e) => {
     const newContent = e.target.value;

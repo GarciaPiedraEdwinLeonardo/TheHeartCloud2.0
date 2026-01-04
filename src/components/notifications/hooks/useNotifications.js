@@ -6,14 +6,11 @@ import {
   orderBy,
   limit,
   onSnapshot,
-  updateDoc,
-  doc,
-  writeBatch,
-  getDocs,
   startAfter,
+  getDocs,
 } from "firebase/firestore";
 import { db, auth } from "./../../../config/firebase";
-import { notificationService } from "../services/notificationService";
+import axiosInstance from "./../../../config/axiosInstance";
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState([]);
@@ -24,7 +21,6 @@ export const useNotifications = () => {
 
   const user = auth.currentUser;
 
-  // Cargar notificaciones iniciales
   useEffect(() => {
     if (!user) {
       setNotifications([]);
@@ -63,7 +59,6 @@ export const useNotifications = () => {
         setUnreadCount(unread);
         setLoading(false);
 
-        // Configurar paginación
         if (snapshot.docs.length > 0) {
           setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
         }
@@ -78,7 +73,6 @@ export const useNotifications = () => {
     return () => unsubscribe();
   }, [user]);
 
-  // Cargar más notificaciones
   const loadMore = useCallback(async () => {
     if (!user || !lastVisible || !hasMore) return;
 
@@ -116,89 +110,65 @@ export const useNotifications = () => {
     }
   }, [user, lastVisible, hasMore]);
 
-  // Marcar como leída
   const markAsRead = async (notificationId) => {
     if (!user) return;
 
     try {
-      const notificationRef = doc(db, "notifications", notificationId);
-      await updateDoc(notificationRef, {
-        isRead: true,
-      });
+      await axiosInstance.put(`/api/notifications/${notificationId}/read`);
+      // El listener de Firestore actualizará automáticamente el estado
     } catch (error) {
       console.error("Error marcando notificación como leída:", error);
     }
   };
 
-  // Marcar todas como leídas
   const markAllAsRead = async () => {
     if (!user || unreadCount === 0) return;
 
     try {
-      const batch = writeBatch(db);
-      const unreadNotifications = notifications.filter((n) => !n.isRead);
-
-      unreadNotifications.forEach((notification) => {
-        const notificationRef = doc(db, "notifications", notification.id);
-        batch.update(notificationRef, { isRead: true });
-      });
-
-      await batch.commit();
+      await axiosInstance.put("/api/notifications/mark-all-read");
+      // El listener de Firestore actualizará automáticamente el estado
     } catch (error) {
       console.error("Error marcando todas como leídas:", error);
     }
   };
 
-  // Eliminar una notificación individual
   const deleteNotification = async (notificationId) => {
     if (!user) return;
 
     try {
-      const result = await notificationService.deleteNotification(
-        notificationId
-      );
-      if (result.success) {
-        // Actualizar el estado local
-        setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
-      }
-      return result;
+      await axiosInstance.delete(`/api/notifications/${notificationId}`);
+      // Actualizar estado local inmediatamente para mejor UX
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      return { success: true };
     } catch (error) {
       console.error("Error eliminando notificación:", error);
       return { success: false, error: error.message };
     }
   };
 
-  // Eliminar todas las notificaciones
   const deleteAllNotifications = async () => {
     if (!user) return;
 
     try {
-      const result = await notificationService.deleteAllUserNotifications(
-        user.uid
-      );
-      if (result.success) {
-        setNotifications([]);
-        setUnreadCount(0);
-      }
-      return result;
+      const result = await axiosInstance.delete("/api/notifications");
+      // Actualizar estado local
+      setNotifications([]);
+      setUnreadCount(0);
+      return { success: true, deletedCount: result.deletedCount };
     } catch (error) {
       console.error("Error eliminando todas las notificaciones:", error);
       return { success: false, error: error.message };
     }
   };
 
-  // Eliminar solo las notificaciones leídas
   const deleteReadNotifications = async () => {
     if (!user) return;
 
     try {
-      const result = await notificationService.deleteReadNotifications(
-        user.uid
-      );
-      if (result.success) {
-        setNotifications((prev) => prev.filter((n) => !n.isRead));
-      }
-      return result;
+      const result = await axiosInstance.delete("/api/notifications/read/all");
+      // Actualizar estado local
+      setNotifications((prev) => prev.filter((n) => !n.isRead));
+      return { success: true, deletedCount: result.deletedCount };
     } catch (error) {
       console.error("Error eliminando notificaciones leídas:", error);
       return { success: false, error: error.message };

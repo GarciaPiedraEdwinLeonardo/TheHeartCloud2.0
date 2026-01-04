@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { onAuthStateChanged, signOut, deleteUser } from 'firebase/auth';
-import { doc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from './../../../config/firebase'; 
-import { FaTimes, FaSignOutAlt, FaUser, FaTrash, FaUserCircle } from 'react-icons/fa';
+import { FaTimes, FaSignOutAlt, FaUser, FaTrash } from 'react-icons/fa';
 import VerificarCuenta from './../../buttons/VerificarCuenta';
 import DeleteAcount from '../../modals/DeleteAcount';
 import { toast } from 'react-hot-toast';
+import axiosInstance from '../../../config/axiosInstance';
 
 function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
     const [user, setUser] = useState(null);
@@ -35,20 +36,30 @@ function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
     }, []);
 
     const handleDeleteAcount = async () => {
-        if(!user) return;
+        if (!user) return;
         setDeleteLoading(true);
 
-        try{
-            await deleteDoc(doc(db, 'users', user.uid));
-            await deleteUser(user);
-        } catch(error){
-            if (error.code === 'auth/requires-recent-login') {
+        try {
+            // Llamar al backend para eliminar la cuenta
+            await axiosInstance.delete('/api/auth/account');
+            
+            // Si el backend tuvo éxito, cerrar sesión en el frontend
+            await signOut(auth);
+            
+            toast.success('Cuenta eliminada exitosamente');
+            onClose();
+        } catch (error) {
+            console.error('Error al eliminar la cuenta:', error);
+            
+            // Manejar el error específico de autenticación reciente
+            if (error === 'Requiere inicio de sesión reciente') {
                 toast.error('Para eliminar tu cuenta, necesitas haber iniciado sesión recientemente. Por favor, cierra sesión y vuelve a iniciar sesión, luego intenta eliminar tu cuenta nuevamente.');
             } else {
-                toast.error('Error al eliminar la cuenta');
-                console.error('Error al eliminar la cuenta ' + error)
+                toast.error(error || 'Error al eliminar la cuenta');
             }
+        } finally {
             setDeleteLoading(false);
+            setShowDeleteConfirm(false);
         }
     };
 
@@ -67,6 +78,7 @@ function MenuModal({ isOpen, onClose, onProfileClick, onVerifyAccount }) {
             onClose();
         } catch (error) {
             console.error('Error al cerrar sesión:', error);
+            toast.error('Error al cerrar sesión');
             setLogoutLoading(false);
         }
     };

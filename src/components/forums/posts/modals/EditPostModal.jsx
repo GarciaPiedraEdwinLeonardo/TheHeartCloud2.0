@@ -23,6 +23,19 @@ function EditPostModal({ isOpen, onClose, post, onPostUpdated }) {
   const titleRef = useRef(null);
   const contentRef = useRef(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Cleanup al desmontar
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   // Inicializar formData cuando el post cambia
   useEffect(() => {
     if (post) {

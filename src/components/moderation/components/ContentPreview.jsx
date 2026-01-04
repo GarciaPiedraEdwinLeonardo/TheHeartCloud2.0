@@ -59,7 +59,7 @@ function ContentPreview({ report, contentType, onClose, onContentDeleted }) {
 
   const handleDeleteContent = async () => {
     try {
-      const result = await deleteContent(contentType, report.targetId);
+      const result = await deleteContent(contentType, report.id);
       
       if (result.success) {
         toast.success('Contenido eliminado correctamente');

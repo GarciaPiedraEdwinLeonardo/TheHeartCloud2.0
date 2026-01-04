@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
-import { doc, setDoc, getDocs, collection, query, where, deleteDoc } from 'firebase/firestore';
-import { auth, db } from './../../config/firebase';
+import { sendEmailVerification } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { db, auth } from './../../config/firebase';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import VerificationSent from './VerificationSent';
+import axiosInstance from "./../../config/axiosInstance"
 
 function Register({ onSwitchToLogin }) {
     const [formData, setFormData] = useState({
@@ -146,87 +147,15 @@ function Register({ onSwitchToLogin }) {
         }
     };
 
-    // Limpiar usuario no verificado existente
-    const cleanupExistingUnverifiedUser = async (email) => {
-        try {
-            const q = query(
-                collection(db, 'users'),
-                where('email', '==', email),
-                where('emailVerified', '==', false)
-            );
-            
-            const snapshot = await getDocs(q);
-            
-            if (!snapshot.empty) {
-                const userDoc = snapshot.docs[0];
-                const userData = userDoc.data();
-                const now = new Date();
-                const expiresAt = userData.verificationExpiresAt?.toDate();
-                const lastSent = userData.emailVerificationSentAt?.toDate();
-                
-                // Si ya expiró, eliminar completamente desde el backend
-                if (expiresAt && expiresAt < now) {
-                    const backendUrl = import.meta.env.VITE_BACKEND_URL;
-                    if (!backendUrl) {
-                        throw new Error('Backend no configurado');
-                    }
-                    
-                    const response = await fetch(`${backendUrl}/api/deleteUnverifiedUser`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email, userId: userDoc.id })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (!response.ok || !result.success) {
-                        throw new Error('Error al eliminar usuario expirado');
-                    }
-                    
-                    return;
-                }
-                
-                // Si NO ha expirado, verificar tiempo de reenvío
-                if (lastSent && (now - lastSent) < (60 * 60 * 1000)) {
-                    const timeRemaining = Math.ceil((60 * 60 * 1000 - (now - lastSent)) / 60000);
-                    throw new Error(`Ya se envió un email de verificación recientemente. Revisa tu bandeja de entrada y espera ${timeRemaining} minutos más.`);
-                }
-                
-                // Eliminar usuario no verificado desde el backend
-                const backendUrl = import.meta.env.VITE_BACKEND_URL;
-                if (!backendUrl) {
-                    throw new Error('Backend no configurado');
-                }
-                
-                const response = await fetch(`${backendUrl}/api/deleteUnverifiedUser`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, userId: userDoc.id })
-                });
-                
-                const result = await response.json();
-                
-                if (!response.ok || !result.success) {
-                    throw new Error('Error al eliminar usuario no verificado');
-                }
-            }
-        } catch (error) {
-            throw error;
-        }
-    };
-
     const handleEmailRegister = async (e) => {
         e.preventDefault();
         
-        // Prevenir envío si el formulario no es válido
-        if (!isFormValid) {
-            return;
-        }
+        if (!isFormValid) return;
         
         setLoading(true);
         setError('');
 
-        // Validar todos los campos antes de enviar
+        // Validar todos los campos
         const isEmailValid = validateField('email', formData.email);
         const isPasswordValid = validateField('password', formData.password);
         const isConfirmValid = validateField('confirmPassword', formData.confirmPassword);
@@ -236,7 +165,6 @@ function Register({ onSwitchToLogin }) {
             return;
         }
 
-        // Validar que coinciden las contraseñas
         if (formData.password !== formData.confirmPassword) {
             setError('Las contraseñas no coinciden.');
             setLoading(false);
@@ -244,79 +172,40 @@ function Register({ onSwitchToLogin }) {
         }
 
         try {
-            // PASO 1: Limpiar usuario no verificado existente ANTES de crear uno nuevo
-            await cleanupExistingUnverifiedUser(formData.email);
-
-            // PASO 2: Crear nuevo usuario
-            const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-            const user = userCredential.user;
-            
-            setCurrentUser(user);
-
-            // PASO 3: Enviar email de verificación
-            await sendEmailVerification(user);
-
-            // PASO 4: Calcular fecha de expiración (24 horas)
-            const now = new Date();
-            const expiresAt = new Date(now.getTime() + (24 * 60 * 60 * 1000)); // 24 horas
-
-            // Crear documento en Firestore con expiración
-            await setDoc(doc(db, 'users', user.uid), {
-                id: user.uid,
-                email: user.email,
-                name: null,
-                role: "unverified",
-                profileMedia: null,
-                professionalInfo: null,
-                stats: {
-                    aura: 0,
-                    contributionCount: 0,
-                    postCount: 0,
-                    commentCount: 0,
-                    forumCount: 0,
-                    joinedForumsCount: 0,
-                    totalImagesUploaded: 0,
-                    totalStorageUsed: 0
-                },
-                suspension: {
-                    isSuspended: false,
-                    reason: null,
-                    startDate: null,
-                    endDate: null,
-                    suspendedBy: null
-                },
-                joinedForums: [],
-                joinDate: new Date(),
-                lastLogin: new Date(),
-                isActive: true,
-                isDeleted: false,
-                deletedAt: null,
-                emailVerified: false,
-                emailVerificationSentAt: new Date(),
-                verificationExpiresAt: expiresAt, // Expira en 24 horas
-                verificationAttempts: 1,
-                hasPassword: true // Nuevo campo para indicar que tiene contraseña
+            const response = await axiosInstance.post('/api/auth/register', {
+                email: formData.email,
+                password: formData.password
             });
 
-            // PASO 5: Cerrar sesión automáticamente
-            await auth.signOut();
-            
-            // PASO 6: Quitar loading y mostrar pantalla de verificación
-            setLoading(false);
-            setVerificationSent(true);
+            if (response.success && response.data.customToken) {
+
+                const { signInWithCustomToken, sendEmailVerification } = await import('firebase/auth');
+
+                const userCredential = await signInWithCustomToken(auth, response.data.customToken);
+                const user = userCredential.user;
+
+                await sendEmailVerification(user);
+
+                await auth.signOut();
+
+                // Registro exitoso - mostrar pantalla de verificación
+                setVerificationSent(true);
+            }
 
         } catch (error) {
             console.error('Registration error:', error);
             
-            // Manejar el caso especial de usuario expirado
-            if (error.message === 'EXPIRED_USER_AUTH_PENDING') {
-                setError('Tu cuenta anterior expiró y fue eliminada de nuestra base de datos. Sin embargo, el email aún está reservado en el sistema de autenticación. Por favor, usa un correo diferente temporalmente o espera 24-48 horas para que se libere completamente.');
-            } else if (error.message.startsWith('Ya se envió un email')) {
-                setError(error.message);
-            } else {
-                setError(getErrorMessage(error.code));
-            }
+            // Manejar errores del backend
+            const errorMsg = error.response?.data?.error || error.message || error;
             
+            if (errorMsg.startsWith('Ya se envió un email')) {
+                setError(errorMsg);
+            } else if (errorMsg.includes('ya está registrado')) {
+                setError('Este correo electrónico ya está registrado en el sistema.');
+            } else {
+                setError(errorMsg);
+            }
+        } finally {
             setLoading(false);
         }
     };
@@ -338,30 +227,6 @@ function Register({ onSwitchToLogin }) {
             setError('Error al reenviar el email. Intenta nuevamente.');
         } finally {
             setLoading(false);
-        }
-    };
-
-    const getErrorMessage = (errorCode) => {
-        // Si errorCode es undefined, retornar mensaje genérico
-        if (!errorCode) {
-            return 'Error al crear la cuenta. Intenta nuevamente.';
-        }
-        
-        switch (errorCode) {
-            case 'auth/email-already-in-use':
-                return 'Este correo electrónico ya está registrado en el sistema.';
-            case 'auth/invalid-email':
-                return 'El correo electrónico no es válido.';
-            case 'auth/operation-not-allowed':
-                return 'El registro con email/contraseña no está habilitado.';
-            case 'auth/weak-password':
-                return 'La contraseña es demasiado débil.';
-            default:
-                // Verificar si el errorCode es un string antes de usar includes
-                if (typeof errorCode === 'string' && errorCode.includes('already-in-use')) {
-                    return 'Este email ya está en uso. Intenta con otro correo electrónico.';
-                }
-                return `Error al crear la cuenta: ${errorCode}. Intenta nuevamente.`;
         }
     };
 

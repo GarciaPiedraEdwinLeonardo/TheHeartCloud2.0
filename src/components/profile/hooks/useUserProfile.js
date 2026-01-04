@@ -153,28 +153,10 @@ export const useUserProfile = (userId = null) => {
           const forumDoc = await getDoc(doc(db, "forums", forumId));
           if (forumDoc.exists()) {
             const forumData = forumDoc.data();
-
-            // Contar publicaciones y comentarios del usuario en este foro
-            const userPostsInForum = postsData.filter(
-              (post) => post.forumId === forumId
-            ).length;
-
-            const userCommentsInForum = commentsData.filter((comment) => {
-              const commentPost = postsData.find(
-                (post) => post.id === comment.postId
-              );
-              return commentPost && commentPost.forumId === forumId;
-            }).length;
-
             userForumsData.push({
               id: forumId,
               nombre: forumData.name,
               description: forumData.description,
-              fechaUnion: userDataFromFirebase.joinDate,
-              publicaciones: userPostsInForum,
-              comentarios: userCommentsInForum,
-              memberCount: forumData.memberCount || 0,
-              lastActivity: forumData.lastPostAt || forumData.createdAt,
             });
           }
         } catch (error) {

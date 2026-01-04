@@ -9,7 +9,6 @@ function ReportFilters({ filters, onFiltersChange, activeTab }) {
     { value: 'all', label: 'Todos los tipos' },
     { value: 'post', label: 'Publicaciones' },
     { value: 'comment', label: 'Comentarios' },
-    { value: 'user', label: 'Usuarios' },
     { value: 'profile', label: 'Perfiles' },
     { value: 'forum', label: 'Comunidades' }
   ];

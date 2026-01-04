@@ -1,25 +1,23 @@
 import { useState, useEffect } from 'react';
-import { FaTimes, FaSpinner, FaHistory } from 'react-icons/fa';
+import { FaTimes, FaSpinner } from 'react-icons/fa';
 import { useCommentActions } from './../hooks/useCommentActions';
 
 function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showHistory, setShowHistory] = useState(false);
   
   const { editComment } = useCommentActions();
 
-  // Constantes de validación (iguales al CreateCommentModal)
+  // Constantes de validación
   const MIN_LENGTH = 2;
-  const MAX_LENGTH = 500;
-  const CHAR_WARNING_THRESHOLD = 450;
+  const MAX_LENGTH = 1000;
+  const CHAR_WARNING_THRESHOLD = 900;
 
   useEffect(() => {
     if (comment) {
       setContent(comment.content || '');
       setError('');
-      setShowHistory(false);
     }
   }, [comment]);
 
@@ -97,30 +95,6 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
     }
   };
 
-  const formatHistoryDate = (timestamp) => {
-    if (!timestamp) return '';
-    try {
-      if (timestamp.toDate) {
-        return timestamp.toDate().toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      }
-      return new Date(timestamp).toLocaleDateString('es-ES', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return 'Fecha inválida';
-    }
-  };
-
   // Prevenir scroll del body cuando el modal está abierto
   if (isOpen) {
     document.body.style.overflow = 'hidden';
@@ -165,46 +139,6 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-red-700 text-sm">{error}</p>
-                </div>
-              )}
-
-              {/* Botón para ver historial */}
-              {comment.editHistory && comment.editHistory.length > 0 && (
-                <div className="mb-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowHistory(!showHistory)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition duration-200 font-medium"
-                  >
-                    <FaHistory className="w-4 h-4" />
-                    <span>
-                      {showHistory ? 'Ocultar' : 'Ver'} historial ({comment.editHistory.length} {comment.editHistory.length === 1 ? 'edición' : 'ediciones'})
-                    </span>
-                  </button>
-                </div>
-              )}
-
-              {/* Historial de ediciones */}
-              {showHistory && comment.editHistory && comment.editHistory.length > 0 && (
-                <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <FaHistory className="w-4 h-4 text-gray-600" />
-                    Historial de Ediciones
-                  </h4>
-                  <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                    {comment.editHistory.map((edit, index) => (
-                      <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-                          <span className="font-medium">Versión {comment.editHistory.length - index}</span>
-                          <span>•</span>
-                          <span>{formatHistoryDate(edit.editedAt)}</span>
-                        </div>
-                        <div className="text-sm text-gray-700 bg-gray-50 p-2 rounded border border-gray-100">
-                          {edit.previousContent}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               )}
 
@@ -262,7 +196,6 @@ function EditCommentModal({ isOpen, onClose, comment, onCommentUpdated }) {
                   </p>
                 )}
               </div>
-              
             </div>
           </div>
 

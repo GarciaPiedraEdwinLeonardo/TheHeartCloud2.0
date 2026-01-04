@@ -187,12 +187,6 @@ function Home() {
     }
   };
 
-  // Función para volver desde el dashboard de moderación
-  const handleBackFromReports = () => {
-    // Volver a la vista anterior
-    setCurrentView(previousView);
-  };
-
   // Función para volver desde foro
   const handleBackFromForum = () => { 
     // Volver a la vista anterior, no siempre al main
@@ -318,7 +312,6 @@ function Home() {
               <ModerationDashboard
                 onShowUserProfile={handleShowUserProfile}
                 onShowForum={handleShowForum}
-                onShowMain={handleBackFromReports}
               />
             )}
           </div>

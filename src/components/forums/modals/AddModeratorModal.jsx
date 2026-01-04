@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { FaTimes, FaSpinner, FaUserPlus, FaUserMinus, FaSearch, FaCrown, FaUserShield, FaUser } from 'react-icons/fa';
 import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db, auth } from './../../../config/firebase';
+import { useForumActions } from '../hooks/useForumsActions';
+import toast from 'react-hot-toast';
 
 function AddModeratorModal({ isOpen, onClose, forumId }) {
   const [members, setMembers] = useState([]);
@@ -10,6 +12,8 @@ function AddModeratorModal({ isOpen, onClose, forumId }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState('');
   const user = auth.currentUser;
+
+  const {addModerator, removeModerator} = useForumActions();
 
   const MAX_SEARCH_LENGTH = 100;
 
@@ -106,14 +110,8 @@ function AddModeratorModal({ isOpen, onClose, forumId }) {
       setLoading(true);
       setError('');
 
-      const forumRef = doc(db, 'forums', forumId);
-      
-      await updateDoc(forumRef, {
-        [`moderators.${userId}`]: {
-          addedAt: new Date(),
-          addedBy: user.uid
-        }
-      });
+      await addModerator(forumId, userId);
+      toast.success("Moderador agregado exitosamente")
 
       await loadForumMembers();
     } catch (error) {
@@ -129,12 +127,7 @@ function AddModeratorModal({ isOpen, onClose, forumId }) {
       setLoading(true);
       setError('');
 
-      const forumRef = doc(db, 'forums', forumId);
-      
-      await updateDoc(forumRef, {
-        [`moderators.${userId}`]: deleteField()
-      });
-
+      await removeModerator(forumId,userId);
       await loadForumMembers();
     } catch (error) {
       console.error('Error removiendo moderador:', error);

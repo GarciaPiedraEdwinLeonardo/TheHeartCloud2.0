@@ -267,7 +267,7 @@ function CommentCard({
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
                   <FaCalendar className="w-3 h-3" />
-                  <span>{formatDate(comment.createdAt)}</span>
+                  <span>{formatDate(comment.updatedAt || comment.createdAt)}</span>
                   {comment.updatedAt && (
                     <>
                       <span>•</span>

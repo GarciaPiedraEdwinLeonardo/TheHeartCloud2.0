@@ -9,7 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./../../../../../config/firebase";
 
-export const useComments = (postId, commentsLimit = 50) => {
+export const useComments = (postId, commentsLimit = 1000) => {
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -24,7 +24,7 @@ export const useComments = (postId, commentsLimit = 50) => {
     const q = query(
       collection(db, "comments"),
       where("postId", "==", postId),
-      orderBy("createdAt", "asc"),
+      orderBy("createdAt", "desc"),
       limit(commentsLimit)
     );
 

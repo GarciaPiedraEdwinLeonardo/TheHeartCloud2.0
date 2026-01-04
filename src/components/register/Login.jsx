@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
-import { auth, db, googleProvider } from './../../config/firebase';
+import { auth, googleProvider } from './../../config/firebase';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import axiosInstance from "./../../config/axiosInstance"
 
 function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
     const [formData, setFormData] = useState({
@@ -178,11 +178,15 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
                 return;
             }
             
-            // Actualizar lastLogin
-            await updateDoc(doc(db, 'users', user.uid), {
-                lastLogin: new Date(),
-                emailVerified: true
-            });
+            // Actualizar lastLogin a través del backend
+            try {
+                await axiosInstance.post('/api/auth/update-login', {
+                    userId: user.uid
+                });
+            } catch (err) {
+                console.error('Error actualizando lastLogin:', err);
+                // No bloquear el login si falla esto
+            }
             
         } catch (error) {
             setError(getErrorMessage(error.code));
@@ -195,64 +199,27 @@ function Login({ onSwitchToRegister, onSwitchToForgotPassword }) {
         setError('');
 
         try {
+            // 1. Autenticar con Google
             const result = await signInWithPopup(auth, googleProvider);
             const user = result.user;
             
-            // Verificar si el usuario ya existe en Firestore
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            
-            if (!userDoc.exists()) {
-                await setDoc(doc(db, 'users', user.uid), {
-                    id: user.uid,
-                    email: user.email,
-                    name: null,
-                    role: "unverified",
-                    profileMedia: null,
-                    professionalInfo: null,
-                    stats: {
-                        aura: 0,
-                        contributionCount: 0,
-                        postCount: 0,
-                        commentCount: 0,
-                        forumCount: 0,
-                        joinedForumsCount: 0,
-                        totalImagesUploaded: 0,
-                        totalStorageUsed: 0
-                    },
-                    suspension: {
-                        isSuspended: false,
-                        reason: null,
-                        startDate: null,
-                        endDate: null,
-                        suspendedBy: null
-                    },
-                    joinedForums: [],
-                    joinDate: new Date(),
-                    lastLogin: new Date(),
-                    isActive: true,
-                    isDeleted: false,
-                    deletedAt: null,
-                    emailVerified: true, // Google ya verifica el email
-                    emailVerificationSentAt: new Date(),
-                    hasPassword: false // IMPORTANTE: Indicar que no tiene contraseña aún
-                });
-            } else {
-                // Actualizar lastLogin para usuarios existentes
-                await updateDoc(doc(db, 'users', user.uid), {
-                    lastLogin: new Date(),
-                    emailVerified: true
-                });
-            }
+            // 2. Obtener ID token
+            const idToken = await user.getIdToken();
+
+            // 3. Enviar al backend
+            const response = await axiosInstance.post('/api/auth/google', {
+                idToken: idToken
+            });
             
         } catch (error) {
             console.error('Error en login con Google:', error);
             
-            // Si el usuario cerró el popup, no mostrar error
-            if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
-                setError(getErrorMessage(error.code));
+            if (error.code !== 'auth/popup-closed-by-user' && 
+                error.code !== 'auth/cancelled-popup-request') {
+                const errorMsg = error.response?.data?.error || error.message;
+                setError(errorMsg);
             }
         } finally {
-            // SIEMPRE desactivar loading, incluso si se cerró el popup
             setLoading(false);
         }
     };

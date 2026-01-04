@@ -1,6 +1,5 @@
-// Hook para acciones de reportes
 import { useState } from "react";
-import { reportService } from "./../services/reportService";
+import axiosInstance from "../../../config/axiosInstance";
 
 export const useReportActions = () => {
   const [loading, setLoading] = useState(false);
@@ -11,15 +10,11 @@ export const useReportActions = () => {
     setError(null);
 
     try {
-      const result = await reportService.createReport(reportData);
-      if (!result.success) {
-        setError(result.error);
-        return { success: false, error: result.error };
-      }
-      return { success: true, id: result.id };
+      const data = await axiosInstance.post("/api/reports", reportData);
+      return { success: true, id: data.data.reportId };
     } catch (error) {
-      setError(error.message);
-      return { success: false, error: error.message };
+      setError(error);
+      return { success: false, error: error };
     } finally {
       setLoading(false);
     }

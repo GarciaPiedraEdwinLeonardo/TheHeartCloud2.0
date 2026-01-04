@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
-import { useVerificationRequests } from './hooks/useVerificationRequests';
-import VerificationRequestCard from './VerificationRequestCard';
-import { FaUsers, FaExclamationTriangle } from 'react-icons/fa';
+import { FaUsers, FaExclamationTriangle, FaClock} from 'react-icons/fa';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './../../config/firebase';
+import axiosInstance from './../../config/axiosInstance';
+import VerificationRequestCard from './VerificationRequestCard';
+import { toast } from 'react-hot-toast';
 
 function VerificationRequests() {
-    const { requests, loading, error } = useVerificationRequests();
-    const [searchTerm, setSearchTerm] = useState('');
+    const [requests, setRequests] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const [currentAdmin, setCurrentAdmin] = useState(null);
     const [authLoading, setAuthLoading] = useState(true);
 
@@ -28,23 +30,53 @@ function VerificationRequests() {
         return unsubscribe;
     }, []);
 
-    const handleUpdate = (userId, action) => {
+    useEffect(() => {
         if (currentAdmin) {
-            
+            fetchVerificationRequests();
         }
-        // Aquí podrías agregar notificaciones toast
+    }, [currentAdmin]);
+
+    const fetchVerificationRequests = async () => {
+        setLoading(true);
+        try {
+            const response = await axiosInstance.get('/api/verification/verifications/pending');
+            
+            if (response.success) {
+                setRequests(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching requests:', error);
+            setError(error.response?.data?.error || 'Error al cargar las solicitudes');
+            toast.error('Error al cargar las solicitudes');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    // Mostrar loading mientras verifica autenticación
+    const handleUpdate = async (userId, action) => {
+        await fetchVerificationRequests();
+        
+        if (action === 'approved') {
+            toast.success('✅ Verificación aprobada exitosamente');
+        } else if (action === 'rejected') {
+            toast.success('Solicitud rechazada');
+        }
+    };
+
     if (authLoading) {
         return (
-            <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
-                    <div className="animate-pulse">
-                        <div className="h-8 bg-gray-200 rounded w-64 mb-6"></div>
-                        <div className="grid gap-6">
+                    <div className="animate-pulse space-y-6">
+                        <div className="h-12 bg-gray-200 rounded-lg w-96"></div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {[1, 2, 3].map(i => (
                                 <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
+                            ))}
+                        </div>
+                        <div className="space-y-4">
+                            {[1, 2].map(i => (
+                                <div key={i} className="h-48 bg-gray-200 rounded-xl"></div>
                             ))}
                         </div>
                     </div>
@@ -53,17 +85,18 @@ function VerificationRequests() {
         );
     }
 
-    // Verificar que el usuario sea admin
     if (!currentAdmin) {
         return (
-            <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                        <div className="flex items-center gap-3">
-                            <FaExclamationTriangle className="w-6 h-6 text-red-600" />
+                    <div className="bg-white border border-red-200 rounded-xl shadow-lg p-8">
+                        <div className="flex items-center gap-4 mb-4">
+                            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
+                                <FaExclamationTriangle className="w-7 h-7 text-red-600" />
+                            </div>
                             <div>
-                                <h3 className="text-lg font-semibold text-red-800">Acceso Denegado</h3>
-                                <p className="text-red-700">Debes iniciar sesión para acceder a esta página.</p>
+                                <h3 className="text-xl font-bold text-red-800">Acceso Denegado</h3>
+                                <p className="text-red-600">Debes iniciar sesión como administrador para acceder a esta página.</p>
                             </div>
                         </div>
                     </div>
@@ -74,11 +107,11 @@ function VerificationRequests() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
-                    <div className="animate-pulse">
-                        <div className="h-8 bg-gray-200 rounded w-64 mb-6"></div>
-                        <div className="grid gap-6">
+                    <div className="animate-pulse space-y-6">
+                        <div className="h-12 bg-gray-200 rounded-lg w-96"></div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {[1, 2, 3].map(i => (
                                 <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
                             ))}
@@ -91,16 +124,24 @@ function VerificationRequests() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+            <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-                        <div className="flex items-center gap-3">
-                            <FaExclamationTriangle className="w-6 h-6 text-red-600" />
+                    <div className="bg-white border border-red-200 rounded-xl shadow-lg p-8">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center">
+                                <FaExclamationTriangle className="w-7 h-7 text-red-600" />
+                            </div>
                             <div>
-                                <h3 className="text-lg font-semibold text-red-800">Error</h3>
-                                <p className="text-red-700">{error}</p>
+                                <h3 className="text-xl font-bold text-red-800">Error al Cargar</h3>
+                                <p className="text-red-600">{error}</p>
                             </div>
                         </div>
+                        <button
+                            onClick={fetchVerificationRequests}
+                            className="mt-4 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                        >
+                            Reintentar
+                        </button>
                     </div>
                 </div>
             </div>
@@ -108,40 +149,33 @@ function VerificationRequests() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100 py-8 px-4 sm:px-6 lg:px-8">
             <div className="max-w-7xl mx-auto">
-                {/* Header */}
+                {/* Header mejorado */}
                 <div className="mb-8">
-                    <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                            <FaUsers className="w-6 h-6 text-white" />
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                            <FaUsers className="w-8 h-8 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">
-                                Solicitudes de Verificación
+                            <h1 className="text-4xl font-bold text-gray-900 mb-1">
+                                Panel de Verificación
                             </h1>
-                            <p className="text-gray-600">
-                                Revisa y gestiona las solicitudes de verificación de médicos
-                            </p>
-                            <p className="text-sm text-gray-500">
-                                Conectado como: {currentAdmin.email}
+                            <p className="text-gray-600 text-lg">
+                                Gestiona las solicitudes de verificación médica
                             </p>
                         </div>
                     </div>
 
-                    {/* Stats */}
+                    {/* Stats Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                        <div className="bg-white rounded-lg border border-gray-200 p-4">
-                            <p className="text-sm font-medium text-gray-600">Total Solicitudes</p>
-                            <p className="text-2xl font-bold text-gray-900">{requests.length}</p>
-                        </div>
-                        <div className="bg-white rounded-lg border border-gray-200 p-4">
-                            <p className="text-sm font-medium text-gray-600">Pendientes</p>
-                            <p className="text-2xl font-bold text-amber-600">{requests.length}</p>
-                        </div>
-                        <div className="bg-white rounded-lg border border-gray-200 p-4">
-                            <p className="text-sm font-medium text-gray-600">Administrador</p>
-                            <p className="text-sm font-bold text-gray-900 truncate">{currentAdmin.email}</p>
+                        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-5 hover:shadow-lg transition duration-200">
+                            <div className="flex items-center justify-between mb-2">
+                                <p className="text-sm font-medium text-gray-600">Solicitudes Pendientes</p>
+                                <FaClock className="w-5 h-5 text-amber-500" />
+                            </div>
+                            <p className="text-3xl font-bold text-gray-900">{requests.length}</p>
+                            <p className="text-xs text-gray-500 mt-1">Total en espera</p>
                         </div>
                     </div>
                 </div>
@@ -149,13 +183,15 @@ function VerificationRequests() {
                 {/* Lista de solicitudes */}
                 <div className="space-y-6">
                     {requests.length === 0 ? (
-                        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                            <FaUsers className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-12 text-center">
+                            <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <FaUsers className="w-12 h-12 text-gray-400" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-gray-900 mb-2">
                                 No hay solicitudes pendientes
                             </h3>
-                            <p className="text-gray-600">
-                                Todas las solicitudes han sido procesadas
+                            <p className="text-gray-600 max-w-md mx-auto">
+                                Todas las solicitudes han sido procesadas. Nuevas solicitudes aparecerán aquí.
                             </p>
                         </div>
                     ) : (

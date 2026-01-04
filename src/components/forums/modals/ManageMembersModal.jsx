@@ -104,23 +104,44 @@ function ManageMembersModal({ isOpen, onClose, forumId, onMembersUpdated }) {
     }
   };
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'Fecha no disponible';
-    try {
-      if (timestamp.toDate) {
-        return timestamp.toDate().toLocaleDateString('es-ES', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
-      }
-      return new Date(timestamp).toLocaleDateString('es-ES');
-    } catch {
-      return 'Fecha inválida';
+  const formatDate = (date) => {
+  if (!date) return 'Fecha no disponible';
+
+  try {
+    let dateObj;
+
+    // Detectar el formato específico de Firestore (_seconds y _nanoseconds)
+    if (date._seconds !== undefined) {
+      // JavaScript usa milisegundos, por eso multiplicamos los segundos por 1000
+      dateObj = new Date(date._seconds * 1000);
+    } 
+    // Por si acaso llega como instancia de Date
+    else if (date instanceof Date) {
+      dateObj = date;
+    } 
+    // Por si llega como un string o número directo
+    else {
+      dateObj = new Date(date);
     }
-  };
+
+    // Validar que la fecha sea válida
+    if (isNaN(dateObj.getTime())) {
+      return 'Fecha no válida';
+    }
+
+    return dateObj.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+  } catch (error) {
+    console.error('Error formateando fecha:', error);
+    return 'Error de formato';
+  }
+};
 
   const getRoleBadge = (userRole) => {
     const baseClasses = "text-xs font-medium px-2 py-1 rounded-full";

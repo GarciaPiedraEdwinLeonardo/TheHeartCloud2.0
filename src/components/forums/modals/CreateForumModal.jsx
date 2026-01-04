@@ -42,6 +42,36 @@ function CreateForumModal({ isOpen, onClose, onForumCreated }) {
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (isOpen) {
+      // Bloquear scroll del body
+      document.body.style.overflow = 'hidden';
+      
+      setErrors({});
+      setTouched({});
+      setShowGeneralError(false);
+      setNameExistsError('');
+      setTimeout(() => {
+        nameRef.current?.focus();
+      }, 100);
+    } else {
+      // Restaurar scroll del body
+      document.body.style.overflow = 'unset';
+      
+      setFormData({
+        name: '',
+        description: '',
+        rules: '• Respeto hacia todos los miembros\n• Contenido médico verificado\n• No spam ni autopromoción\n• Confidencialidad de pacientes\n• Lenguaje profesional',
+        requiresApproval: false
+      });
+    }
+
+    // Cleanup: asegurar que se restaure el scroll al desmontar
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   // Función debounced para verificar nombre en tiempo real
   const debouncedCheckName = useCallback(
   debounce(async (name) => {

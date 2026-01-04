@@ -2,6 +2,7 @@ import { useState } from "react";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db, auth } from "./../../../config/firebase";
 import cloudinaryConfig from "../../../config/cloudinary";
+import axiosInstance from "./../../../config/axiosInstance";
 
 export const useProfilePhoto = () => {
   const [uploading, setUploading] = useState(false);
@@ -37,26 +38,14 @@ export const useProfilePhoto = () => {
     if (!imageUrl) return;
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL;
-      if (!backendUrl) {
-        console.warn(
-          "Backend no configurado - imagen permanecerá en Cloudinary"
-        );
-        return;
-      }
-
-      const response = await fetch(`${backendUrl}/api/deleteCloudinaryImage`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl }),
+      const response = await axiosInstance.post("/api/cloudinary/delete", {
+        imageUrl,
       });
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
+      if (!response.data.success) {
         console.warn(
           "No se pudo eliminar la imagen de Cloudinary:",
-          result.error
+          response.data.error
         );
       }
     } catch (err) {

@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, query, where, orderBy, getDocs } from "firebase/firestore";
-import { db } from "../../../config/firebase";
+import axiosInstance from "../../../config/axiosInstance";
 
 export const useReports = (filters = {}) => {
   const [reports, setReports] = useState([]);
@@ -13,30 +12,16 @@ export const useReports = (filters = {}) => {
     setError(null);
 
     try {
-      let q = collection(db, "reports");
+      // Construir query params
+      const params = {};
+      if (filters.status) params.status = filters.status;
+      if (filters.type) params.type = filters.type;
 
-      // Aplicar filtros si existen
-      const constraints = [];
-      if (filters.status) {
-        constraints.push(where("status", "==", filters.status));
-      }
-      if (filters.type) {
-        constraints.push(where("type", "==", filters.type));
-      }
-
-      constraints.push(orderBy("createdAt", "desc"));
-      q = query(q, ...constraints);
-
-      const snapshot = await getDocs(q);
-      const reportsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      setReports(reportsData);
+      const data = await axiosInstance.get("/api/reports", { params });
+      setReports(data.data || []);
     } catch (error) {
       console.error("Error loading reports:", error);
-      setError(error.message);
+      setError(error);
     } finally {
       setLoading(false);
     }

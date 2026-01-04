@@ -6,7 +6,7 @@ import ReportsPanel from './components/ReportsPanel';
 import ReportFilters from './components/ReportFilters';
 import LoadingSpinner from './components/LoadingSpinner';
 
-function ModerationDashboard({ onShowUserProfile, onShowForum, onShowMain }) {
+function ModerationDashboard({ onShowUserProfile, onShowForum }) {
   const { reports, loading, error, activeTab, setActiveTab, stats, refreshData } = useModerationDashboard();
   const [filters, setFilters] = useState({
     type: 'all',
@@ -81,14 +81,6 @@ function ModerationDashboard({ onShowUserProfile, onShowForum, onShowMain }) {
             </div>
             
             <div className="flex gap-2 mt-3 sm:mt-0">
-              <button
-                onClick={onShowMain}
-                className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-200 text-sm sm:text-base w-full sm:w-auto"
-              >
-                <FaTimes className="w-3 h-3 sm:w-4 sm:h-4" />
-                <span className="hidden xs:inline">Volver al Inicio</span>
-                <span className="xs:hidden">Inicio</span>
-              </button>
               <button
                 onClick={refreshData}
                 disabled={loading}

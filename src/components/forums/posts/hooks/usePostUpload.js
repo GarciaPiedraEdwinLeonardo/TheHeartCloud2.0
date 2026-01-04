@@ -17,7 +17,7 @@ export const usePostUpload = () => {
         return { success: false, error: "Backend no configurado" };
       }
 
-      const response = await fetch(`${backendUrl}/api/deleteCloudinaryImage`, {
+      const response = await fetch(`${backendUrl}/api/cloudinary/delete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageUrl }),
