@@ -10,22 +10,28 @@ function ForgotPassword({ onSwitchToLogin }) {
     const [fieldError, setFieldError] = useState('');
 
     const validateEmail = (email) => {
-        if(!email) return 'El email es requerido';
+        if (!email) return 'El email es requerido';
 
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if(!emailRegex.test(email)) return 'Formato de email inválido';
+        if (email.length < 6)
+            return 'El email es demasiado corto';
 
-        if(email.length > 254) return 'El email no puede ser de esa longitud';
+        if (email.length > 254)
+            return 'El email es demasiado largo';
 
-        if(email.length < 6) return 'El email no puede ser tan corto';
+        // Bloquear emojis
+        if (/[\p{Emoji}]/u.test(email))
+            return 'El email no puede contener emojis';
 
-        const invalidChars = /[<>()\[\]\\;:,@"]/;
-        if (invalidChars.test(email.split('@')[0])) {
-            return 'El email contiene caracteres no permitidos';
-        }
+        // Regex realista (usado en producción)
+        const emailRegex =
+            /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+        if (!emailRegex.test(email))
+            return 'Formato de email inválido';
 
         return null;
     };
+
 
     const validateField = (value) => {
         const error = validateEmail(value);
