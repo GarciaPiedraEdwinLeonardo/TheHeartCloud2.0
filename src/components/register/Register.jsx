@@ -34,27 +34,27 @@ function Register({ onSwitchToLogin }) {
     }
 
     const validateEmail = (email) => {
-        if (!email) return 'El email es requerido';
+    if (!email) return 'El email es requerido';
 
-        if (email.length < 6)
-            return 'El email es demasiado corto';
+    if (email.length < 6)
+        return 'El email es demasiado corto';
 
-        if (email.length > 254)
-            return 'El email es demasiado largo';
+    if (email.length > 254)
+        return 'El email es demasiado largo';
 
-        // Bloquear emojis
-        if (/[\p{Emoji}]/u.test(email))
-            return 'El email no puede contener emojis';
+    // Bloquear solo emojis reales (no números)
+    if (/\p{Extended_Pictographic}/u.test(email))
+        return 'El email no puede contener emojis';
 
-        // Regex realista (usado en producción)
-        const emailRegex =
-            /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    const emailRegex =
+        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
-        if (!emailRegex.test(email))
-            return 'Formato de email inválido';
+    if (!emailRegex.test(email))
+        return 'Formato de email inválido';
 
-        return null;
-    };
+    return null;
+};
+
 
     const validatePassword = (password) => {
         if(!password) return 'Ingresa una contraseña';
