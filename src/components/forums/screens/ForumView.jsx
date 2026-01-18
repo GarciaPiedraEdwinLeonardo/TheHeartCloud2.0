@@ -40,7 +40,7 @@ function ForumView({ onShowPost, onShowUserProfile }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
-  const [forumDetails, setForumDetails] = useState(stateForumData || null);
+  const [forumDetails, setForumDetails] = useState(null);
   const [pendingPostsCount, setPendingPostsCount] = useState(0);
   const [isUserBanned, setIsUserBanned] = useState(false); 
   const [showDeleteCommunityModal, setShowDeleteCommunityModal] = useState(false);
@@ -88,41 +88,40 @@ function ForumView({ onShowPost, onShowUserProfile }) {
     const initializeForum = async () => {
       setLoading(true);
       
-      // Si tenemos data del state, usarla
-      if (stateForumData) {
-        setForumDetails(stateForumData);
+      // SIEMPRE verificar primero si el foro existe en Firebase
+      const forumResult = await getForumData(forumId);
+      
+      if (!forumResult.success) {
+        // El foro no existe - mostrar pantalla de error
+        console.warn('⚠️ Comunidad no encontrada:', forumId);
+        setForumDetails(null);
+        setLoading(false);
+        return;
       }
       
-      // Siempre cargar user data y verificar membresía
+      // El foro existe - establecer los datos
+      setForumDetails(forumResult.data);
+      
+      // Cargar user data y verificar membresía si hay usuario
       if (user) {
         await loadUserData();
         
-        // Si NO tenemos forumData del state, cargar de Firebase
-        if (!stateForumData) {
-          await loadForumDetails();
+        // Verificar estado de baneo
+        const isBanned = await checkBanStatus(forumId, user.uid);
+        
+        // Verificar membresía
+        const membership = await checkUserMembership(forumId);
+        
+        // Si está baneado, forzar que no sea miembro
+        if (isBanned) {
+          setUserMembership({ isMember: false, role: null });
         } else {
-          // Si tenemos forumData, solo verificar membresía y baneo
-          const isBanned = await checkBanStatus(forumId, user.uid);
-          const membership = await checkUserMembership(forumId);
-          
-          if (isBanned) {
-            setUserMembership({ isMember: false, role: null });
-          } else {
-            setUserMembership(membership);
-          }
-          
-          // Verificar solicitud pendiente
-          if (stateForumData.pendingMembers && stateForumData.pendingMembers[user.uid]) {
-            setHasPendingRequest(true);
-          }
+          setUserMembership(membership);
         }
-      } else {
-        // Si no hay usuario, solo cargar forumData si no existe
-        if (!stateForumData) {
-          const forumResult = await getForumData(forumId);
-          if (forumResult.success) {
-            setForumDetails(forumResult.data);
-          }
+        
+        // Verificar solicitud pendiente
+        if (forumResult.data.pendingMembers && forumResult.data.pendingMembers[user.uid]) {
+          setHasPendingRequest(true);
         }
       }
       
