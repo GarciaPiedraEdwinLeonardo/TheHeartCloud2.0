@@ -307,24 +307,9 @@ function ForumView({ onShowPost, onShowUserProfile }) {
     setShowDeleteCommunityModal(true);
   };
 
-  const handleDeleteCommunityConfirmed = async (deleteData) => {
-    const result = await deleteCommunity(
-      forumId, 
-      deleteData.reason, 
-      auth.currentUser?.email
-    );
-    
-    if (result.success) {
+  const handleDeleteCommunityConfirmed = () => {
       setShowDeleteCommunityModal(false);
-      navigate('/home');
-      
-      setTimeout(() => {
-        toast.success(`Comunidad "${forumDetails.name}" eliminada exitosamente`);
-      }, 100);
-    } else {
-      toast.error("Error al eliminar comunidad")
-      console.error('Error al eliminar comunidad:', result.error);
-    }
+      navigate('/home', { replace: true });
   };
 
   const handleBanUser = (user) => {

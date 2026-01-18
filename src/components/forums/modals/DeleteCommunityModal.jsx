@@ -64,16 +64,24 @@ function DeleteCommunityModal({ isOpen, onClose, onDeleteConfirmed, communityNam
       const result = await deleteCommunity(forumId, reason, auth.currentUser?.email);
 
       if (result.success) {
+        // Cerrar modal primero
+        onClose();
+        
+        // Limpiar estados
+        setReason('');
+        setCharError('');
+        
+        // Notificar al componente padre para que redireccione
         onDeleteConfirmed({ 
           reason,
           stats: result.stats 
         });
-        onClose();
-        setReason('');
-        setCharError('');
+        
+        // Mostrar toast de éxito
+        toast.success(`Comunidad "${communityName}" eliminada exitosamente`);
       } else {
-        toast.error(`Error`);
-        console.error("Error " + result.error);
+        toast.error('Error al eliminar la comunidad');
+        console.error("Error:", result.error);
       }
     } catch (err) {
       console.error('Error inesperado:', err);
