@@ -86,7 +86,7 @@ export const useForumActions = () => {
       if (!user) throw new Error("Debes iniciar sesión");
 
       await axiosInstance.post(
-        `/api/forums/${forumId}/members/${userId}/approve`
+        `/api/forums/${forumId}/members/${userId}/approve`,
       );
 
       return { success: true };
@@ -104,7 +104,7 @@ export const useForumActions = () => {
       if (!user) throw new Error("Debes iniciar sesión");
 
       await axiosInstance.post(
-        `/api/forums/${forumId}/members/${userId}/reject`
+        `/api/forums/${forumId}/members/${userId}/reject`,
       );
 
       return { success: true };
@@ -140,7 +140,7 @@ export const useForumActions = () => {
       if (!user) throw new Error("Debes iniciar sesión");
 
       await axiosInstance.post(
-        `/api/forums/${forumId}/moderators/${targetUserId}`
+        `/api/forums/${forumId}/moderators/${targetUserId}`,
       );
 
       return { success: true };
@@ -158,7 +158,7 @@ export const useForumActions = () => {
       if (!user) throw new Error("Debes iniciar sesión");
 
       await axiosInstance.delete(
-        `/api/forums/${forumId}/moderators/${targetUserId}`
+        `/api/forums/${forumId}/moderators/${targetUserId}`,
       );
 
       return { success: true };
@@ -213,7 +213,7 @@ export const useForumActions = () => {
   const isUserBannedFromForum = async (forumId, userId) => {
     try {
       const response = await axiosInstance.get(
-        `/api/forums/${forumId}/bans/${userId}`
+        `/api/forums/${forumId}/bans/${userId}`,
       );
       return response.data.isBanned;
     } catch (error) {
