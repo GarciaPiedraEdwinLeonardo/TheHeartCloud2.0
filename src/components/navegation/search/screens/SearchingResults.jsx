@@ -1,22 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useSearch } from './../hooks/useSearch';
 import SearchForumsList from './../lists/SearchForumsList';
 import SearchUsersList from './../lists/SearchUsersList';
 import SearchPostsList from './../lists/SearchPostsList';
 
 function SearchResults({ 
-  searchQuery, 
-  searchType = 'posts', 
   onThemeClick, 
-  onUserClick,
   onShowUserProfile,
   onPostClick, 
 }) {
+  // HOOKS DE ROUTER - Leer y escribir query params
+  const [searchParams, setSearchParams] = useSearchParams();
+  const searchQuery = searchParams.get('q') || '';
+  const searchType = searchParams.get('type') || 'posts';
+  
   const [activeTab, setActiveTab] = useState(searchType);
   const { results, loading, error } = useSearch(searchQuery);
 
+  // Sincronizar activeTab con searchType cuando cambie la URL
+  useEffect(() => {
+    setActiveTab(searchType);
+  }, [searchType]);
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+    
+    // Actualizar la URL con el nuevo tipo
+    setSearchParams({
+      q: searchQuery,
+      type: tab
+    });
   };
 
   const handleForumClick = (forum) => {
@@ -59,6 +73,24 @@ function SearchResults({
 
   // Texto truncado para el título
   const truncatedQuery = truncateLongText(searchQuery, 60);
+
+  // Si no hay query, mostrar mensaje
+  if (!searchQuery) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+              No hay búsqueda activa
+            </h2>
+            <p className="text-gray-600">
+              Usa la barra de búsqueda para encontrar comunidades, usuarios o publicaciones
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-4 sm:py-6">

@@ -16,7 +16,7 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
         ...comment, 
         replies: [],
         replyCount: 0,
-        depth: 0 // Agregar profundidad
+        depth: 0
       });
     });
 
@@ -28,7 +28,6 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
         if (parent) {
           parent.replies.push(commentNode);
           parent.replyCount = (parent.replyCount || 0) + 1;
-          // Calcular profundidad recursivamente
           commentNode.depth = parent.depth + 1;
         }
       } else {
@@ -41,7 +40,6 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
 
   const organizedComments = organizeComments(comments);
 
-  // Función para toggle de hilos (recursiva)
   const toggleThread = (commentId) => {
     setExpandedThreads(prev => {
       const newSet = new Set(prev);
@@ -55,7 +53,6 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
     });
   };
 
-  // Función para colapsar todos los hilos hijos (opcional)
   const collapseAllChildThreads = (commentId, set) => {
     const comment = organizedComments.find(c => c.id === commentId) || 
                    organizedComments.flatMap(c => c.replies).find(r => r.id === commentId);
@@ -115,28 +112,27 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
   }
 
   // Función recursiva mejorada para renderizar hilos anidados
+  // MODIFICADO: Ahora pasa la profundidad real a CommentCard
   const renderCommentWithReplies = (comment, depth = 0, parentExpanded = true) => {
     const hasReplies = comment.replies && comment.replies.length > 0;
     const isThreadExpanded = expandedThreads.has(comment.id);
     const showAll = showAllReplies.has(comment.id);
     
-    // Solo renderizar si el padre está expandido
     if (depth > 0 && !parentExpanded) {
       return null;
     }
 
-    // Calcular margen izquierdo basado en la profundidad (máximo 4 niveles)
-    const maxDepth = 4;
-    const effectiveDepth = Math.min(depth, maxDepth);
-    const marginLeft = effectiveDepth * 1.5; // rem
+    // MODIFICADO: Limitar la indentación visual a 6 niveles para evitar desbordamiento
+    const maxVisualDepth = 6;
+    const effectiveDepth = Math.min(depth, maxVisualDepth);
+    const marginLeft = effectiveDepth * 1.5;
 
-    // Para respuestas anidadas, mostrar máximo 2 inicialmente
     const visibleReplies = showAll ? comment.replies : comment.replies.slice(0, 2);
     const hasHiddenReplies = comment.replies.length > 2 && !showAll;
 
     return (
       <div key={comment.id} className={`${depth > 0 ? `ml-${marginLeft * 4} border-l-2 border-gray-200 pl-4` : ''}`}>
-        {/* Comentario principal */}
+        {/* MODIFICADO: Pasar la profundidad real al CommentCard */}
         <CommentCard
           comment={comment}
           postId={postId}
@@ -145,9 +141,9 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
           onShowUserProfile={onShowUserProfile}
           isReply={depth > 0}
           forumData={forumData}
+          depth={depth}
         />
         
-        {/* Controles de hilo - mostrar para cualquier comentario con respuestas */}
         {hasReplies && (
           <div className="mt-3 ml-4">
             <div className="flex items-center gap-3">
@@ -165,7 +161,6 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
                 </span>
               </button>
 
-              {/* Indicador visual de que es un hilo anidado */}
               {depth > 0 && (
                 <span className="text-xs text-gray-400 flex items-center gap-1">
                   <FaReply className="w-3 h-3 rotate-180" />
@@ -176,14 +171,12 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
           </div>
         )}
 
-        {/* Renderizar respuestas VISIBLES si el hilo está expandido */}
         {hasReplies && isThreadExpanded && (
           <div className="mt-4 space-y-4">
             {visibleReplies.map(reply => 
               renderCommentWithReplies(reply, depth + 1, isThreadExpanded)
             )}
             
-            {/* Botón para mostrar más respuestas si hay más de 2 */}
             {hasHiddenReplies && (
               <div className={`ml-${(marginLeft + 1) * 4}`}>
                 <button
@@ -196,7 +189,6 @@ function CommentList({ comments, loading, error, postId, userData, onCommentCrea
               </div>
             )}
 
-            {/* Botón para mostrar menos si estamos mostrando todas */}
             {showAll && comment.replies.length > 2 && (
               <div className={`ml-${(marginLeft + 1) * 4}`}>
                 <button

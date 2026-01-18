@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaSpinner, FaExclamationTriangle, FaTrash, FaTimes } from 'react-icons/fa';
+import { FaSpinner, FaExclamationTriangle, FaTrash, FaTimes, FaExpand } from 'react-icons/fa';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../../config/firebase';
 import { useModerationActions } from '../hooks/useModerationActions';
@@ -10,6 +10,7 @@ function ContentPreview({ report, contentType, onClose, onContentDeleted }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [expandedImage, setExpandedImage] = useState(null);
   
   const { deleteContent, loading: actionLoading } = useModerationActions();
 
@@ -77,6 +78,81 @@ function ContentPreview({ report, contentType, onClose, onContentDeleted }) {
     }
   };
 
+  const getAuthorName = () => {
+    if (!contentData?.authorData) return 'Usuario';
+    const { name } = contentData.authorData;
+    if (name && (name.name || name.apellidopat || name.apellidomat)) {
+      return `${name.name || ''} ${name.apellidopat || ''} ${name.apellidomat || ''}`.trim();
+    }
+    return contentData.authorData.email || 'Usuario';
+  };
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'Fecha no disponible';
+    
+    try {
+      let date;
+      
+      // Si es un objeto Timestamp de Firebase
+      if (timestamp && typeof timestamp.toDate === 'function') {
+        date = timestamp.toDate();
+      } 
+      // Si es un objeto con _seconds (Timestamp serializado con guión bajo)
+      else if (timestamp && timestamp._seconds) {
+        date = new Date(timestamp._seconds * 1000);
+      }
+      // Si es un objeto con seconds (Timestamp serializado sin guión bajo)
+      else if (timestamp && timestamp.seconds) {
+        date = new Date(timestamp.seconds * 1000);
+      }
+      // Si es una cadena de fecha ISO
+      else if (typeof timestamp === 'string') {
+        date = new Date(timestamp);
+      }
+      // Si es un número (milisegundos)
+      else if (typeof timestamp === 'number') {
+        date = new Date(timestamp);
+      }
+      // Si ya es un objeto Date
+      else if (timestamp instanceof Date) {
+        date = timestamp;
+      }
+      else {
+        return 'Fecha no disponible';
+      }
+      
+      // Validar que la fecha sea válida
+      if (isNaN(date.getTime())) {
+        return 'Fecha inválida';
+      }
+      
+      const now = new Date();
+      const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return 'Hoy ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      } else if (diffDays === 1) {
+        return 'Ayer ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      } else if (diffDays < 7) {
+        return date.toLocaleDateString('es-ES', { 
+          weekday: 'short', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+      } else {
+        return date.toLocaleDateString('es-ES', { 
+          month: 'short', 
+          day: 'numeric',
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+      }
+    } catch (error) {
+      console.error('Error formateando fecha:', error, timestamp);
+      return 'Fecha inválida';
+    }
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
@@ -117,48 +193,6 @@ function ContentPreview({ report, contentType, onClose, onContentDeleted }) {
   if (!contentData) {
     return null;
   }
-
-  const getAuthorName = () => {
-    if (!contentData.authorData) return 'Usuario';
-    const { name } = contentData.authorData;
-    if (name && (name.name || name.apellidopat || name.apellidomat)) {
-      return `${name.name || ''} ${name.apellidopat || ''} ${name.apellidomat || ''}`.trim();
-    }
-    return contentData.authorData.email || 'Usuario';
-  };
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '';
-    try {
-      if (timestamp.toDate) {
-        const date = timestamp.toDate();
-        const now = new Date();
-        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 0) {
-          return 'Hoy ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        } else if (diffDays === 1) {
-          return 'Ayer ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        } else if (diffDays < 7) {
-          return date.toLocaleDateString('es-ES', { 
-            weekday: 'short', 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
-        } else {
-          return date.toLocaleDateString('es-ES', { 
-            month: 'short', 
-            day: 'numeric',
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
-        }
-      }
-      return new Date(timestamp).toLocaleDateString('es-ES');
-    } catch {
-      return 'Fecha inválida';
-    }
-  };
 
   return (
     <>
@@ -257,9 +291,36 @@ function ContentPreview({ report, contentType, onClose, onContentDeleted }) {
                     <h2 className="text-xl font-bold text-gray-900 mb-3 break-words">
                       {contentData.title}
                     </h2>
-                    <div className="text-gray-700 whitespace-pre-line break-words">
+                    <div className="text-gray-700 whitespace-pre-line break-words mb-4">
                       {contentData.content}
                     </div>
+
+                    {/* Imágenes del post */}
+                    {contentData.images && contentData.images.length > 0 && (
+                      <div className="mt-4 space-y-3">
+                        <h4 className="text-sm font-semibold text-gray-700">
+                          Imágenes adjuntas ({contentData.images.length})
+                        </h4>
+                        <div className="grid grid-cols-1 gap-3">
+                          {contentData.images.map((image, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={image.url}
+                                alt={`Imagen ${index + 1} del post`}
+                                className="w-full max-h-96 object-contain rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => setExpandedImage(image)}
+                              />
+                              <button
+                                onClick={() => setExpandedImage(image)}
+                                className="absolute top-2 right-2 bg-black bg-opacity-50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <FaExpand className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </>
                 )}
                 
@@ -355,6 +416,29 @@ function ContentPreview({ report, contentType, onClose, onContentDeleted }) {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para imagen expandida */}
+      {expandedImage && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-90 z-[70] flex items-center justify-center p-4"
+          onClick={() => setExpandedImage(null)}
+        >
+          <div className="relative max-w-7xl max-h-full">
+            <img
+              src={expandedImage.url}
+              alt="Imagen expandida"
+              className="max-w-full max-h-[90vh] object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              onClick={() => setExpandedImage(null)}
+              className="absolute top-4 right-4 bg-white text-gray-800 p-3 rounded-full hover:bg-gray-200 transition duration-200 shadow-lg"
+            >
+              <FaTimes className="w-5 h-5" />
+            </button>
           </div>
         </div>
       )}

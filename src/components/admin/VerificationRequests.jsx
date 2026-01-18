@@ -47,7 +47,7 @@ function VerificationRequests() {
         } catch (error) {
             console.error('Error fetching requests:', error);
             setError(error.response?.data?.error || 'Error al cargar las solicitudes');
-            toast.error('Error al cargar las solicitudes');
+            toast.error(error);
         } finally {
             setLoading(false);
         }

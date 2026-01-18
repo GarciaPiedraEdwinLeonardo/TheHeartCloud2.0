@@ -101,29 +101,62 @@ function ReportItem({ report, activeTab, onNavigateToProfile, onNavigateToForum 
 
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Fecha no disponible';
+    
     try {
-      if (timestamp.toDate) {
-        const date = timestamp.toDate();
-        const now = new Date();
-        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 0) {
-          return 'Hoy ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        } else if (diffDays === 1) {
-          return 'Ayer ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-        } else if (diffDays < 7) {
-          return date.toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
-        } else {
-          return date.toLocaleDateString('es-ES', { 
-            month: 'short', 
-            day: 'numeric',
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
-        }
+      let date;
+      
+      // Si es un objeto Timestamp de Firebase
+      if (timestamp && typeof timestamp.toDate === 'function') {
+        date = timestamp.toDate();
+      } 
+      // Si es un objeto con _seconds (Timestamp serializado con guión bajo)
+      else if (timestamp && timestamp._seconds) {
+        date = new Date(timestamp._seconds * 1000);
       }
-      return new Date(timestamp).toLocaleDateString('es-ES');
-    } catch {
+      // Si es un objeto con seconds (Timestamp serializado sin guión bajo)
+      else if (timestamp && timestamp.seconds) {
+        date = new Date(timestamp.seconds * 1000);
+      }
+      // Si es una cadena de fecha ISO
+      else if (typeof timestamp === 'string') {
+        date = new Date(timestamp);
+      }
+      // Si es un número (milisegundos)
+      else if (typeof timestamp === 'number') {
+        date = new Date(timestamp);
+      }
+      // Si ya es un objeto Date
+      else if (timestamp instanceof Date) {
+        date = timestamp;
+      }
+      else {
+        return 'Fecha no disponible';
+      }
+      
+      // Validar que la fecha sea válida
+      if (isNaN(date.getTime())) {
+        return 'Fecha inválida';
+      }
+      
+      const now = new Date();
+      const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        return 'Hoy ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      } else if (diffDays === 1) {
+        return 'Ayer ' + date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      } else if (diffDays < 7) {
+        return date.toLocaleDateString('es-ES', { weekday: 'short', hour: '2-digit', minute: '2-digit' });
+      } else {
+        return date.toLocaleDateString('es-ES', { 
+          month: 'short', 
+          day: 'numeric',
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+      }
+    } catch (error) {
+      console.error('Error formateando fecha:', error, timestamp);
       return 'Fecha inválida';
     }
   };
