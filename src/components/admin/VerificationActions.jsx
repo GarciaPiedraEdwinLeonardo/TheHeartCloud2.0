@@ -9,7 +9,6 @@ function VerificationActions({ request, onUpdate, currentAdmin }) {
     const [rejectReason, setRejectReason] = useState('');
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-    // Bloquear/desbloquear scroll cuando se abren/cierran los modales
     useEffect(() => {
         if (showRejectModal || showConfirmModal) {
             document.body.style.overflow = 'hidden';
@@ -17,7 +16,6 @@ function VerificationActions({ request, onUpdate, currentAdmin }) {
             document.body.style.overflow = 'unset';
         }
 
-        // Cleanup: restaurar scroll cuando el componente se desmonte
         return () => {
             document.body.style.overflow = 'unset';
         };
@@ -77,66 +75,66 @@ function VerificationActions({ request, onUpdate, currentAdmin }) {
 
     return (
         <>
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full">
                 <button
                     onClick={() => setShowConfirmModal(true)}
                     disabled={loading}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg font-medium"
+                    className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg font-medium text-sm sm:text-base w-full sm:w-auto"
                 >
                     {loading === 'accepting' ? (
                         <FaSpinner className="w-4 h-4 animate-spin" />
                     ) : (
                         <FaCheck className="w-4 h-4" />
                     )}
-                    <span className="hidden sm:inline">Aprobar</span>
+                    <span>Aprobar</span>
                 </button>
 
                 <button
                     onClick={() => setShowRejectModal(true)}
                     disabled={loading}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg font-medium"
+                    className="flex items-center justify-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg font-medium text-sm sm:text-base w-full sm:w-auto"
                 >
                     {loading === 'rejecting' ? (
                         <FaSpinner className="w-4 h-4 animate-spin" />
                     ) : (
                         <FaTimes className="w-4 h-4" />
                     )}
-                    <span className="hidden sm:inline">Rechazar</span>
+                    <span>Rechazar</span>
                 </button>
             </div>
 
-            {/* Modal de confirmación para aprobar */}
+            {/* Modal de confirmación para aprobar - Responsive */}
             {showConfirmModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden my-8">
-                        <div className="bg-gradient-to-r from-green-500 to-green-600 p-6">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden my-4 sm:my-8">
+                        <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 sm:p-6">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                                    <FaCheck className="w-6 h-6 text-green-600" />
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center flex-shrink-0">
+                                    <FaCheck className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
                                 </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-white">
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-lg sm:text-xl font-bold text-white break-words">
                                         Confirmar Aprobación
                                     </h3>
-                                    <p className="text-green-100 text-sm">
+                                    <p className="text-green-100 text-xs sm:text-sm break-words">
                                         Esta acción no se puede deshacer
                                     </p>
                                 </div>
                             </div>
                         </div>
                         
-                        <div className="p-6">
-                            <p className="text-gray-700 mb-4">
+                        <div className="p-4 sm:p-6">
+                            <p className="text-sm sm:text-base text-gray-700 mb-4 break-words">
                                 ¿Estás seguro de que deseas aprobar la verificación de{' '}
                                 <strong className="text-gray-900">
                                     {request.name?.name} {request.name?.apellidopat}
                                 </strong>?
                             </p>
-                            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                                <p className="text-sm text-green-800">
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 mb-4">
+                                <p className="text-xs sm:text-sm text-green-800 mb-2">
                                     Al aprobar, el usuario obtendrá:
                                 </p>
-                                <ul className="text-sm text-green-700 mt-2 space-y-1 list-disc list-inside">
+                                <ul className="text-xs sm:text-sm text-green-700 space-y-1 list-disc list-inside">
                                     <li>Rol de médico verificado</li>
                                     <li>Acceso completo a la plataforma</li>
                                     <li>Insignia de verificación</li>
@@ -144,28 +142,29 @@ function VerificationActions({ request, onUpdate, currentAdmin }) {
                             </div>
                         </div>
 
-                        <div className="flex gap-3 p-6 bg-gray-50 border-t border-gray-200">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 p-4 sm:p-6 bg-gray-50 border-t border-gray-200">
                             <button
                                 onClick={() => setShowConfirmModal(false)}
                                 disabled={loading === 'accepting'}
-                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition duration-200 font-medium disabled:opacity-50"
+                                className="flex-1 px-4 py-2.5 sm:py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition duration-200 font-medium disabled:opacity-50 text-sm sm:text-base"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleAccept}
                                 disabled={loading === 'accepting'}
-                                className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="flex-1 px-4 py-2.5 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-medium shadow-md disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
                             >
                                 {loading === 'accepting' ? (
                                     <>
                                         <FaSpinner className="w-4 h-4 animate-spin" />
-                                        Aprobando...
+                                        <span className="hidden sm:inline">Aprobando...</span>
                                     </>
                                 ) : (
                                     <>
                                         <FaCheck className="w-4 h-4" />
-                                        Confirmar Aprobación
+                                        <span className="hidden sm:inline">Confirmar Aprobación</span>
+                                        <span className="sm:hidden">Confirmar</span>
                                     </>
                                 )}
                             </button>
@@ -174,42 +173,42 @@ function VerificationActions({ request, onUpdate, currentAdmin }) {
                 </div>
             )}
 
-            {/* Modal de rechazo mejorado */}
+            {/* Modal de rechazo - Responsive */}
             {showRejectModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden my-8">
-                        <div className="bg-gradient-to-r from-red-500 to-red-600 p-6">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 sm:p-4 overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden my-4 sm:my-8">
+                        <div className="bg-gradient-to-r from-red-500 to-red-600 p-4 sm:p-6">
                             <div className="flex items-center gap-3">
-                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-                                    <FaTimes className="w-6 h-6 text-red-600" />
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white rounded-full flex items-center justify-center flex-shrink-0">
+                                    <FaTimes className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
                                 </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-white">
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-lg sm:text-xl font-bold text-white break-words">
                                         Rechazar Verificación
                                     </h3>
-                                    <p className="text-red-100 text-sm">
+                                    <p className="text-red-100 text-xs sm:text-sm break-words">
                                         Proporciona una razón detallada
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-6">
-                            <p className="text-gray-700 mb-4">
+                        <div className="p-4 sm:p-6">
+                            <p className="text-sm sm:text-base text-gray-700 mb-4 break-words">
                                 Estás rechazando la solicitud de{' '}
                                 <strong className="text-gray-900">
                                     {request.name?.name} {request.name?.apellidopat}
                                 </strong>
                             </p>
 
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
                                 Razón del rechazo *
                             </label>
                             <textarea
                                 value={rejectReason}
                                 onChange={(e) => setRejectReason(e.target.value)}
                                 placeholder="Explica claramente por qué se rechaza la solicitud. Esto será enviado al usuario..."
-                                className="w-full h-32 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none transition"
+                                className="w-full h-28 sm:h-32 px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none transition text-sm sm:text-base"
                                 maxLength={500}
                             />
                             <div className="flex justify-between items-center mt-2">
@@ -222,31 +221,32 @@ function VerificationActions({ request, onUpdate, currentAdmin }) {
                             </div>
                         </div>
 
-                        <div className="flex gap-3 p-6 bg-gray-50 border-t border-gray-200">
+                        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 p-4 sm:p-6 bg-gray-50 border-t border-gray-200">
                             <button
                                 onClick={() => {
                                     setShowRejectModal(false);
                                     setRejectReason('');
                                 }}
                                 disabled={loading === 'rejecting'}
-                                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition duration-200 font-medium disabled:opacity-50"
+                                className="flex-1 px-4 py-2.5 sm:py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition duration-200 font-medium disabled:opacity-50 text-sm sm:text-base"
                             >
                                 Cancelar
                             </button>
                             <button
                                 onClick={handleReject}
                                 disabled={loading === 'rejecting' || !rejectReason.trim() || rejectReason.trim().length < 10}
-                                className="flex-1 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                className="flex-1 px-4 py-2.5 sm:py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-200 font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base"
                             >
                                 {loading === 'rejecting' ? (
                                     <>
                                         <FaSpinner className="w-4 h-4 animate-spin" />
-                                        Rechazando...
+                                        <span className="hidden sm:inline">Rechazando...</span>
                                     </>
                                 ) : (
                                     <>
                                         <FaTimes className="w-4 h-4" />
-                                        Confirmar Rechazo
+                                        <span className="hidden sm:inline">Confirmar Rechazo</span>
+                                        <span className="sm:hidden">Rechazar</span>
                                     </>
                                 )}
                             </button>
