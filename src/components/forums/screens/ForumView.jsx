@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { FaSpinner} from 'react-icons/fa';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { FaSpinner } from 'react-icons/fa';
 import { BiSolidFoodMenu } from "react-icons/bi";
 import { useForumActions } from './../hooks/useForumsActions';
 import { useForumSettings } from './../hooks/useForumSettings';
@@ -24,14 +25,22 @@ import DeleteCommunityModal from '../modals/DeleteCommunityModal';
 import { useCommunityDeletion } from './../hooks/useCommunityDeletion'
 import { toast } from 'react-hot-toast';
 
-function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
+function ForumView({ onShowPost, onShowUserProfile }) {
+  // HOOKS DE ROUTER
+  const { forumId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Intentar obtener forumData del state (navegación interna)
+  const stateForumData = location.state?.forumData;
+  
   // Estados principales
   const [userMembership, setUserMembership] = useState({ isMember: false, role: null });
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
-  const [forumDetails, setForumDetails] = useState(forumData);
+  const [forumDetails, setForumDetails] = useState(stateForumData || null);
   const [pendingPostsCount, setPendingPostsCount] = useState(0);
   const [isUserBanned, setIsUserBanned] = useState(false); 
   const [showDeleteCommunityModal, setShowDeleteCommunityModal] = useState(false);
@@ -54,7 +63,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   const { joinForum, leaveForum, checkUserMembership, getForumData, isUserBannedFromForum } = useForumActions();
   const { leaveForumAsOwner } = useForumSettings();
   const { getPendingPosts } = usePostModeration();
-  const { posts, loading: postsLoading, error: postsError } = usePosts(forumDetails.id);
+  const { posts, loading: postsLoading, error: postsError } = usePosts(forumId);
   const { deleteCommunity } = useCommunityDeletion();
   const user = auth.currentUser;
 
@@ -65,40 +74,78 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   const canPostWithoutApproval = (isOwner || isModerator) && !isUserBanned;
   const canReport = !!user && userMembership.role === 'member' && !isUserBanned;
   const isVerified = userData?.role !== 'unverified';
-  const requiresApproval = forumDetails.membershipSettings?.requiresApproval;
-  const requiresPostApproval = forumDetails.requiresPostApproval;
-  const pendingRequestsCount = forumDetails.pendingMembers ? Object.keys(forumDetails.pendingMembers).length : 0;
+  const requiresApproval = forumDetails?.membershipSettings?.requiresApproval;
+  const requiresPostApproval = forumDetails?.requiresPostApproval;
+  const pendingRequestsCount = forumDetails?.pendingMembers ? Object.keys(forumDetails.pendingMembers).length : 0;
+
+  // Efecto para cargar datos del foro
+  useEffect(() => {
+    if (!forumId) {
+      navigate('/home');
+      return;
+    }
+
+    const initializeForum = async () => {
+      setLoading(true);
+      
+      // Si tenemos data del state, usarla
+      if (stateForumData) {
+        setForumDetails(stateForumData);
+      }
+      
+      // Siempre cargar user data y verificar membresía
+      if (user) {
+        await loadUserData();
+        
+        // Si NO tenemos forumData del state, cargar de Firebase
+        if (!stateForumData) {
+          await loadForumDetails();
+        } else {
+          // Si tenemos forumData, solo verificar membresía y baneo
+          const isBanned = await checkBanStatus(forumId, user.uid);
+          const membership = await checkUserMembership(forumId);
+          
+          if (isBanned) {
+            setUserMembership({ isMember: false, role: null });
+          } else {
+            setUserMembership(membership);
+          }
+          
+          // Verificar solicitud pendiente
+          if (stateForumData.pendingMembers && stateForumData.pendingMembers[user.uid]) {
+            setHasPendingRequest(true);
+          }
+        }
+      } else {
+        // Si no hay usuario, solo cargar forumData si no existe
+        if (!stateForumData) {
+          const forumResult = await getForumData(forumId);
+          if (forumResult.success) {
+            setForumDetails(forumResult.data);
+          }
+        }
+      }
+      
+      setLoading(false);
+    };
+
+    initializeForum();
+  }, [forumId]);
 
   // Efecto para reiniciar estados al cambiar de foro
   useEffect(() => {
     setIsUserBanned(false);
     setUserMembership({ isMember: false, role: null });
     setHasPendingRequest(false);
-    setLoading(true);
     setPendingPostsCount(0);
-    setForumDetails(forumData);
-  }, [forumData.id]);
-
-  // Cargar datos del usuario
-  useEffect(() => {
-    if (user) {
-      loadUserData();
-    }
-  }, [user]);
-
-  // Cargar detalles del foro cuando cambia
-  useEffect(() => {
-    if (forumData.id && user) {
-      loadForumDetails();
-    }
-  }, [forumData.id, user]);
+  }, [forumId]);
 
   // Cargar posts pendientes si es moderador
   useEffect(() => {
-    if (forumDetails.id && (isOwner || isModerator) && requiresPostApproval) {
+    if (forumDetails?.id && (isOwner || isModerator) && requiresPostApproval) {
       loadPendingPostsCount();
     }
-  }, [forumDetails.id, isOwner, isModerator, requiresPostApproval]);
+  }, [forumDetails?.id, isOwner, isModerator, requiresPostApproval]);
 
   // Función para verificar si el usuario está baneado
   const checkBanStatus = async (forumId, userId) => {
@@ -130,53 +177,57 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   };
 
   const loadForumDetails = async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    
     try {
       // Cargar detalles del foro
-      const forumResult = await getForumData(forumData.id);
+      const forumResult = await getForumData(forumId);
+      
       if (!forumResult.success) {
-        console.error('Error obteniendo datos del foro:', forumResult.error);
+        // Si el foro no existe o hay error, NO mostrar toast aquí
+        // El componente ya mostrará la pantalla de error
+        console.warn('⚠️ Comunidad no encontrada:', forumId);
+        setForumDetails(null);
         setLoading(false);
         return;
       }
       
       setForumDetails(forumResult.data);
       
-      // Verificar solicitud pendiente
-      if (forumResult.data.pendingMembers && forumResult.data.pendingMembers[user.uid]) {
-        setHasPendingRequest(true);
-      } else {
-        setHasPendingRequest(false);
-      }
-      
-      // Verificar estado de baneo primero
-      const isBanned = await checkBanStatus(forumData.id, user.uid);
-      
-      // Verificar membresía
-      const membership = await checkUserMembership(forumData.id);
-      
-      // Si está baneado, forzar que no sea miembro
-      if (isBanned) {
-        setUserMembership({ isMember: false, role: null });
-      } else {
-        setUserMembership(membership);
+      // Solo continuar si hay usuario autenticado
+      if (user) {
+        // Verificar solicitud pendiente
+        if (forumResult.data.pendingMembers && forumResult.data.pendingMembers[user.uid]) {
+          setHasPendingRequest(true);
+        } else {
+          setHasPendingRequest(false);
+        }
+        
+        // Verificar estado de baneo primero
+        const isBanned = await checkBanStatus(forumId, user.uid);
+        
+        // Verificar membresía
+        const membership = await checkUserMembership(forumId);
+        
+        // Si está baneado, forzar que no sea miembro
+        if (isBanned) {
+          setUserMembership({ isMember: false, role: null });
+        } else {
+          setUserMembership(membership);
+        }
       }
 
     } catch (error) {
-      console.error('Error cargando detalles del foro:', error);
+      // Solo loguear errores críticos, no 404s
+      if (error.response?.status !== 404) {
+        console.error('Error crítico cargando foro:', error);
+      }
+      setForumDetails(null);
     } finally {
       setLoading(false);
     }
   };
 
   const loadPendingPostsCount = async () => {
-    const pending = await getPendingPosts(forumDetails.id);
+    const pending = await getPendingPosts(forumId);
     setPendingPostsCount(pending.length);
   };
 
@@ -187,7 +238,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
     }
 
     // Re-verificar baneo antes de intentar unirse
-    const currentBanStatus = await checkBanStatus(forumData.id, user.uid);
+    const currentBanStatus = await checkBanStatus(forumId, user.uid);
     if (currentBanStatus) {
       toast.error('No puedes unirte a esta comunidad porque has sido baneado');
       return;
@@ -197,7 +248,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
     
     try {
       if (userMembership.isMember) {
-        const result = await leaveForum(forumData.id);
+        const result = await leaveForum(forumId);
         if (result.success) {
           setUserMembership({ isMember: false, role: null });
           await reloadForumData();
@@ -207,7 +258,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
           console.error(result.error);
         }
       } else {
-        const result = await joinForum(forumData.id);
+        const result = await joinForum(forumId);
         if (result.success) {
           if (result.requiresApproval) {
             toast.success(result.message);
@@ -235,13 +286,12 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   };
 
   const handleConfirmLeaveAsOwner = async () => {
-    const result = await leaveForumAsOwner(forumDetails.id);
+    const result = await leaveForumAsOwner(forumId);
 
     if (result.success) {
       toast.success('Has abandonado la comunidad. La propiedad ha sido transferida.');
       setShowLeaveAsOwnerModal(false);
-      await loadForumDetails();
-      onBack();
+      navigate('/home');
     } else {
       console.error("Error en transferencia:", result.error);
       toast.error(result.error);
@@ -259,14 +309,14 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
 
   const handleDeleteCommunityConfirmed = async (deleteData) => {
     const result = await deleteCommunity(
-      forumDetails.id, 
+      forumId, 
       deleteData.reason, 
       auth.currentUser?.email
     );
     
     if (result.success) {
       setShowDeleteCommunityModal(false);
-      onBack();
+      navigate('/home');
       
       setTimeout(() => {
         toast.success(`Comunidad "${forumDetails.name}" eliminada exitosamente`);
@@ -305,7 +355,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
   };
 
   const reloadForumData = async () => {
-    const forumResult = await getForumData(forumData.id);
+    const forumResult = await getForumData(forumId);
     if (forumResult.success) {
       setForumDetails(forumResult.data);
     }
@@ -387,6 +437,32 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
     );
   }
 
+  if (!forumDetails) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FaSpinner className="w-10 h-10 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Comunidad no encontrada
+            </h2>
+            <p className="text-gray-600 mb-6">
+              La comunidad que buscas no existe o ha sido eliminada.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/home')}
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition duration-200 font-medium"
+          >
+            Volver al inicio
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const handleCommentClick = (post) => {
     if (onShowPost) {
       onShowPost(post);
@@ -403,7 +479,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
             <ForumHeader 
               forumDetails={forumDetails}
               userMembership={userMembership}
-              onBack={onBack}
+              onBack={() => navigate(-1)}
             />
 
             {/* Mensaje de bienvenida SOLO para usuarios no miembros pero verificados */}
@@ -421,7 +497,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
               posts={posts}
               loading={postsLoading}
               error={postsError}
-              forumId={forumDetails.id}
+              forumId={forumId}
               forumName={forumDetails.name}
               userRole={userData?.role}
               userMembership={userMembership}
@@ -431,7 +507,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
               onBanUser={handleBanUser}
               onCommentClick={handleCommentClick}
               onShowUserProfile={handleShowUserProfile}
-              forumData={forumData}
+              forumData={forumDetails}
             />
           </main>
 
@@ -473,13 +549,13 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
       <AddModeratorModal 
         isOpen={showAddModeratorModal}
         onClose={() => setShowAddModeratorModal(false)}
-        forumId={forumDetails.id}
+        forumId={forumId}
       />
 
       <CreatePostModal 
         isOpen={showCreatePostModal}
         onClose={() => setShowCreatePostModal(false)}
-        forumId={forumDetails.id}
+        forumId={forumId}
         forumName={forumDetails.name}
         requiresPostApproval={requiresPostApproval}
         canPostWithoutApproval={canPostWithoutApproval}
@@ -489,14 +565,14 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         reportType="forum"
-        targetId={forumDetails.id}
+        targetId={forumId}
         targetName={forumDetails.name}
       />
 
       <ManageMembersModal 
         isOpen={showManageMembersModal}
         onClose={() => setShowManageMembersModal(false)}
-        forumId={forumDetails.id}
+        forumId={forumId}
         onMembersUpdated={reloadForumData}
       />
 
@@ -511,7 +587,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
       <PostValidationModal
         isOpen={showValidationModal}
         onClose={() => setShowValidationModal(false)}
-        forumId={forumDetails.id}
+        forumId={forumId}
         forumName={forumDetails.name}
         onPostsValidated={loadPendingPostsCount}
       />
@@ -523,7 +599,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
           setSelectedUser(null);
         }}
         user={selectedUser}
-        forumId={forumDetails.id}
+        forumId={forumId}
         forumName={forumDetails.name}
         onUserBanned={handleUserBanned}
       />
@@ -542,7 +618,7 @@ function ForumView({ forumData, onBack, onShowPost, onShowUserProfile }) {
         onClose={() => setShowDeleteCommunityModal(false)}
         onDeleteConfirmed={handleDeleteCommunityConfirmed}
         communityName={forumDetails.name}
-        forumId={forumDetails.id}
+        forumId={forumId}
       />
 
       <LeaveAsOwnerModal

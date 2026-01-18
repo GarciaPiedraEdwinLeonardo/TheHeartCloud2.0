@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
@@ -14,21 +15,17 @@ import VerificationRequests from './admin/VerificationRequests';
 import PostDetailView from './forums/posts/PostDetailView';
 import ModerationDashboard from './moderation/ModerationDashboard';
 import SuspendedScreen from './modals/SuspendedScreen';
-import SetPasswordAfterGoogle from './register/SetPasswordAfterGoogle'; // Importar nuevo componente
+import SetPasswordAfterGoogle from './register/SetPasswordAfterGoogle';
+import ProtectedRoute from './routing/ProtectedRoute';
 
 function Home() {
   const [isSidebarModalOpen, setIsSidebarModalOpen] = useState(false);
-  const [currentView, setCurrentView] = useState('main'); 
-  const [previousView, setPreviousView] = useState('main');
-  const [searchData, setSearchData] = useState({ query: '', type: 'forums' }); 
-  const [currentForum, setCurrentForum] = useState(null);
-  const [currentPost, setCurrentPost] = useState(null);
   const [user, setUser] = useState(null); 
   const [userData, setUserData] = useState(null); 
-  const [selectedUserId, setSelectedUserId] = useState(null);
   const [showSuspendedScreen, setShowSuspendedScreen] = useState(false); 
-  const [currentForumFromPost, setCurrentForumFromPost] = useState(null);
-  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false); // Nuevo estado
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false);
+  
+  const navigate = useNavigate();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -41,25 +38,22 @@ function Home() {
             setUserData(userData);
             
             // VERIFICAR SI EL USUARIO NECESITA ESTABLECER CONTRASEÑA
-            // Usuarios que se registraron con Google y no tienen contraseña establecida
             const providerData = user.providerData || [];
             const isGoogleUser = providerData.some(provider => provider.providerId === 'google.com');
             
             if (isGoogleUser && !userData.hasPassword) {
               setNeedsPasswordSetup(true);
-              return; // No continuar con la lógica normal
+              return;
             }
             
             if (userData.suspension?.isSuspended && userData.suspension.endDate) {
               const endDate = userData.suspension.endDate.toDate();
               const now = new Date();
               
-              // Verificar si la suspensión expiró
               if (now >= endDate) {
                 console.log("Suspensión expirada limpiando automáticamente");
                 
                 try {
-                  // Limpiar suspensión
                   await updateDoc(doc(db, 'users', user.uid), {
                     "suspension.isSuspended": false,
                     "suspension.reason": null,
@@ -71,7 +65,6 @@ function Home() {
                   
                   console.log("Suspensión limpiada exitosamente");
                   
-                  // Forzar recarga de datos
                   const updatedDoc = await getDoc(doc(db, 'users', user.uid));
                   if (updatedDoc.exists()) {
                     setUserData(updatedDoc.data());
@@ -82,7 +75,6 @@ function Home() {
               }
             }
             
-            // Verificar suspensión normal
             if (userData && userData.suspension?.isSuspended) {
               setShowSuspendedScreen(true);
             } else {
@@ -99,12 +91,10 @@ function Home() {
     return unsubscribe;
   }, []);
 
-  // Función para cuando se completa la configuración de contraseña
   const handlePasswordSetupComplete = () => {
     setNeedsPasswordSetup(false);
   };
 
-  // Si el usuario necesita establecer contraseña, mostrar pantalla de configuración
   if (needsPasswordSetup && user) {
     return (
       <SetPasswordAfterGoogle 
@@ -117,91 +107,56 @@ function Home() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      navigate('/', { replace: true });
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
     }
   };
 
-  // Función para cambiar de vista guardando la anterior
-  const navigateToView = (newView) => {
-    setPreviousView(currentView);
-    setCurrentView(newView);
-  };
-
-  const handleShowProfile = () => {
-    setSelectedUserId(null); // Ver perfil propio
-    navigateToView('profile');
+  // Funciones de navegación usando navigate()
+  const handleShowProfile = (userId = null) => {
+    if (userId) {
+      navigate(`/profile/${userId}`);
+    } else {
+      navigate('/profile');
+    }
   };
 
   const handleShowMain = () => {
-    navigateToView('main');
+    navigate('/home');
   };
 
-  const handleSearch = (query, type = 'forums') => { 
-    setSearchData({ query, type });
-    navigateToView('search');
+  const handleSearch = (query, type = 'forums') => {
+    navigate(`/search?q=${encodeURIComponent(query)}&type=${type}`);
   };
 
-  const handleShowForum = (forumData) => { 
-    setCurrentForum(forumData);
-    navigateToView('forum');
+  const handleShowForum = (forumData) => {
+    navigate(`/forum/${forumData.id}`, { state: { forumData } });
   };
 
   const handleShowPost = (postData) => {
-    setCurrentPost(postData);
-    setCurrentForumFromPost(postData.forumData || null);
-    navigateToView('post');
-  };
-
-  const handleShowReports = () => {
-    navigateToView('reports');
+    navigate(`/post/${postData.id}`, { state: { postData } });
   };
 
   const handleVerifyAccount = () => {
-    navigateToView('verify');
+    navigate('/verify');
   };
 
   const handleVerificationRequests = () => {
-    navigateToView('verificationRequests');
+    navigate('/admin/verifications');
   };
 
-  // Función mejorada para mostrar perfil de usuario desde búsqueda
-  const handleShowUserProfile = (userData) => {
-    if (userData && userData.id) {
-      setSelectedUserId(userData.id); // Guardar el ID del usuario seleccionado
-      navigateToView('profile');
-    } else {
-      console.error('❌ No se pudo obtener el ID del usuario');
-    }
+  const handleShowReports = () => {
+    navigate('/moderation');
   };
 
-  // Función para volver desde un perfil de usuario
-  const handleBackFromProfile = () => {
-    if (selectedUserId && selectedUserId !== user?.uid) {
-      // Si estábamos viendo el perfil de otro usuario, volver a la vista anterior
-      setCurrentView(previousView);
-      setSelectedUserId(null);
-    } else {
-      // Si era nuestro propio perfil, volver al main
-      handleShowMain();
-    }
-  };
-
-  // Función para volver desde foro
-  const handleBackFromForum = () => { 
-    // Volver a la vista anterior, no siempre al main
-    setCurrentView(previousView);
-  };
-
-  // Función para volver desde post
-  const handleBackFromPost = () => {
-    // Volver a la vista anterior (podría ser profile, forum, search, etc.)
-    setCurrentView(previousView);
-  };
-
-  // Verificar si el usuario tiene permisos de moderación
+  // Verificar permisos de moderación
   const canAccessModeration = () => {
     return userData && ['moderator', 'admin'].includes(userData.role);
+  };
+
+  const canAccessAdmin = () => {
+    return userData && userData.role === 'admin';
   };
 
   if (showSuspendedScreen && userData) {
@@ -217,7 +172,7 @@ function Home() {
     <div className="min-h-screen bg-gray-50">
       <Header 
         onToggleSidebar={() => setIsSidebarModalOpen(true)}
-        onProfileClick={handleShowProfile}
+        onProfileClick={() => handleShowProfile()}
         onSearch={handleSearch}
         onVerifyAccount={handleVerifyAccount}
       />
@@ -251,69 +206,123 @@ function Home() {
           showReportsButton={canAccessModeration()}
         />
         
-        {/* Contenido Principal - Cambia según la vista */}
+        {/* Contenido Principal - Rutas */}
         <div className="flex-1 min-w-0">
           <div className="w-full max-w-2xl lg:max-w-4xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {currentView === 'main' && (
-              <Main 
-                onShowPost={handleShowPost}
-                onShowUserProfile={handleShowUserProfile}
-                onShowForum={handleShowForum}
+            <Routes>
+              {/* Ruta principal - Feed */}
+              <Route 
+                path="/home" 
+                element={
+                  <Main 
+                    onShowPost={handleShowPost}
+                    onShowUserProfile={handleShowProfile}
+                    onShowForum={handleShowForum}
+                  />
+                } 
               />
-            )}
-            
-            {currentView === 'profile' && (
-              <ProfileView 
-                userId={selectedUserId}
-                onShowForum={handleShowForum}
-                onShowMain={handleBackFromProfile}
-                onShowPost={handleShowPost}
+              
+              {/* Perfil propio */}
+              <Route 
+                path="/profile" 
+                element={
+                  <ProfileView 
+                    userId={null}
+                    onShowForum={handleShowForum}
+                    onShowMain={handleShowMain}
+                    onShowPost={handleShowPost}
+                  />
+                } 
               />
-            )}
-            
-            {currentView === 'search' && (
-              <SearchResults 
-                searchQuery={searchData.query} 
-                searchType={searchData.type} 
-                onThemeClick={handleShowForum} 
-                onShowUserProfile={handleShowUserProfile}
-                onPostClick={handleShowPost}
+              
+              {/* Perfil de otro usuario */}
+              <Route 
+                path="/profile/:userId" 
+                element={
+                  <ProfileView 
+                    onShowForum={handleShowForum}
+                    onShowMain={handleShowMain}
+                    onShowPost={handleShowPost}
+                  />
+                } 
               />
-            )}
-            
-            {currentView === 'forum' && ( 
-              <ForumView 
-                forumData={currentForum}
-                onBack={handleBackFromForum}
-                onShowPost={handleShowPost}
-                onShowUserProfile={handleShowUserProfile}
+              
+              {/* Búsqueda */}
+              <Route 
+                path="/search" 
+                element={
+                  <SearchResults 
+                    onThemeClick={handleShowForum} 
+                    onShowUserProfile={handleShowProfile}
+                    onPostClick={handleShowPost}
+                  />
+                } 
               />
-            )}
-            
-            {currentView === 'post' && (
-              <PostDetailView 
-                post={currentPost}
-                forumData = {currentForumFromPost}
-                onBack={handleBackFromPost}
-                onShowUserProfile={handleShowUserProfile}
-                onShowForum = {handleShowForum}
+              
+              {/* Vista de foro */}
+              <Route 
+                path="/forum/:forumId" 
+                element={
+                  <ForumView 
+                    onBack={() => navigate(-1)}
+                    onShowPost={handleShowPost}
+                    onShowUserProfile={handleShowProfile}
+                  />
+                } 
               />
-            )}
-            
-            {currentView === 'verify' && (
-              <VerifyAccount onBack={handleShowMain}/>
-            )}
-            
-            {currentView === 'verificationRequests' && (
-              <VerificationRequests/>
-            )}
+              
+              {/* Vista de post */}
+              <Route 
+                path="/post/:postId" 
+                element={
+                  <PostDetailView 
+                    onBack={() => navigate(-1)}
+                    onShowUserProfile={handleShowProfile}
+                    onShowForum={handleShowForum}
+                  />
+                } 
+              />
+              
+              {/* Verificar cuenta */}
+              <Route 
+                path="/verify" 
+                element={
+                  <VerifyAccount 
+                    onBack={handleShowMain}
+                  />
+                } 
+              />
+              
+              {/* Solicitudes de verificación - Solo Admin */}
+              <Route 
+                path="/admin/verifications" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin']} userData={userData}>
+                    <VerificationRequests />
+                  </ProtectedRoute>
+                } 
+              />
 
-            {currentView === 'reports' && (
-              <ModerationDashboard
-                onShowUserProfile={handleShowUserProfile}
-                onShowForum={handleShowForum}
+              {/* Panel de moderación - Admin y Moderadores */}
+              <Route 
+                path="/moderation" 
+                element={
+                  <ProtectedRoute allowedRoles={['admin', 'moderator']} userData={userData}>
+                    <ModerationDashboard
+                      onShowUserProfile={handleShowProfile}
+                      onShowForum={handleShowForum}
+                    />
+                  </ProtectedRoute>
+                } 
               />
-            )}
+
+              {/* Ruta por defecto - Redirigir a home */}
+              <Route path="*" element={<Main 
+                onShowPost={handleShowPost}
+                onShowUserProfile={handleShowProfile}
+                onShowForum={handleShowForum}
+              />} />
+            </Routes>
           </div>
         </div>
       </div>

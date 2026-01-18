@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { FaArrowLeft, FaSpinner, FaExclamationTriangle, FaUsers } from 'react-icons/fa';
 import { doc, getDoc } from 'firebase/firestore';
 import { db, auth } from './../../../config/firebase';
@@ -8,66 +9,110 @@ import CommentList from './comments/components/CommentList';
 import CreateCommentModal from './comments/modals/CreateCommentModal';
 import { usePost } from './hooks/usePost';
 
-function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserProfile, onShowForum }) {
-  const { post: postData, loading: postLoading, error: postError } = usePost(post?.id);
+function PostDetailView({ onShowUserProfile, onShowForum }) {
+  // HOOKS DE ROUTER
+  const { postId } = useParams();
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  // Intentar obtener postData del state (navegación interna)
+  const statePostData = location.state?.postData;
+  const stateForumData = location.state?.forumData;
+  
+  // Hook para cargar post (solo si no viene del state)
+  const { post: loadedPost, loading: postLoading, error: postError } = usePost(!statePostData ? postId : null);
+  
+  // Determinar qué post usar
+  const post = statePostData || loadedPost;
+  
   const [authorData, setAuthorData] = useState(null);
   const [userData, setUserData] = useState(null);
-  const [forumData, setForumData] = useState(initialForumData || null);
+  const [forumData, setForumData] = useState(stateForumData || null);
   const [showCreateCommentModal, setShowCreateCommentModal] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const { comments, loading: commentsLoading, error: commentsError } = useComments(post?.id);
+  const { comments, loading: commentsLoading, error: commentsError } = useComments(postId);
   const user = auth.currentUser;
 
-  // Cargar userData inmediatamente cuando el componente se monta o cambia el usuario
+  // Efecto principal de inicialización
   useEffect(() => {
-    loadUserData();
-  }, [user]);
-
-  // Cargar autor y foro cuando postData esté disponible
-  useEffect(() => {
-    if (postData) {
-      loadAuthorData();
-      
-      // Solo cargar forumData si no lo tenemos ya desde las props
-      if (!forumData) {
-        loadForumData();
-      }
+    if (!postId) {
+      navigate('/home');
+      return;
     }
-  }, [postData]);
 
-  const loadAuthorData = async () => {
-    if (postData?.authorId) {
-      try {
-        const authorDoc = await getDoc(doc(db, 'users', postData.authorId));
-        if (authorDoc.exists()) {
-          setAuthorData(authorDoc.data());
-        }
-      } catch (error) {
-        console.error('Error cargando datos del autor:', error);
+    const initializePost = async () => {
+      setLoading(true);
+      
+      // Cargar userData siempre
+      if (user) {
+        await loadUserData();
       }
+      
+      // Si tenemos post del state, cargar autor y foro
+      if (statePostData) {
+        await loadAuthorData(statePostData.authorId);
+        
+        // Si no tenemos forumData del state, cargarlo
+        if (!stateForumData && statePostData.forumId) {
+          await loadForumData(statePostData.forumId);
+        }
+      }
+      
+      setLoading(false);
+    };
+
+    initializePost();
+  }, [postId]);
+
+  // Cargar autor y foro cuando el post cargado de Firebase esté disponible
+  useEffect(() => {
+    if (loadedPost && !statePostData) {
+      const loadPostData = async () => {
+        await loadAuthorData(loadedPost.authorId);
+        
+        if (!forumData && loadedPost.forumId) {
+          await loadForumData(loadedPost.forumId);
+        }
+      };
+      
+      loadPostData();
+    }
+  }, [loadedPost]);
+
+  const loadAuthorData = async (authorId) => {
+    if (!authorId) return;
+    
+    try {
+      const authorDoc = await getDoc(doc(db, 'users', authorId));
+      if (authorDoc.exists()) {
+        setAuthorData(authorDoc.data());
+      }
+    } catch (error) {
+      console.error('Error cargando datos del autor:', error);
     }
   };
 
   const loadUserData = async () => {
-    if (user) {
-      try {
-        const userDoc = await getDoc(doc(db, 'users', user.uid));
-        if (userDoc.exists()) {
-          setUserData(userDoc.data());
-        }
-      } catch (error) {
-        console.error('Error cargando userData:', error);
+    if (!user) return;
+    
+    try {
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        setUserData(userDoc.data());
       }
+    } catch (error) {
+      console.error('Error cargando userData:', error);
     }
   };
 
-  const loadForumData = async () => {
+  const loadForumData = async (forumId) => {
+    if (!forumId) return;
+    
     try {
-      if (postData?.forumId) {
-        const forumDoc = await getDoc(doc(db, 'forums', postData.forumId));
-        if (forumDoc.exists()) {
-          setForumData({ id: forumDoc.id, ...forumDoc.data() });
-        }
+      const forumDoc = await getDoc(doc(db, 'forums', forumId));
+      if (forumDoc.exists()) {
+        setForumData({ id: forumDoc.id, ...forumDoc.data() });
       }
     } catch (error) {
       console.error('Error cargando datos del foro:', error);
@@ -83,12 +128,11 @@ function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserP
   };
 
   const handlePostDeleted = () => {
-    if (onBack) {
-      onBack();
-    }
+    navigate(-1);
   };
 
-  if (postLoading) {
+  // Mostrar loading solo si estamos cargando el post desde Firebase
+  if (postLoading || (loading && !statePostData)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -101,13 +145,13 @@ function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserP
 
   if (postError) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
           <FaExclamationTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar la publicación</h3>
           <p className="text-gray-600 mb-4">{postError}</p>
           <button
-            onClick={onBack}
+            onClick={() => navigate(-1)}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200"
           >
             Volver
@@ -117,14 +161,17 @@ function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserP
     );
   }
 
-  if (!postData) {
+  if (!post) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
           <FaExclamationTriangle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Publicación no encontrada</h3>
+          <p className="text-gray-600 mb-4">
+            La publicación que buscas no existe o ha sido eliminada.
+          </p>
           <button
-            onClick={onBack}
+            onClick={() => navigate('/home')}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition duration-200"
           >
             Volver al inicio
@@ -142,7 +189,7 @@ function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserP
         {/* Header con botón de volver */}
         <div className="mb-6 flex justify-between items-center">
           <button
-            onClick={onBack}
+            onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-4 py-2 rounded-lg transition duration-200"
           >
             <FaArrowLeft className="w-4 h-4" />
@@ -166,7 +213,7 @@ function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserP
         {/* Post Principal */}
         <div className="mb-8">
           <PostCard
-            post={postData}
+            post={post}
             onCommentClick={() => {}}
             onPostUpdated={handlePostUpdated}
             onPostDeleted={handlePostDeleted}
@@ -218,7 +265,7 @@ function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserP
               comments={comments}
               loading={commentsLoading}
               error={commentsError}
-              postId={postData.id}
+              postId={postId}
               userData={userData}
               onCommentCreated={handleCommentCreated}
               onShowUserProfile={onShowUserProfile}
@@ -232,8 +279,8 @@ function PostDetailView({ post, forumData: initialForumData, onBack, onShowUserP
       <CreateCommentModal
         isOpen={showCreateCommentModal}
         onClose={() => setShowCreateCommentModal(false)}
-        postId={postData.id}
-        postTitle={postData.title}
+        postId={postId}
+        postTitle={post.title}
         onCommentCreated={handleCommentCreated}
       />
     </div>
