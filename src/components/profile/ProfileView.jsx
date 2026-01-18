@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useUserProfile } from './hooks/useUserProfile';
 import { auth, db } from './../../config/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -14,39 +15,46 @@ import SuspendUserModal from './components/SuspendedUserModal';
 import { useUserSuspension } from '../suspend/hooks/useUserSuspension';
 import { toast } from 'react-hot-toast';
 
-function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
+function ProfileView({ onShowForum, onShowPost }) {
+  // HOOKS DE ROUTER
+  const { userId } = useParams();
+  const navigate = useNavigate();
+  
+  // Si no hay userId en params, usar el usuario actual
+  const currentUser = auth.currentUser;
+  const targetUserId = userId || currentUser?.uid;
+  
+  // Determinar si es el perfil propio
+  const isOwnProfile = !userId || userId === currentUser?.uid;
+  
   const [activeTab, setActiveTab] = useState('publicaciones');
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState(null);
   
-  // Usar el hook con el userId proporcionado (si es null, usa el usuario actual)
-  const { userData, loading, error, refreshProfile } = useUserProfile(userId);
+  // Usar el hook con el userId apropiado
+  const { userData, loading, error, refreshProfile } = useUserProfile(targetUserId);
   const { suspendUser, loading: suspendLoading, error: suspendError } = useUserSuspension();
-
-  // Determinar si es el perfil propio
-  const isOwnProfile = !userId || userId === auth.currentUser?.uid;
 
   // Cargar el rol del usuario actual (admin/moderador)
   useEffect(() => {
     const loadCurrentUserRole = async () => {
-      if (auth.currentUser) {
+      if (currentUser) {
         try {
-          const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
             setCurrentUserRole(userData.role);
           }
         } catch (error) {
           console.error('Error cargando rol del usuario actual:', error);
-          toast.error('Error al cargar información del usuario');
         }
       }
     };
 
     loadCurrentUserRole();
-  }, []);
+  }, [currentUser]);
 
   // Mostrar errores de suspensión con toast
   useEffect(() => {
@@ -80,9 +88,7 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
   };
 
   const handleHomeClick = () => {
-    if (onShowMain) {
-      onShowMain();
-    }
+    navigate('/home');
   };
 
   const handleSuspendUser = () => {
@@ -90,13 +96,10 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
   };
 
   const handleSuspendConfirmed = async (suspendData) => {
-    
-    if (!userId && !userData?.id) {
+    if (!targetUserId) {
       toast.error('Error: No se pudo identificar al usuario a suspender');
       return;
     }
-
-    const targetUserId = userId || userData.id;
     
     // Mostrar toast de carga
     const loadingToast = toast.loading('Suspendiendo usuario...');
@@ -105,7 +108,7 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
       targetUserId, 
       suspendData.reason, 
       suspendData.duration, 
-      auth.currentUser.email
+      currentUser.email
     );
     
     // Cerrar toast de carga
@@ -128,7 +131,7 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
   };
 
   // Si no hay usuario autenticado Y es perfil propio
-  if (!auth.currentUser && isOwnProfile) {
+  if (!currentUser && isOwnProfile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <ErrorMessage 
@@ -142,7 +145,7 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
   }
 
   // Si es perfil de otro usuario y no está autenticado
-  if (!auth.currentUser && !isOwnProfile) {
+  if (!currentUser && !isOwnProfile) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <ErrorMessage 
@@ -242,7 +245,7 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
         isOpen={showReportModal}
         onClose={() => setShowReportModal(false)}
         reportType="profile"
-        targetId={userId || userData.id}
+        targetId={targetUserId}
         targetName={userData.nombreCompleto || 'Usuario'}
       />
 
@@ -252,8 +255,8 @@ function ProfileView({ onShowForum, onShowMain, onShowPost, userId = null }) {
         onClose={() => setShowSuspendModal(false)}
         onSuspendConfirmed={handleSuspendConfirmed}
         userName={userData.nombreCompleto}
-        userId={userId || userData.id}
-        currentUserEmail={auth.currentUser?.email}
+        userId={targetUserId}
+        currentUserEmail={currentUser?.email}
         loading={suspendLoading}
       />
     </>

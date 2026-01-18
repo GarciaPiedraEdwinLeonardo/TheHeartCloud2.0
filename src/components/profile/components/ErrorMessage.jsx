@@ -110,7 +110,7 @@ function ErrorMessage({
         {type === 'error' && (
           <div className="mt-4 p-3 bg-gray-100 rounded-lg">
             <p className="text-xs text-gray-600">
-              Si el problema persiste, contacta con soporte técnico.
+              El usuario que busca, ha sido eliminado o no existe
             </p>
           </div>
         )}

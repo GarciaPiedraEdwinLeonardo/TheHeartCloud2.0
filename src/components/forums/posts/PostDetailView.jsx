@@ -80,6 +80,13 @@ function PostDetailView({ onShowUserProfile, onShowForum }) {
     }
   }, [loadedPost]);
 
+  // Normalizar el post para asegurar que las fechas sean objetos Timestamp válidos
+  const normalizedPost = post ? {
+    ...post,
+    createdAt: post.createdAt?.toDate ? post.createdAt : new Date(post.createdAt),
+    updatedAt: post.updatedAt?.toDate ? post.updatedAt : (post.updatedAt ? new Date(post.updatedAt) : null)
+  } : null;
+
   const loadAuthorData = async (authorId) => {
     if (!authorId) return;
     
@@ -213,7 +220,7 @@ function PostDetailView({ onShowUserProfile, onShowForum }) {
         {/* Post Principal */}
         <div className="mb-8">
           <PostCard
-            post={post}
+            post={normalizedPost}
             onCommentClick={() => {}}
             onPostUpdated={handlePostUpdated}
             onPostDeleted={handlePostDeleted}
@@ -280,7 +287,7 @@ function PostDetailView({ onShowUserProfile, onShowForum }) {
         isOpen={showCreateCommentModal}
         onClose={() => setShowCreateCommentModal(false)}
         postId={postId}
-        postTitle={post.title}
+        postTitle={normalizedPost?.title || ''}
         onCommentCreated={handleCommentCreated}
       />
     </div>

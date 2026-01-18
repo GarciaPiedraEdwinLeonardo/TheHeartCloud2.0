@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, onSnapshot, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
@@ -26,6 +26,7 @@ function Home() {
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false);
   
   const navigate = useNavigate();
+  const currentUser = auth.currentUser;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -114,10 +115,15 @@ function Home() {
   };
 
   // Funciones de navegación usando navigate()
-  const handleShowProfile = (userId = null) => {
-    if (userId) {
+  const handleShowProfile = (userIdOrData = null) => {
+    // Si recibimos un objeto con id, extraer solo el id
+    const userId = userIdOrData?.id || userIdOrData;
+    
+    if (userId && userId !== currentUser?.uid) {
+      // Perfil de otro usuario
       navigate(`/profile/${userId}`);
     } else {
+      // Perfil propio
       navigate('/profile');
     }
   };
@@ -135,7 +141,13 @@ function Home() {
   };
 
   const handleShowPost = (postData) => {
-    navigate(`/post/${postData.id}`, { state: { postData } });
+    // Serializar las fechas antes de pasar por el state
+    const serializedPost = {
+      ...postData,
+      createdAt: postData.createdAt?.toDate?.() || postData.createdAt,
+      updatedAt: postData.updatedAt?.toDate?.() || postData.updatedAt
+    };
+    navigate(`/post/${postData.id}`, { state: { postData: serializedPost } });
   };
 
   const handleVerifyAccount = () => {
@@ -316,12 +328,8 @@ function Home() {
                 } 
               />
 
-              {/* Ruta por defecto - Redirigir a home */}
-              <Route path="*" element={<Main 
-                onShowPost={handleShowPost}
-                onShowUserProfile={handleShowProfile}
-                onShowForum={handleShowForum}
-              />} />
+              {/* Ruta por defecto - Redirigir a /home */}
+              <Route path="*" element={<Navigate to="/home" replace />} />
             </Routes>
           </div>
         </div>

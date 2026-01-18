@@ -31,7 +31,8 @@ function CommentCard({
   onCommentCreated, 
   isReply = false, 
   forumData,
-  onShowUserProfile 
+  onShowUserProfile,
+  depth = 0 // Nuevo: recibir la profundidad actual
 }) {
   const [showMenu, setShowMenu] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -42,13 +43,16 @@ function CommentCard({
   const [authorData, setAuthorData] = useState(null);
   const [forumDetails, setForumDetails] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
-  const [showFullContent, setShowFullContent] = useState(false); // Estado para expandir
-  const [needsExpansion, setNeedsExpansion] = useState(false); // Si necesita expansión
-  const contentRef = useRef(null); // Referencia para medir altura
+  const [showFullContent, setShowFullContent] = useState(false);
+  const [needsExpansion, setNeedsExpansion] = useState(false);
+  const contentRef = useRef(null);
   
   const { likeComment } = useCommentActions();
   const { likeCount, userLiked, loading: likesLoading } = useCommentLikes(comment.id);
   const user = auth.currentUser;
+
+  //Constante para el límite máximo de profundidad
+  const MAX_DEPTH = 8;
 
   useEffect(() => {
     loadAuthorData();
@@ -60,7 +64,7 @@ function CommentCard({
     if (contentRef.current) {
       const contentHeight = contentRef.current.scrollHeight;
       const lineHeight = parseInt(getComputedStyle(contentRef.current).lineHeight);
-      const maxLines = 6; // Máximo de líneas antes de mostrar scroll
+      const maxLines = 6;
       const maxHeight = lineHeight * maxLines;
       
       setNeedsExpansion(contentHeight > maxHeight);
@@ -97,7 +101,6 @@ function CommentCard({
     }
   };
 
-  // Nueva función para manejar clic en perfil de usuario
   const handleAuthorClick = () => {
     if (onShowUserProfile && authorData) {
       onShowUserProfile({
@@ -173,15 +176,18 @@ function CommentCard({
   const isAuthor = user && user.uid === comment.authorId;
   const isGlobalModerator = userData && ['moderator', 'admin'].includes(userData?.role);
   
-  // Verificar si es moderador del foro
   const isForumModerator = forumDetails && forumDetails.moderators && forumDetails.moderators[user?.uid];
   const isForumOwner = forumDetails && forumDetails.ownerId === user?.uid;
   
   const canModerate = isGlobalModerator || isForumModerator || isForumOwner;
-  const canReply = userData && ['doctor', 'moderator', 'admin'].includes(userData?.role);
-  const canReport = user && !isAuthor && !canModerate; // Solo usuarios normales pueden reportar (no autores ni moderadores)
+  
+  //canReply ahora considera el límite de profundidad
+  const canReply = userData && 
+                   ['doctor', 'moderator', 'admin'].includes(userData?.role) && 
+                   depth < MAX_DEPTH;
+  
+  const canReport = user && !isAuthor && !canModerate;
 
-  // CORRECCIÓN: Mostrar menú si el usuario tiene CUALQUIER permiso
   const showMenuButton = user && (isAuthor || canModerate || canReport);
 
   const getAuthorName = () => {
@@ -200,7 +206,6 @@ function CommentCard({
     return authorData.professionalInfo?.specialty || null;
   };
 
-  // Obtener foto de perfil del autor
   const getAuthorPhoto = () => {
     if (!authorData) return null;
     return authorData.photoURL || null;
@@ -235,51 +240,50 @@ function CommentCard({
   return (
     <>
       <div className={`bg-white rounded-lg border border-gray-200 p-4 ${isReply ? 'bg-gray-50' : ''}`}>
-        {/* Header del Comentario */}
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex items-center gap-3">
-            {/* Foto de perfil del autor - Clickable */}
+        {/* Header del Comentario - Compacto y Responsivo */}
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
             <button 
               onClick={handleAuthorClick}
-              className="flex items-center gap-3 hover:bg-gray-50 rounded-lg p-1 transition duration-200 group"
+              className="flex items-center gap-2 hover:bg-gray-50 rounded-lg p-1 transition duration-200 group min-w-0 flex-1"
             >
               {getAuthorPhoto() ? (
                 <img 
                   src={getAuthorPhoto()} 
                   alt={`Foto de ${getAuthorName()}`}
-                  className="w-8 h-8 rounded-full object-cover border-2 border-blue-100 group-hover:border-blue-300 transition duration-200 flex-shrink-0"
+                  className="w-6 h-6 rounded-full object-cover border border-gray-200 group-hover:border-blue-300 transition duration-200 flex-shrink-0"
                 />
               ) : (
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center group-hover:from-blue-600 group-hover:to-purple-700 transition duration-200 flex-shrink-0">
-                  <FaUser className="w-4 h-4 text-white" />
+                <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center group-hover:from-blue-600 group-hover:to-purple-700 transition duration-200 flex-shrink-0">
+                  <FaUser className="w-3 h-3 text-white" />
                 </div>
               )}
-              <div className="text-left">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-gray-900 text-sm group-hover:text-blue-600 transition duration-200">
+              <div className="text-left min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-medium text-gray-700 text-xs group-hover:text-blue-600 transition duration-200 truncate">
                     {getAuthorName()}
-                  </h3>
+                  </span>
+                  {/* Especialidad - oculta en móviles */}
                   {getAuthorSpecialty() && (
-                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                      {getAuthorSpecialty()}
+                    <span className="hidden sm:inline text-[10px] text-gray-400 flex-shrink-0">
+                      • {getAuthorSpecialty()}
                     </span>
                   )}
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                  <FaCalendar className="w-3 h-3" />
-                  <span>{formatDate(comment.updatedAt || comment.createdAt)}</span>
+                  {/* Fecha - oculta en móviles */}
+                  <span className="hidden sm:inline text-[10px] text-gray-400 flex-shrink-0">
+                    • {formatDate(comment.updatedAt || comment.createdAt)}
+                  </span>
+                  {/* Editado - oculta en móviles */}
                   {comment.updatedAt && (
-                    <>
-                      <span>•</span>
-                      <span className="text-gray-400">Editado</span>
-                    </>
+                    <span className="hidden sm:inline text-[10px] text-gray-400 italic flex-shrink-0">
+                      (editado)
+                    </span>
                   )}
                 </div>
               </div>
             </button>
           </div>
 
-          {/* CORRECCIÓN: Mostrar menú si el usuario tiene algún permiso */}
           {showMenuButton && (
             <div className="relative">
               <button
@@ -291,7 +295,6 @@ function CommentCard({
               
               {showMenu && (
                 <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
-                  {/* Acciones del autor */}
                   {isAuthor && (
                     <>
                       <button
@@ -311,7 +314,6 @@ function CommentCard({
                     </>
                   )}
 
-                  {/* Reportar (solo usuarios normales) */}
                   {canReport && (
                     <button
                       onClick={handleReport}
@@ -322,7 +324,6 @@ function CommentCard({
                     </button>
                   )}
 
-                  {/* Acciones de moderación */}
                   {canModerate && !isAuthor && (
                     <>
                       <div className="border-t border-gray-200 my-1"></div>
@@ -351,23 +352,23 @@ function CommentCard({
           )}
         </div>
 
-        {/* Contenido del Comentario con scrollbar */}
+        {/* Contenido del Comentario - Destacado */}
         <div className="mb-4 relative">
           <div 
             ref={contentRef}
-            className={`text-gray-700 whitespace-pre-line break-words leading-relaxed text-sm transition-all duration-300 ${
+            className={`text-gray-900 whitespace-pre-line break-words leading-relaxed transition-all duration-300 ${
               showFullContent ? 'max-h-[500px]' : 'max-h-24'
             } ${
               needsExpansion ? 'overflow-y-auto pr-2' : 'overflow-hidden'
             }`}
             style={{
               scrollbarWidth: 'thin',
-              scrollbarColor: '#cbd5e0 #f7fafc'
+              scrollbarColor: '#cbd5e0 #f7fafc',
+              fontSize: '0.9375rem'
             }}
             dangerouslySetInnerHTML={{ __html: renderFormattedContent(comment.content) }}
           />
           
-          {/* Botón para expandir/colapsar si el contenido es muy largo */}
           {needsExpansion && (
             <button
               onClick={toggleContent}
@@ -388,16 +389,16 @@ function CommentCard({
           )}
         </div>
 
-        {/* Acciones del Comentario */}
+        {/* Acciones del Comentario - Más sutiles */}
         <div className="flex items-center gap-4 pt-3 border-t border-gray-100">
           {/* Like */}
           <button
             onClick={handleLike}
             disabled={!user || actionLoading || likesLoading}
-            className={`flex items-center gap-2 px-2 py-1 rounded transition duration-200 text-sm ${
+            className={`flex items-center gap-1.5 px-2 py-1 rounded transition duration-200 text-xs ${
               userLiked 
                 ? 'text-red-600 hover:text-red-700' 
-                : 'text-gray-600 hover:text-gray-700'
+                : 'text-gray-500 hover:text-gray-700'
             } ${(!user || actionLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {actionLoading ? (
@@ -410,15 +411,24 @@ function CommentCard({
             <span className="font-medium">{likeCount}</span>
           </button>
 
-          {/* Reply */}
+          {/* Reply - Solo si no ha alcanzado el límite de profundidad */}
           {canReply && (
             <button
               onClick={handleReply}
-              className="flex items-center gap-2 px-2 py-1 rounded text-gray-600 hover:text-gray-700 hover:bg-gray-100 transition duration-200 text-sm"
+              className="flex items-center gap-1.5 px-2 py-1 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition duration-200 text-xs"
             >
               <FaReply className="w-3 h-3" />
               <span>Responder</span>
             </button>
+          )}
+
+          {/* NUEVO: Mensaje informativo cuando se alcanza el límite */}
+          {userData && 
+           ['doctor', 'moderator', 'admin'].includes(userData?.role) && 
+           depth >= MAX_DEPTH && (
+            <span className="text-[10px] text-gray-400 italic">
+              Máximo nivel de respuestas alcanzado
+            </span>
           )}
         </div>
       </div>
